@@ -29,7 +29,41 @@ export const trainingParts = [
   'core',
   'other',
 ] as const;
+export type TrainingPart = (typeof trainingParts)[number];
+// Dataset muscle names and aliases keep related search independent of UI translations.
+export const trainingTargets: Record<TrainingPart, readonly string[]> = {
+  cardio: ['cardiovascular system'],
+  back: [
+    'lats',
+    'upper back',
+    'lower back',
+    'spine',
+    'traps',
+    'trapezius',
+    'rhomboids',
+    'erector spinae',
+  ],
+  chest: ['pectorals', 'serratus anterior', 'upper chest', 'pectoralis major'],
+  legs: [
+    'abductors',
+    'adductors',
+    'calves',
+    'glutes',
+    'hamstrings',
+    'quads',
+    'quadriceps',
+    'hip flexors',
+    'gluteus medius',
+    'gluteus maximus',
+  ],
+  shoulders: ['delts', 'deltoids', 'shoulder stabilizers', 'rotator cuff'],
+  arms: ['biceps', 'triceps', 'forearms', 'forearm muscles'],
+  core: ['abs', 'core', 'obliques', 'lower abs'],
+  other: ['levator scapulae'],
+};
 export function trainingPart(target: string): (typeof trainingParts)[number] {
+  const known = trainingParts.find((part) => trainingTargets[part].includes(target.toLowerCase()));
+  if (known) return known;
   if (/cardio|cardiovascular/i.test(target)) return 'cardio';
   if (/back|lat|trap|spine/i.test(target)) return 'back';
   if (/chest|pectoral|serratus/i.test(target)) return 'chest';

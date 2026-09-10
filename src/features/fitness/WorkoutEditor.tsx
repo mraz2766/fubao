@@ -32,7 +32,6 @@ import {
 } from '../../lib/fitness-recording';
 import { useWorkoutSave } from './use-workout-save';
 import { Button } from '../../components/ui/button';
-import { Dialog } from '../../components/ui/dialog';
 const ExerciseSearch = lazy(() => import('./ExerciseSearch'));
 export default function WorkoutEditor({
   locale,
@@ -78,7 +77,10 @@ export default function WorkoutEditor({
   }, [workout.exercises.map((e) => e.exercise_id).join(',')]);
   const [setErrors, setSetErrors] = useState<Record<string, string>>({});
   const allowNavigation = useUnsaved(dirty),
-    focusId = useRef<string | null>(null);
+    focusId = useRef<string | null>(null),
+    addButton = useRef<HTMLButtonElement | null>(null),
+    pickerHeading = useRef<HTMLHeadingElement | null>(null),
+    pickerRoot = useRef<HTMLDivElement | null>(null);
   useEffect(() => setReady(true), []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
@@ -87,11 +89,32 @@ export default function WorkoutEditor({
     return () => clearInterval(timer);
   }, []);
   useEffect(() => {
+    if (search) {
+      pickerHeading.current?.focus({ preventScroll: true });
+      pickerHeading.current?.scrollIntoView({ block: 'start' });
+    }
     if (focusId.current && !search) {
       document.getElementById(focusId.current)?.querySelector('input')?.focus();
       focusId.current = null;
     }
   }, [search, workout.exercises]);
+  function dismissSearch() {
+    setSearch(false);
+    requestAnimationFrame(() => addButton.current?.focus());
+  }
+  useEffect(() => {
+    if (!search) return;
+    // Handle the inner view before a parent Dialog's document-level Escape listener.
+    const back = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && pickerRoot.current?.contains(event.target as Node)) {
+        event.preventDefault();
+        event.stopPropagation();
+        dismissSearch();
+      }
+    };
+    window.addEventListener('keydown', back, true);
+    return () => window.removeEventListener('keydown', back, true);
+  }, [search]);
   function close() {
     if (!dirty || confirm(t('common.unsaved'))) {
       allowNavigation();
@@ -267,13 +290,44 @@ export default function WorkoutEditor({
     (n, e) => n + e.sets.filter((s) => s.completed).length,
     0,
   );
+  const durationKnown = workout.time_precision !== 'date' || knownWorkoutSeconds(workout) !== null;
+  const volumeKnown = hasWorkoutVolume(workout);
+  if (search)
+    return (
+      <div className="workout-workspace workout-picker" ref={pickerRoot}>
+        <div className="picker-heading">
+          <Button type="button" variant="ghost" onClick={dismissSearch}>
+            <ArrowLeft size={16} />
+            {t('record.backToWorkout')}
+          </Button>
+          <h3 tabIndex={-1} ref={pickerHeading}>
+            {t('fitness.addExercise')}
+          </h3>
+        </div>
+        <Suspense fallback={<p>{t('common.loading')}</p>}>
+          <ExerciseSearch
+            locale={locale}
+            owner
+            trainingItems={workout.body_parts}
+            onSelectMany={addExercises}
+            selectedIds={workout.exercises.map((e) => e.exercise_id)}
+            onExisting={(id) => {
+              focusId.current = workout.exercises.find((e) => e.exercise_id === id)?.id ?? null;
+              setSearch(false);
+            }}
+          />
+        </Suspense>
+      </div>
+    );
   return (
     <div className="workout-workspace">
       <div className="record-heading">
-        <Button type="button" variant="ghost" onClick={close}>
-          <ArrowLeft size={16} />
-          {t('fitness.history')}
-        </Button>
+        {!onClose && (
+          <Button type="button" variant="ghost" onClick={close}>
+            <ArrowLeft size={16} />
+            {t('fitness.history')}
+          </Button>
+        )}
         {initial.status !== 'completed' && (
           <Button
             type="button"
@@ -307,32 +361,34 @@ export default function WorkoutEditor({
           </Button>
         )}
       </div>
-      <div className="record-summary">
-        <div>
-          <strong>
-            {workout.time_precision === 'date' && knownWorkoutSeconds(workout) === null
-              ? '—'
-              : Math.floor(seconds / 60)}
-          </strong>
-          <span>{t('common.minutes')}</span>
-        </div>
-        <div>
-          <strong>{completed || '—'}</strong>
-          <span>{t('fitness.set')}</span>
-        </div>
-        <div>
-          <strong>
-            {hasWorkoutVolume(workout)
-              ? Math.round(
+      {(durationKnown || completed > 0 || volumeKnown) && (
+        <div className="record-summary">
+          {durationKnown && (
+            <div>
+              <strong>{Math.floor(seconds / 60)}</strong>
+              <span>{t('common.minutes')}</span>
+            </div>
+          )}
+          {completed > 0 && (
+            <div>
+              <strong>{completed}</strong>
+              <span>{t('fitness.set')}</span>
+            </div>
+          )}
+          {volumeKnown && (
+            <div>
+              <strong>
+                {Math.round(
                   toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
-                ).toLocaleString(locale)
-              : '—'}
-          </strong>
-          <span>
-            {t('dashboard.volume')} · {preferences.weightUnit}
-          </span>
+                ).toLocaleString(locale)}
+              </strong>
+              <span>
+                {t('dashboard.volume')} · {preferences.weightUnit}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
+      )}
       <form
         className="form"
         onSubmit={(e) => {
@@ -404,6 +460,7 @@ export default function WorkoutEditor({
                     );
                   }}
                 >
+                  <Check size={14} className="part-check" aria-hidden="true" />
                   {t(`fitness.${part}`)}
                 </button>
               ))}
@@ -503,12 +560,9 @@ export default function WorkoutEditor({
           {
             <>
               {!workout.exercises.length && (
-                <div className="empty">
+                <div className="workout-empty">
                   <p>{t('record.chooseFirst')}</p>
-                  <Button type="button" onClick={() => setSearch(true)}>
-                    <Plus size={16} />
-                    {t('fitness.addExercise')}
-                  </Button>
+                  <span className="small muted">{t('record.optionalExercises')}</span>
                 </div>
               )}
               {workout.exercises.map((exercise, index) => {
@@ -944,7 +998,12 @@ export default function WorkoutEditor({
           )}
           <div className="record-footer">
             {
-              <Button type="button" variant="secondary" onClick={() => setSearch(true)}>
+              <Button
+                ref={addButton}
+                type="button"
+                variant="secondary"
+                onClick={() => setSearch(true)}
+              >
                 <Plus size={16} />
                 {t('fitness.addExercise')}
               </Button>
@@ -955,26 +1014,6 @@ export default function WorkoutEditor({
           </div>
         </fieldset>
       </form>
-      <Dialog
-        open={search}
-        onOpenChange={setSearch}
-        title={t('fitness.addExercise')}
-        locale={locale}
-        wide
-      >
-        <Suspense fallback={<p>{t('common.loading')}</p>}>
-          <ExerciseSearch
-            locale={locale}
-            owner
-            onSelectMany={addExercises}
-            selectedIds={workout.exercises.map((e) => e.exercise_id)}
-            onExisting={(id) => {
-              focusId.current = workout.exercises.find((e) => e.exercise_id === id)?.id ?? null;
-              setSearch(false);
-            }}
-          />
-        </Suspense>
-      </Dialog>
     </div>
   );
 }

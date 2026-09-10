@@ -119,9 +119,9 @@
   "fitness.copyTemplate": "保存为模板",
   "fitness.total": "累计训练",
   "fitness.back": "背部",
-  "fitness.chest": "胸",
-  "fitness.legs": "腿",
-  "fitness.shoulders": "肩",
+  "fitness.chest": "胸部",
+  "fitness.legs": "腿部",
+  "fitness.shoulders": "肩部",
   "fitness.arms": "手臂",
   "fitness.core": "核心",
   "fitness.cardio": "有氧",
@@ -355,5 +355,14 @@
   "quiet.back": "返回",
   "quiet.noCoordinates": "暂无坐标",
   "quiet.savedLocations": "已记录的地点",
-  "quiet.optional": "可选"
+  "quiet.optional": "可选",
+  "record.optionalExercises": "动作和组数可选，随时可以补充。",
+  "record.exerciseScope": "动作范围",
+  "record.relatedExercises": "相关动作",
+  "record.searchAllParts": "搜索所有训练项的动作",
+  "record.searchAllExercises": "查看全部动作",
+  "record.browseExercises": "浏览",
+  "record.backToWorkout": "返回记录",
+  "record.inWorkout": "已在训练中",
+  "record.locateExercise": "定位动作"
 }

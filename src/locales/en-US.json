@@ -355,5 +355,14 @@
   "quiet.back": "Back",
   "quiet.noCoordinates": "No coordinates",
   "quiet.savedLocations": "Recorded places",
-  "quiet.optional": "Optional"
+  "quiet.optional": "Optional",
+  "record.optionalExercises": "Exercises and sets are optional. Add them anytime.",
+  "record.exerciseScope": "Exercise scope",
+  "record.relatedExercises": "Related exercises",
+  "record.searchAllParts": "Search across all training items",
+  "record.searchAllExercises": "View all exercises",
+  "record.browseExercises": "Browse",
+  "record.backToWorkout": "Back to workout",
+  "record.inWorkout": "In workout",
+  "record.locateExercise": "Go to exercise"
 }

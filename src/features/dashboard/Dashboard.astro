@@ -43,7 +43,12 @@ const dateText = (
         {widget.key === 'fitness' && (
           <>
             <div class="card-heading">
-              <h2>{t('dashboard.fitness')}</h2>
+              <h2>
+                <span class="dashboard-marker">
+                  <Dumbbell size={16} aria-hidden="true" />
+                </span>
+                {t('dashboard.fitness')}
+              </h2>
               <a
                 href="/fitness"
                 class="button button-ghost button-icon"
@@ -76,7 +81,12 @@ const dateText = (
         {widget.key === 'travel' && (
           <>
             <div class="card-heading">
-              <h2>{t('dashboard.travel')}</h2>
+              <h2>
+                <span class="dashboard-marker">
+                  <MapPin size={16} aria-hidden="true" />
+                </span>
+                {t('dashboard.travel')}
+              </h2>
               <a
                 href="/travel"
                 class="button button-ghost button-icon"

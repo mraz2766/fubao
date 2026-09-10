@@ -6,7 +6,7 @@ import { api, errorText } from '../../lib/api';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import MuscleFigure from './MuscleFigure';
-import { blankSet, recordingType } from '../../lib/fitness-recording';
+import { blankSet, recordingType, trainingParts } from '../../lib/fitness-recording';
 import { defaultPreferences } from '../../types/domain';
 export default function ExerciseSearch({
   locale,
@@ -16,6 +16,7 @@ export default function ExerciseSearch({
   selectedIds = [],
   onExisting,
   preferences = defaultPreferences,
+  trainingItems = [],
 }: {
   locale: Locale;
   onSelect?: (exercise: Exercise) => void;
@@ -24,7 +25,11 @@ export default function ExerciseSearch({
   selectedIds?: string[];
   onExisting?: (id: string) => void;
   preferences?: Preferences;
+  trainingItems?: string[];
 }) {
+  const relatedParts = trainingParts.filter((part) => trainingItems.includes(part));
+  const relatedKey = relatedParts.join(',');
+  const [related, setRelated] = useState(relatedParts.length > 0);
   const [selected, setSelected] = useState<Exercise[]>([]),
     [ready, setReady] = useState(false),
     [targets, setTargets] = useState<Workout[] | null>(null),
@@ -132,6 +137,7 @@ export default function ExerciseSearch({
         target,
         equipment,
         mode,
+        trainingItems: related ? relatedKey : '',
         page: String(page),
       });
       api<{ items: Exercise[]; hasMore: boolean }>(`/api/fitness/exercises?${params}`, {
@@ -154,7 +160,7 @@ export default function ExerciseSearch({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, body, target, equipment, mode, page, locale]);
+  }, [query, body, target, equipment, mode, page, locale, related, relatedKey]);
   async function favorite(exercise: Exercise) {
     try {
       const result = await api<{ favorite: boolean }>(
@@ -170,9 +176,34 @@ export default function ExerciseSearch({
     setter(value);
     setPage(0);
   };
+  function changeScope(value: boolean) {
+    if (value === related && !body && !target && page === 0) return;
+    setRelated(value);
+    setBody('');
+    setTarget('');
+    setPage(0);
+    setLoading(true);
+  }
   return (
     <div className="exercise-search">
       <div hidden={!!detail}>
+        {relatedParts.length > 0 && (
+          <div className="exercise-context">
+            <div className="segmented" aria-label={t('record.exerciseScope')}>
+              <button type="button" aria-pressed={related} onClick={() => changeScope(true)}>
+                {t('record.relatedExercises')}
+              </button>
+              <button type="button" aria-pressed={!related} onClick={() => changeScope(false)}>
+                {t('fitness.allExercises')}
+              </button>
+            </div>
+            <p className="small muted">
+              {related
+                ? relatedParts.map((part) => t(`fitness.${part}`)).join(' · ')
+                : t('record.searchAllParts')}
+            </p>
+          </div>
+        )}
         <label className="search-field">
           <Search size={17} />
           <input
@@ -202,7 +233,14 @@ export default function ExerciseSearch({
             ).map(([label, value, setter, options]) => (
               <label key={label} className="field">
                 <span className="small muted">{label}</span>
-                <select value={value} onChange={(e) => selectFilter(setter, e.target.value)}>
+                <select
+                  value={value}
+                  onChange={(e) => {
+                    if (e.target.value && (setter === setBody || setter === setTarget))
+                      setRelated(false);
+                    selectFilter(setter, e.target.value);
+                  }}
+                >
                   <option value="">{t('common.all')}</option>
                   {options.map((v) => (
                     <option key={v} value={v}>
@@ -223,7 +261,9 @@ export default function ExerciseSearch({
                 className={mode === value ? 'active' : ''}
                 onClick={() => selectFilter(setMode, value)}
               >
-                {value === 'all' ? t('fitness.allExercises') : t(`fitness.${value}`)}
+                {value === 'all'
+                  ? t(relatedParts.length ? 'record.browseExercises' : 'fitness.allExercises')
+                  : t(`fitness.${value}`)}
               </button>
             ))}
           </div>
@@ -240,10 +280,19 @@ export default function ExerciseSearch({
             <div className="empty">
               <Dumbbell size={30} />
               <p>{t('fitness.noExercises')}</p>
+              {related && (
+                <Button type="button" variant="secondary" onClick={() => changeScope(false)}>
+                  {t('record.searchAllExercises')}
+                </Button>
+              )}
             </div>
           ) : (
             items.map((exercise) => (
-              <div className="exercise-row" key={exercise.id}>
+              <div
+                className="exercise-row"
+                key={exercise.id}
+                data-selected={selecting && selected.some((x) => x.id === exercise.id)}
+              >
                 <div className="exercise-preview">
                   <>
                     {exercise.image ? (
@@ -263,9 +312,8 @@ export default function ExerciseSearch({
                   type="button"
                   className="exercise-open"
                   aria-pressed={
-                    selecting
-                      ? selectedIds.includes(exercise.id) ||
-                        selected.some((x) => x.id === exercise.id)
+                    selecting && !selectedIds.includes(exercise.id)
+                      ? selected.some((x) => x.id === exercise.id)
                       : undefined
                   }
                   onClick={() => (selecting ? choose(exercise) : setDetail(exercise))}
@@ -276,6 +324,9 @@ export default function ExerciseSearch({
                       {taxonomyLabel(exercise.target, locale)} ·{' '}
                       {taxonomyLabel(exercise.equipment, locale)}
                     </small>
+                    {selecting && selectedIds.includes(exercise.id) && (
+                      <small className="exercise-added">{t('record.inWorkout')}</small>
+                    )}
                   </span>
                 </button>
                 {owner && !selecting && (
@@ -295,11 +346,17 @@ export default function ExerciseSearch({
                     type="button"
                     variant="secondary"
                     size="icon"
-                    aria-label={`${t('common.add')} ${exerciseName(exercise, locale)}`}
+                    aria-label={`${t(selectedIds.includes(exercise.id) ? 'record.locateExercise' : 'common.add')} ${exerciseName(exercise, locale)}`}
+                    aria-pressed={
+                      selectedIds.includes(exercise.id)
+                        ? undefined
+                        : selected.some((x) => x.id === exercise.id)
+                    }
                     onClick={() => choose(exercise)}
                   >
-                    {selectedIds.includes(exercise.id) ||
-                    selected.some((x) => x.id === exercise.id) ? (
+                    {selectedIds.includes(exercise.id) ? (
+                      <ArrowLeft size={18} />
+                    ) : selected.some((x) => x.id === exercise.id) ? (
                       <Check size={18} />
                     ) : (
                       <Plus size={18} />

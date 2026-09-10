@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import mediaManifest from '../../data/exercise-media.json';
-import { trainingPart, validCompletedSet } from '../../lib/fitness-recording';
+import {
+  trainingPart,
+  trainingParts,
+  trainingTargets,
+  validCompletedSet,
+} from '../../lib/fitness-recording';
 import { all, db, first, statement } from '../db';
 import { HttpError } from '../http';
 import { workoutSchema, templateSchema } from '../../lib/schemas';
@@ -238,6 +243,19 @@ export async function searchExercises(params: URLSearchParams, user: User | null
   const mode = params.get('mode') ?? 'all';
   const bindings: (string | number)[] = [user?.id ?? '', user?.id ?? ''];
   const clauses = ['l.active=1'];
+  let relatedTargets: string[] = [];
+  const relatedParts = params.get('trainingItems');
+  if (relatedParts) {
+    const parts = z
+      .array(z.enum(trainingParts))
+      .max(trainingParts.length)
+      .parse(relatedParts.split(','));
+    relatedTargets = [...new Set(parts.flatMap((part) => trainingTargets[part]))];
+    clauses.push(
+      `(LOWER(l.target) IN (SELECT value FROM json_each(?)) OR EXISTS (SELECT 1 FROM json_each(l.secondary_muscles) muscle WHERE LOWER(muscle.value) IN (SELECT value FROM json_each(?))))`,
+    );
+    bindings.push(JSON.stringify(relatedTargets), JSON.stringify(relatedTargets));
+  }
   if (q) {
     clauses.push("(l.name_en LIKE ? ESCAPE '\\' OR l.name_zh LIKE ? ESCAPE '\\')");
     const escaped = q.replace(/[\\%_]/g, '\\$&');
@@ -255,11 +273,16 @@ export async function searchExercises(params: URLSearchParams, user: User | null
   if (mode === 'favorites') clauses.push('f.exercise_id IS NOT NULL');
   if (mode === 'recent' || mode === 'frequent') clauses.push('u.usage_count>0');
   const ordering =
-    mode === 'recent'
+    (relatedTargets.length
+      ? 'CASE WHEN LOWER(l.target) IN (SELECT value FROM json_each(?)) THEN 0 ELSE 1 END,'
+      : '') +
+    (mode === 'recent'
       ? 'u.last_used DESC'
       : mode === 'frequent'
         ? 'u.usage_count DESC'
-        : 'approved_image IS NOT NULL DESC,l.name_en';
+        : 'approved_image IS NOT NULL DESC,l.name_en') +
+    ',l.id';
+  if (relatedTargets.length) bindings.push(JSON.stringify(relatedTargets));
   const rows = await all<Record<string, unknown>>(
     `SELECT l.*,(SELECT image FROM exercise_media m WHERE m.exercise_id=l.id AND m.approved=1 ORDER BY m.id LIMIT 1) approved_image,f.exercise_id IS NOT NULL AS favorite,COALESCE(u.usage_count,0) AS usage_count FROM exercise_library l LEFT JOIN exercise_favorites f ON f.exercise_id=l.id AND f.user_id=? LEFT JOIN (SELECT e.exercise_id,COUNT(*) usage_count,MAX(s.start_at) last_used FROM fitness_session_exercises e JOIN fitness_sessions s ON s.id=e.session_id WHERE s.user_id=? AND s.status='completed' GROUP BY e.exercise_id) u ON u.exercise_id=l.id WHERE ${clauses.join(' AND ')} ORDER BY ${ordering} LIMIT ? OFFSET ?`,
     ...bindings,

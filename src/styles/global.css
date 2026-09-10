@@ -784,18 +784,30 @@ textarea {
   gap: 8px;
 }
 .part-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 44px;
   border: 1px solid var(--line);
   padding: 8px 15px;
   border-radius: 7px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
-.part-chip.selected {
+.part-chip[aria-pressed='true'],
+.part-options .button[aria-pressed='true'],
+.record-presets .button[aria-pressed='true'] {
   background: var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--accent-line);
   color: var(--accent);
+}
+.part-chip .part-check {
+  opacity: 0;
+  transition: opacity var(--motion-fast);
+}
+.part-chip[aria-pressed='true'] .part-check {
+  opacity: 1;
 }
 .set-exercise {
   padding: 16px 0;
@@ -812,6 +824,10 @@ textarea {
 }
 .set-row.done {
   box-shadow: inset 3px 0 var(--accent);
+}
+.set-row.done .set-label .button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .set-label {
   display: flex;
@@ -1986,8 +2002,9 @@ textarea {
   transition: background var(--motion-moderate);
 }
 .segmented button[aria-pressed='true'] {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .discovery-filters {
   grid-template-columns: minmax(0, 1fr) 180px;
@@ -2338,6 +2355,41 @@ textarea {
 .exercise-open[aria-pressed='true'] {
   color: var(--accent);
 }
+.exercise-row[data-selected='true'] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.exercise-row[data-selected='true'] .button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--primary-foreground);
+}
+.exercise-context {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+.picker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.picker-heading h3 {
+  font-size: 16px;
+  scroll-margin-top: 20px;
+}
+.workout-picker .picker-footer {
+  bottom: calc(62px + env(safe-area-inset-bottom));
+}
+.workout-empty {
+  display: grid;
+  gap: 4px;
+  padding: 22px 0;
+  border-top: 1px solid var(--line);
+}
 .muscle-shortcuts .muscle-figure {
   margin: 0;
   height: 42px;
@@ -2359,10 +2411,15 @@ textarea {
 .exercise-open strong {
   overflow-wrap: anywhere;
 }
-@media (min-width: 768px) {
-  .record-footer {
+@media (min-width: 1024px) {
+  .record-footer,
+  .workout-picker .picker-footer {
     bottom: 0;
   }
+}
+.dialog-content .record-footer,
+.dialog-content .workout-picker .picker-footer {
+  bottom: 0;
 }
 @media (max-width: 480px) {
   .exercise-row .exercise-preview {
@@ -2446,6 +2503,11 @@ textarea {
 }
 .checkin-result > svg {
   color: var(--accent);
+  background: var(--accent-soft);
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 10px;
 }
 .daily-recent {
   margin: 24px 0;
@@ -2503,7 +2565,7 @@ textarea {
   }
 }
 
-/* Shared product surfaces: neutral chrome, compact records, color from photography. */
+/* Shared product surfaces: calm chrome, sage state cues, color from photography. */
 .brand-mark {
   display: grid;
   place-items: center;
@@ -2523,13 +2585,18 @@ textarea {
   border-right: 0;
 }
 .nav-item.active {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-weight: 600;
   box-shadow: none;
 }
 .nav-item.active svg {
   color: currentColor;
+}
+.mobile-nav .nav-item.active svg {
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 5px var(--accent-soft);
+  border-radius: 5px;
 }
 .page-header {
   display: flex;
@@ -2587,10 +2654,23 @@ textarea {
   margin-bottom: 10px;
 }
 .bento h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0;
+}
+.dashboard-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 .today-workout {
   display: block;
@@ -2687,7 +2767,7 @@ textarea {
 }
 .section-tabs .active {
   background: var(--surface);
-  color: var(--text);
+  color: var(--accent);
   box-shadow: none;
 }
 .page-actions {
@@ -2740,6 +2820,10 @@ textarea {
 .checkin-option svg {
   color: var(--muted);
 }
+.checkin-option:hover svg,
+.checkin-option:focus-visible svg {
+  color: var(--accent);
+}
 .checkin-option:hover,
 .checkin-option:focus-visible {
   box-shadow: inset 0 0 0 1px var(--accent);
@@ -2750,7 +2834,8 @@ textarea {
 .daily-recent h2 {
   font-size: 16px;
 }
-.daily-recent .recent-row {
+.daily-recent .recent-row,
+.daily-recent .resume-entry {
   background: transparent;
   border-bottom: 1px solid var(--line);
   border-radius: 0;

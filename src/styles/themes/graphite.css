@@ -1,5 +1,5 @@
 /* Adapted from tweakcn's Graphite preset (Apache-2.0).
- * Neutral ink and paper tokens, refined for Fubao.
+ * Ink and paper surfaces with a restrained sage interaction accent.
  * https://github.com/jnsahaj/tweakcn/blob/main/utils/theme-presets.ts */
 :root {
   color-scheme: light;
@@ -20,8 +20,9 @@
   --map-land: #afb5bd;
   --muted: var(--muted-foreground);
   --line: var(--border);
-  --accent: var(--primary);
-  --accent-soft: #e9ebee;
+  --accent: #4b6b59;
+  --accent-soft: #e7efe9;
+  --accent-line: #a6bdad;
   --danger: #aa3838;
   --shadow: 0 8px 24px #27232f0b;
   --motion-fast: 150ms;
@@ -42,7 +43,9 @@
   --border: #32363c;
   --sidebar: #191b1e;
   --map-land: #69717d;
-  --accent-soft: #2c3036;
+  --accent: #accbb8;
+  --accent-soft: #293c32;
+  --accent-line: #65816e;
   --danger: #ffaaa5;
   --shadow: 0 8px 24px #0002;
 }
