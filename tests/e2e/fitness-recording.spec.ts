@@ -94,6 +94,7 @@ test('live workout: multi-select, partial autosave, more sets, recovery and comp
     });
     await page.screenshot({ path: 'output/playwright/fitness-live-mobile.png', fullPage: true });
     await page.getByRole('button', { name: '完成训练', exact: true }).click();
+    await expect(page.locator('[data-save-feedback] [role=status]')).toHaveText('这次训练，记下了');
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
     const saved = await (await page.request.get(`/api/fitness/sessions/${id}`)).json();
     expect(saved.status).toBe('completed');

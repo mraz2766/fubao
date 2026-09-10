@@ -14,7 +14,11 @@ const nav = [
 ---
 
 <!doctype html>
-<html lang={locale} data-preferred-theme={Astro.locals.preferences.theme}>
+<html
+  lang={locale}
+  data-preferred-theme={Astro.locals.preferences.theme}
+  data-home={Astro.url.pathname === '/' || undefined}
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -27,6 +31,12 @@ const nav = [
     <script is:inline>
       (() => {
         try {
+          const root = document.documentElement;
+          if (
+            root.dataset.home &&
+            performance.getEntriesByType('navigation')[0]?.type !== 'back_forward'
+          )
+            root.dataset.bentoMotion = 'enter';
           const p = { theme: document.documentElement.dataset.preferredTheme || 'system' };
           document.documentElement.dataset.theme =
             p.theme === 'dark' ||

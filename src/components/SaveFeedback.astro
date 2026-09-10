@@ -1,0 +1,45 @@
+---
+import { X } from 'lucide-react';
+import { SuccessMark } from './ui/success-mark';
+import { translator } from '../lib/i18n';
+const t = translator(Astro.locals.locale);
+---
+
+<div
+  class="save-feedback"
+  hidden
+  data-save-feedback
+  data-workout={t('feedback.workout')}
+  data-travel={t('feedback.travel')}
+>
+  <SuccessMark animate />
+  <span role="status" aria-live="polite" aria-atomic="true"></span>
+  <button type="button" class="button button-ghost button-icon" aria-label={t('common.close')}>
+    <X size={16} aria-hidden="true" />
+  </button>
+</div>
+<script>
+  import { consumeSaveFeedback } from '../lib/feedback';
+  const notice = document.querySelector<HTMLElement>('[data-save-feedback]');
+  const kind = consumeSaveFeedback(location.pathname);
+  if (notice && kind) {
+    notice.hidden = false;
+    notice.querySelector('[role="status"]')!.textContent = notice.dataset[kind] ?? '';
+    const dismiss = () => {
+      notice.hidden = true;
+    };
+    const timer = window.setTimeout(() => {
+      if (!notice.contains(document.activeElement)) dismiss();
+    }, 4500);
+    notice.querySelector('button')?.addEventListener('click', () => {
+      clearTimeout(timer);
+      const heading = document.querySelector<HTMLElement>('h1');
+      heading?.setAttribute('tabindex', '-1');
+      heading?.focus({ preventScroll: true });
+      dismiss();
+    });
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) dismiss();
+    });
+  }
+</script>

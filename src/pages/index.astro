@@ -2,6 +2,8 @@
 import Base from '../layouts/Base.astro';
 import { translator } from '../lib/i18n';
 import Dashboard from '../features/dashboard/Dashboard.astro';
+import { greetingAt } from '../features/dashboard/presentation';
+import { Sun, Moon, Plus } from 'lucide-react';
 import { listWorkouts } from '../server/services/fitness';
 import { getWidgets } from '../server/services/settings';
 import { listTrips } from '../server/services/travel';
@@ -11,42 +13,38 @@ const [workouts, widgets, trips] = await Promise.all([
   getWidgets(),
   listTrips(Astro.locals.user),
 ]);
+const now = new Date();
+const greeting = greetingAt(now, Astro.locals.preferences.timezone);
+const GreetingIcon = greeting === 'evening' ? Moon : Sun;
 ---
 
 <Base title={t('nav.home')}>
-  <header class="page-header">
+  <header class="page-header home-header">
     <div>
       <span class="eyebrow">
         {new Intl.DateTimeFormat(Astro.locals.locale, {
-          year: 'numeric',
-          month: 'long',
+          month: 'short',
           day: 'numeric',
-          weekday: 'long',
           timeZone: Astro.locals.preferences.timezone,
-        }).format(new Date())}
+        }).format(now)}{' '}
+        ·{' '}
+        {new Intl.DateTimeFormat(Astro.locals.locale, {
+          weekday: 'short',
+          timeZone: Astro.locals.preferences.timezone,
+        }).format(now)}
       </span>
-      <h1>{t('dashboard.title')}</h1>
+      <h1>
+        <span class="greeting-icon">
+          <GreetingIcon size={22} strokeWidth={1.7} aria-hidden="true" />
+        </span>
+        {t(`dashboard.${greeting}`)}
+      </h1>
     </div>
     <a class="button button-primary" href={Astro.locals.user ? '/fitness' : '/login'}>
+      {Astro.locals.user && <Plus size={17} aria-hidden="true" />}
       {t(Astro.locals.user ? 'fitness.quick' : 'auth.login')}
     </a>
   </header>
-  {Astro.locals.user && workouts.filter((w) => w.status !== 'completed').length > 0 && (
-    <section class="resume-list" aria-label={t('record.resume')}>
-      {workouts
-        .filter((w) => w.status !== 'completed')
-        .slice(0, 1)
-        .map((w) => (
-          <a class="resume-entry" href={`/fitness/${w.id}`}>
-            <span>
-              {w.title} · {t(`fitness.${w.status}`)}
-            </span>
-            <strong>{t('record.resume')} →</strong>
-          </a>
-        ))}
-    </section>
-  )}
-
   <Dashboard
     workouts={workouts}
     trips={trips}
@@ -54,6 +52,7 @@ const [workouts, widgets, trips] = await Promise.all([
     preferences={Astro.locals.preferences}
     locale={Astro.locals.locale}
     owner={!!Astro.locals.user}
+    feedbackScope={Astro.locals.user?.id ?? 'public'}
   />
   {!Astro.locals.user && <p class="footer-note">{t('dashboard.publicHint')}</p>}
 </Base>

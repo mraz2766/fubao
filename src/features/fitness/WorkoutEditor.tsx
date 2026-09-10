@@ -22,6 +22,7 @@ import {
 import { api, errorText, ApiFailure } from '../../lib/api';
 import { workoutSchema } from '../../lib/schemas';
 import { useUnsaved } from '../../lib/use-unsaved';
+import { queueSaveFeedback } from '../../lib/feedback';
 import {
   blankSet,
   trainingParts,
@@ -273,6 +274,7 @@ export default function WorkoutEditor({
       });
       const saved = await save(true);
       allowNavigation();
+      if (initial.status !== 'completed') queueSaveFeedback('workout', saved.id);
       location.assign(`/fitness/${saved.id}`);
     } catch (e) {
       setError(errorText(e, locale));

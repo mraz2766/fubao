@@ -5,7 +5,7 @@ test('public navigation, mobile layout and accessibility', async ({ page }) => {
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: '今日', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /早上好|下午好|晚上好/ })).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);

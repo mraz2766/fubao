@@ -364,5 +364,13 @@
   "record.browseExercises": "Browse",
   "record.backToWorkout": "Back to workout",
   "record.inWorkout": "In workout",
-  "record.locateExercise": "Go to exercise"
+  "record.locateExercise": "Go to exercise",
+  "dashboard.morning": "Good morning",
+  "dashboard.afternoon": "Good afternoon",
+  "dashboard.evening": "Good evening",
+  "dashboard.goalReached": "Weekly goal met",
+  "dashboard.allCaughtUp": "Your latest entries are shown above.",
+  "feedback.workout": "Workout recorded",
+  "feedback.travel": "This stop, remembered",
+  "common.sessionSingular": "session"
 }

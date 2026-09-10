@@ -5,6 +5,7 @@ import { translator } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
 import { tripSchema } from '../../lib/schemas';
 import { useUnsaved } from '../../lib/use-unsaved';
+import { queueSaveFeedback } from '../../lib/feedback';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import LocationSearch, { locationName } from './LocationSearch';
@@ -156,6 +157,7 @@ export default function TravelEditor({
       const saved = await api<Trip>('/api/travel/entries', { method: 'POST', body: input });
       setDirty(false);
       allowNavigation();
+      queueSaveFeedback('travel', saved.id);
       location.assign(`/travel/${saved.id}`);
     } catch (e) {
       setError(errorText(e, locale));

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, lazy, Suspense } from 'react';
-import { Check, ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { SuccessMark } from '../../components/ui/success-mark';
+import { claimGoalFeedback } from '../../lib/feedback';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import { translator } from '../../lib/i18n';
@@ -15,6 +17,7 @@ export default function QuickCheckin({
   order,
   weekCount,
   weekStart,
+  feedbackScope,
 }: {
   locale: Locale;
   preferences: Preferences;
@@ -22,6 +25,7 @@ export default function QuickCheckin({
   order: string[];
   weekCount: number;
   weekStart: string;
+  feedbackScope: string;
 }) {
   const t = translator(locale);
   const [date, setDate] = useState(today),
@@ -37,6 +41,17 @@ export default function QuickCheckin({
   const lock = useRef(false),
     attempt = useRef<{ id: string; mutation_id: string; date: string; part: string } | null>(null);
   useEffect(() => setReady(true), []);
+  const currentWeekCount =
+    weekCount +
+    receipts.filter(
+      (w) =>
+        w.workout_date && w.workout_date >= weekStart && w.workout_date < shiftDay(weekStart, 7),
+    ).length;
+  const [goalPulse, setGoalPulse] = useState(false);
+  useEffect(() => {
+    if (currentWeekCount >= preferences.weeklyGoal)
+      setGoalPulse(claimGoalFeedback(feedbackScope, weekStart));
+  }, [currentWeekCount, preferences.weeklyGoal, feedbackScope, weekStart]);
   async function checkin(part: string) {
     if (lock.current || saved) return;
     lock.current = true;
@@ -78,16 +93,17 @@ export default function QuickCheckin({
   return (
     <section className="quick-checkin" aria-label={t('fitness.quick')}>
       <p className="muted small">
-        {t('dashboard.week')} ·{' '}
-        {weekCount +
-          receipts.filter(
-            (w) =>
-              w.workout_date &&
-              w.workout_date >= weekStart &&
-              w.workout_date < shiftDay(weekStart, 7),
-          ).length}{' '}
-        {t('common.times')} · {t('quiet.goal')} {preferences.weeklyGoal} {t('common.times')}
+        {t('dashboard.week')} · {currentWeekCount}{' '}
+        {t(currentWeekCount === 1 ? 'common.sessionSingular' : 'common.times')} · {t('quiet.goal')}{' '}
+        {preferences.weeklyGoal}{' '}
+        {t(preferences.weeklyGoal === 1 ? 'common.sessionSingular' : 'common.times')}
       </p>
+      {currentWeekCount >= preferences.weeklyGoal && (
+        <span className="goal-badge">
+          <SuccessMark animate={goalPulse} />
+          {t('dashboard.goalReached')}
+        </span>
+      )}
       <div className="card-heading">
         <div>
           <h2>{t(saved ? 'simple.checkedIn' : 'simple.checkinTitle')}</h2>
@@ -155,7 +171,7 @@ export default function QuickCheckin({
         </>
       ) : (
         <div className="checkin-result" role="status">
-          <Check size={26} />
+          <SuccessMark animate />
           <div>
             <strong>{saved.title}</strong>
             <p className="muted small">

@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import SaveFeedback from '../../components/SaveFeedback.astro';
 import TravelActions from '../../features/travel/TravelActions';
 import PhotoWall from '../../features/travel/PhotoWall';
 import { listTrips } from '../../server/services/travel';
@@ -55,4 +56,5 @@ const name = locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : 
       <span class="badge">{tag}</span>
     ))}
   </div>
+  {user && <SaveFeedback />}
 </Base>

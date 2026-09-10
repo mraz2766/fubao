@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import SaveFeedback from '../../components/SaveFeedback.astro';
 import WorkoutEditor from '../../features/fitness/WorkoutEditor';
 import WorkoutActions from '../../features/fitness/WorkoutActions';
 import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
@@ -122,4 +123,5 @@ if (!workout) return Astro.redirect('/404');
       ))}
     </div>
   )}
+  {user && <SaveFeedback />}
 </Base>

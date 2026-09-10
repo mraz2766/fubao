@@ -364,5 +364,13 @@
   "record.browseExercises": "浏览",
   "record.backToWorkout": "返回记录",
   "record.inWorkout": "已在训练中",
-  "record.locateExercise": "定位动作"
+  "record.locateExercise": "定位动作",
+  "dashboard.morning": "早上好",
+  "dashboard.afternoon": "下午好",
+  "dashboard.evening": "晚上好",
+  "dashboard.goalReached": "本周达标",
+  "dashboard.allCaughtUp": "最近记录已在上方展示。",
+  "feedback.workout": "这次训练，记下了",
+  "feedback.travel": "这一站，记下了",
+  "common.sessionSingular": "次"
 }

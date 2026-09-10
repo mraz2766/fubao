@@ -28,6 +28,10 @@ test('one-tap check-in, double tap, optional fields, retry and undo', async ({ p
     expect(w.duration_seconds).toBeNull();
     expect(w.exercises).toEqual([]);
     await expect(page.getByRole('heading', { name: '已打卡', exact: true })).toBeVisible();
+    await expect(page.locator('.checkin-result .success-mark')).toHaveAttribute(
+      'data-celebrate',
+      'true',
+    );
     expect((await request.get(`/api/fitness/sessions/${w.id}`)).status()).toBe(404);
     await page.getByRole('button', { name: '补充记录', exact: true }).click();
     await page.getByRole('button', { name: '有氧', exact: true }).click();
@@ -51,6 +55,7 @@ test('one-tap check-in, double tap, optional fields, retry and undo', async ({ p
     });
     await page.getByRole('button', { name: '有氧', exact: true }).click();
     await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.locator('.checkin-result')).toHaveCount(0);
     const retry = page.waitForResponse(
       (r) => r.url().endsWith('/api/fitness/checkin') && r.request().method() === 'POST',
     );

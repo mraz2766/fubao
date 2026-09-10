@@ -1,7 +1,18 @@
 ---
-import { ArrowUpRight, Dumbbell, MapPin, Check } from 'lucide-react';
-import { translator } from '../../lib/i18n';
-import { fitnessSummary } from '../../lib/analytics';
+import {
+  ArrowUpRight,
+  ArrowRight,
+  Dumbbell,
+  MapPin,
+  Check,
+  CalendarDays,
+  Clock3,
+  Play,
+} from 'lucide-react';
+import { translator, locationRegion } from '../../lib/i18n';
+import { fitnessSummary, workoutDay } from '../../lib/analytics';
+import { dashboardLayout } from './presentation';
+import { SuccessMark } from '../../components/ui/success-mark';
 import type { Locale, Preferences, Widget, Workout, Trip } from '../../types/domain';
 const {
   workouts = [],
@@ -10,6 +21,7 @@ const {
   preferences,
   locale,
   owner = false,
+  feedbackScope,
 } = Astro.props as {
   workouts: Workout[];
   trips: Trip[];
@@ -17,14 +29,29 @@ const {
   preferences: Preferences;
   locale: Locale;
   owner?: boolean;
+  feedbackScope: string;
 };
 const t = translator(locale),
   summary = fitnessSummary(workouts, preferences),
   today = summary.todayWorkouts[0];
-const recentWorkout = workouts.find((w) => w.status === 'completed'),
-  recentTrip = trips[0];
+const { visible, editorial } = dashboardLayout(widgets);
+const hasFitness = visible.some((w) => w.key === 'fitness');
+const hasTravel = visible.some((w) => w.key === 'travel');
+const active = owner ? workouts.find((w) => w.status !== 'completed') : undefined;
+const recentTrip = trips[0];
+const nextWorkout = workouts.find(
+  (w) => w.status === 'completed' && (!hasFitness || w.id !== today?.id),
+);
+const nextTrip = trips.find((trip) => !hasTravel || trip.id !== recentTrip?.id);
 const tripName = (trip: Trip) =>
-  locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name;
+  trip.place_name ||
+  (locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name);
+const tripRegion = (trip: Trip) =>
+  trip.location.country_code === 'CN'
+    ? locationRegion(trip.location, locale)
+    : locale === 'zh-CN'
+      ? trip.location.country_name_zh || trip.location.country_name
+      : trip.location.country_name;
 const dateText = (
   date: string,
   opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
@@ -32,151 +59,237 @@ const dateText = (
   new Intl.DateTimeFormat(locale, { timeZone: preferences.timezone, ...opts }).format(
     new Date(date),
   );
+// Calendar-only dates are formatted in UTC so westward timezones cannot shift the day.
+const calendarText = (
+  date: string,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
+) =>
+  new Intl.DateTimeFormat(locale, { timeZone: 'UTC', ...opts }).format(
+    new Date(date + 'T12:00:00Z'),
+  );
 ---
 
-<div class="bento">
-  {widgets
-    .filter((w) => w.visible)
-    .sort((a, b) => a.order - b.order)
-    .map((widget) => (
-      <section class:list={['card', 'widget-' + widget.size, 'dashboard-' + widget.key]}>
-        {widget.key === 'fitness' && (
-          <>
-            <div class="card-heading">
-              <h2>
-                <span class="dashboard-marker">
-                  <Dumbbell size={16} aria-hidden="true" />
-                </span>
-                {t('dashboard.fitness')}
-              </h2>
-              <a
-                href="/fitness"
-                class="button button-ghost button-icon"
-                aria-label={t('fitness.title')}
-              >
-                <ArrowUpRight size={18} />
-              </a>
-            </div>
-            <a class="today-workout" href={today ? '/fitness/' + today.id : '/fitness'}>
-              <span class="small muted">{t('common.today')}</span>
+<div class:list={['bento', 'home-bento', { 'bento-editorial': editorial }]}>
+  {visible.map((widget, index) => (
+    <section
+      class:list={['card', 'widget-' + widget.size, 'dashboard-' + widget.key]}
+      style={`--entry-order:${index}`}
+      aria-labelledby={`widget-${widget.key}`}
+    >
+      {widget.key === 'fitness' && (
+        <>
+          <a href="/fitness" class="dashboard-heading dashboard-interactive">
+            <h2 id="widget-fitness">
+              <span class="dashboard-marker">
+                <Dumbbell size={17} aria-hidden="true" />
+              </span>
+              {t('dashboard.fitness')}
+            </h2>
+            <ArrowUpRight size={18} aria-hidden="true" />
+          </a>
+          <a
+            class="today-workout dashboard-interactive"
+            href={today ? '/fitness/' + today.id : '/fitness'}
+          >
+            <div class="today-title">
+              {today && <SuccessMark />}
               <h3>{today?.title ?? t('dashboard.noWorkout')}</h3>
-              {today && today.time_precision !== 'date' && (
-                <p class="muted small">
-                  {dateText(today.start_at, { hour: '2-digit', minute: '2-digit' })}
-                  {today.end_at &&
-                    ' – ' + dateText(today.end_at, { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </a>
-            <div class="week-summary">
-              <span>
-                {t('dashboard.week')} <strong>{summary.weekCount}</strong> {t('common.times')}
-              </span>
-              <span class="muted small">
-                {t('quiet.goal')} {preferences.weeklyGoal} {t('common.times')}
-              </span>
             </div>
-          </>
-        )}
-        {widget.key === 'travel' && (
-          <>
-            <div class="card-heading">
-              <h2>
-                <span class="dashboard-marker">
-                  <MapPin size={16} aria-hidden="true" />
-                </span>
-                {t('dashboard.travel')}
-              </h2>
-              <a
-                href="/travel"
-                class="button button-ghost button-icon"
-                aria-label={t('travel.title')}
+            {today && today.time_precision !== 'date' && (
+              <p class="muted small">
+                {dateText(today.start_at, { hour: '2-digit', minute: '2-digit' })}
+                {today.end_at &&
+                  ' – ' + dateText(today.end_at, { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </a>
+          <div class="week-summary">
+            <span>
+              {t('dashboard.week')} <strong>{summary.weekCount}</strong>{' '}
+              {t(summary.weekCount === 1 ? 'common.sessionSingular' : 'common.times')}
+              <span class="muted">
+                {' '}
+                · {t('quiet.goal')} {preferences.weeklyGoal}{' '}
+                {t(preferences.weeklyGoal === 1 ? 'common.sessionSingular' : 'common.times')}
+              </span>
+            </span>
+            {summary.weekCount >= preferences.weeklyGoal && (
+              <span
+                class="goal-badge"
+                data-goal-week={summary.weekStart}
+                data-goal-scope={feedbackScope}
               >
-                <ArrowUpRight size={18} />
-              </a>
-            </div>
-            {recentTrip ? (
-              <a href={'/travel/' + recentTrip.id} class="dashboard-photo">
-                <img
-                  src={'/api/media/' + recentTrip.photos[0]?.id + '/thumbnail'}
-                  alt={tripName(recentTrip)}
-                  width="480"
-                  height="300"
-                  decoding="async"
-                  loading="eager"
-                  sizes="(max-width:767px) 90vw, 40vw"
-                />
-                <div class="photo-description">
+                <SuccessMark />
+                {t('dashboard.goalReached')}
+              </span>
+            )}
+          </div>
+          {active && (
+            <a class="dashboard-resume dashboard-interactive" href={`/fitness/${active.id}`}>
+              <Play size={14} aria-hidden="true" />
+              <span>{active.title}</span>
+              <strong>{t('record.resume')}</strong>
+              <ArrowRight size={15} aria-hidden="true" />
+            </a>
+          )}
+        </>
+      )}
+      {widget.key === 'travel' && (
+        <>
+          <a href="/travel" class="dashboard-heading dashboard-interactive">
+            <h2 id="widget-travel">
+              <span class="dashboard-marker">
+                <MapPin size={17} aria-hidden="true" />
+              </span>
+              {t('dashboard.travel')}
+            </h2>
+            <ArrowUpRight size={18} aria-hidden="true" />
+          </a>
+          {recentTrip ? (
+            <a href={'/travel/' + recentTrip.id} class="dashboard-photo dashboard-interactive">
+              {recentTrip.photos[0] && (
+                <span class="dashboard-cover">
+                  <img
+                    src={'/api/media/' + recentTrip.photos[0].id + '/thumbnail'}
+                    alt={tripName(recentTrip)}
+                    width="480"
+                    height="300"
+                    decoding="async"
+                    loading="eager"
+                    sizes="(max-width:767px) 90vw, 40vw"
+                  />
+                </span>
+              )}
+              <div class="photo-description">
+                <div>
                   <h3>{tripName(recentTrip)}</h3>
-                  <span class="small muted">{recentTrip.start_date ?? t('common.undated')}</span>
+                  {tripRegion(recentTrip) !== tripName(recentTrip) && (
+                    <span class="small muted">{tripRegion(recentTrip)}</span>
+                  )}
                 </div>
-              </a>
-            ) : (
-              <div class="dashboard-empty">
-                <MapPin size={24} strokeWidth={1.5} />
-                <p>{t('dashboard.noTravel')}</p>
-                <a class="text-link" href={owner ? '/travel?new=1' : '/travel'}>
-                  {t(owner ? 'travel.add' : 'travel.timeline')} <ArrowUpRight size={15} />
-                </a>
+                <span class="small muted">
+                  {recentTrip.start_date
+                    ? calendarText(recentTrip.start_date)
+                    : t('common.undated')}
+                </span>
               </div>
-            )}
-          </>
-        )}
-        {widget.key === 'weekly' && (
-          <>
-            <div class="card-heading">
-              <h2>{t('dashboard.weekly')}</h2>
-              <span class="small muted">{dateText(summary.weekStart + 'T12:00:00Z')}</span>
+            </a>
+          ) : (
+            <div class="dashboard-empty">
+              <span class="empty-landmark" aria-hidden="true">
+                <MapPin size={28} strokeWidth={1.4} />
+              </span>
+              <p>{t('dashboard.noTravel')}</p>
+              <a class="text-link" href={owner ? '/travel?new=1' : '/travel'}>
+                {t(owner ? 'travel.add' : 'travel.timeline')}{' '}
+                <ArrowUpRight size={15} aria-hidden="true" />
+              </a>
             </div>
-            <div class="weekly-dots">
-              {summary.days.map(({ day, trained }) => (
-                <a
-                  href={'/fitness?day=' + day}
-                  class:list={['week-day', { today: day === summary.today }]}
-                  aria-label={day + ' · ' + t(trained ? 'dashboard.trained' : 'dashboard.rest')}
-                >
-                  <span>{dateText(day + 'T12:00:00Z', { weekday: 'narrow' })}</span>
-                  <span class:list={['day-dot', { trained }]}>
-                    {trained ? <Check size={13} /> : <span aria-hidden="true">·</span>}
-                  </span>
-                  <span>{Number(day.slice(8))}</span>
-                </a>
-              ))}
-            </div>
-          </>
-        )}
-        {widget.key === 'recent' && (
-          <>
-            <div class="card-heading">
-              <h2>{t('dashboard.recent')}</h2>
-            </div>
-            {recentWorkout && (
-              <a class="recent-row" href={'/fitness/' + recentWorkout.id}>
-                <Dumbbell size={18} className="muted" />
+          )}
+        </>
+      )}
+      {widget.key === 'weekly' && (
+        <>
+          <div class="dashboard-heading">
+            <h2 id="widget-weekly">
+              <span class="dashboard-marker">
+                <CalendarDays size={17} aria-hidden="true" />
+              </span>
+              {t('dashboard.weekly')}
+            </h2>
+            <span class="small muted">{calendarText(summary.weekStart)}</span>
+          </div>
+          <a
+            class="weekly-dots dashboard-interactive"
+            href={`/fitness?view=history&day=${summary.today}`}
+            aria-label={t('dashboard.weekly') + ' · ' + t('fitness.history')}
+          >
+            {summary.days.map(({ day, trained }) => (
+              <span class:list={['week-day', { today: day === summary.today }]}>
+                <span>{calendarText(day, { weekday: 'narrow' })}</span>
+                <span class:list={['day-dot', { trained }]} aria-hidden="true">
+                  {trained ? <Check size={13} /> : Number(day.slice(8))}
+                </span>
+                <span class="sr-only">
+                  {day} · {t(trained ? 'dashboard.trained' : 'dashboard.rest')}
+                </span>
+              </span>
+            ))}
+          </a>
+        </>
+      )}
+      {widget.key === 'recent' && (
+        <>
+          <div class="dashboard-heading">
+            <h2 id="widget-recent">
+              <span class="dashboard-marker">
+                <Clock3 size={17} aria-hidden="true" />
+              </span>
+              {t('dashboard.recent')}
+            </h2>
+          </div>
+          <div class="dashboard-recent-list">
+            {nextWorkout && (
+              <a class="recent-row dashboard-interactive" href={'/fitness/' + nextWorkout.id}>
+                <Dumbbell size={17} className="muted" aria-hidden="true" />
                 <div class="recent-info">
-                  <h3>{recentWorkout.title}</h3>
+                  <h3>{nextWorkout.title}</h3>
                   <span class="small muted">
-                    {recentWorkout.time_precision === 'date'
-                      ? recentWorkout.workout_date
-                      : dateText(recentWorkout.start_at)}
+                    {calendarText(workoutDay(nextWorkout, preferences.timezone))}
                   </span>
                 </div>
-                <ArrowUpRight size={16} />
+                <ArrowUpRight size={16} aria-hidden="true" />
               </a>
             )}
-            {recentTrip && (
-              <a class="recent-row" href={'/travel/' + recentTrip.id}>
-                <MapPin size={18} className="muted" />
+            {nextTrip && (
+              <a class="recent-row dashboard-interactive" href={'/travel/' + nextTrip.id}>
+                <MapPin size={17} className="muted" aria-hidden="true" />
                 <div class="recent-info">
-                  <h3>{tripName(recentTrip)}</h3>
-                  <span class="small muted">{recentTrip.start_date ?? t('common.undated')}</span>
+                  <h3>{tripName(nextTrip)}</h3>
+                  <span class="small muted">
+                    {nextTrip.start_date ? calendarText(nextTrip.start_date) : t('common.undated')}
+                  </span>
                 </div>
-                <ArrowUpRight size={16} />
+                <ArrowUpRight size={16} aria-hidden="true" />
               </a>
             )}
-            {!recentWorkout && !recentTrip && <p class="muted small">{t('dashboard.noRecent')}</p>}
-          </>
-        )}
-      </section>
-    ))}
+            {!nextWorkout && !nextTrip && (
+              <p class="muted small">
+                {t(today || recentTrip ? 'dashboard.allCaughtUp' : 'dashboard.noRecent')}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  ))}
 </div>
+<script>
+  import { claimGoalFeedback } from '../../lib/feedback';
+  const root = document.documentElement;
+  const finishEntry = () => {
+    delete root.dataset.bentoMotion;
+  };
+  const cards = document.querySelectorAll('.home-bento > .card');
+  const lastCard = cards[cards.length - 1];
+  lastCard?.addEventListener('animationend', (event) => {
+    if (event.target === lastCard) finishEntry();
+  });
+  window.setTimeout(finishEntry, 360);
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+      finishEntry();
+      document
+        .querySelectorAll('[data-celebrate]')
+        .forEach((mark) => mark.removeAttribute('data-celebrate'));
+    }
+  });
+  if (
+    (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type !==
+    'back_forward'
+  ) {
+    const badge = document.querySelector<HTMLElement>('[data-goal-week]');
+    if (badge && claimGoalFeedback(badge.dataset.goalScope!, badge.dataset.goalWeek!))
+      badge.querySelector('.success-mark')?.setAttribute('data-celebrate', 'true');
+  }
+</script>
