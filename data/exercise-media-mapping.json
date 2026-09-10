@@ -1,0 +1,115 @@
+{
+  "repository": "yuhonas/free-exercise-db",
+  "commit": "a859101d633a01c4a1a920d6a8ce41dabba0705f",
+  "license": "Unlicense",
+  "mappings": [
+    {
+      "exerciseId": "0025",
+      "sourceId": "Barbell_Bench_Press_-_Medium_Grip",
+      "name": "barbell bench press",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0032",
+      "sourceId": "Barbell_Deadlift",
+      "name": "barbell deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0043",
+      "sourceId": "Barbell_Full_Squat",
+      "name": "barbell full squat",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0027",
+      "sourceId": "Bent_Over_Barbell_Row",
+      "name": "barbell bent over row",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0091",
+      "sourceId": "Barbell_Shoulder_Press",
+      "name": "barbell seated overhead press",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0294",
+      "sourceId": "Dumbbell_Bicep_Curl",
+      "name": "dumbbell biceps curl",
+      "equipment": "dumbbell"
+    },
+    {
+      "exerciseId": "0405",
+      "sourceId": "Dumbbell_Shoulder_Press",
+      "name": "dumbbell seated shoulder press",
+      "equipment": "dumbbell"
+    },
+    {
+      "exerciseId": "0031",
+      "sourceId": "Barbell_Curl",
+      "name": "barbell curl",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0047",
+      "sourceId": "Barbell_Incline_Bench_Press_-_Medium_Grip",
+      "name": "barbell incline bench press",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0085",
+      "sourceId": "Romanian_Deadlift",
+      "name": "barbell romanian deadlift",
+      "equipment": "barbell"
+    },
+    {
+      "exerciseId": "0238",
+      "sourceId": "Straight-Arm_Pulldown",
+      "name": "cable straight arm pulldown",
+      "equipment": "cable"
+    },
+    {
+      "exerciseId": "0289",
+      "sourceId": "Dumbbell_Bench_Press",
+      "name": "dumbbell bench press",
+      "equipment": "dumbbell"
+    },
+    {
+      "exerciseId": "0293",
+      "sourceId": "Bent_Over_Two-Dumbbell_Row",
+      "name": "dumbbell bent over row",
+      "equipment": "dumbbell"
+    },
+    {
+      "exerciseId": "0334",
+      "sourceId": "Side_Lateral_Raise",
+      "name": "dumbbell lateral raise",
+      "equipment": "dumbbell"
+    },
+    {
+      "exerciseId": "0662",
+      "sourceId": "Pushups",
+      "name": "push-up",
+      "equipment": "body weight"
+    },
+    {
+      "exerciseId": "0198",
+      "sourceId": "Wide-Grip_Lat_Pulldown",
+      "name": "cable pulldown",
+      "equipment": "cable"
+    },
+    {
+      "exerciseId": "2616",
+      "sourceId": "V-Bar_Pulldown",
+      "name": "cable lateral pulldown with v-bar",
+      "equipment": "cable"
+    },
+    {
+      "exerciseId": "0245",
+      "sourceId": "Underhand_Cable_Pulldowns",
+      "name": "cable underhand pulldown",
+      "equipment": "cable"
+    }
+  ]
+}

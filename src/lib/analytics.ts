@@ -16,15 +16,18 @@ export function weekBeginning(day: string, starts: number) {
   return shiftDay(day, -((weekday - starts + 7) % 7));
 }
 export const workoutVolume = (w: Workout) =>
-  w.exercises.reduce(
-    (sum, e) =>
-      sum +
-      e.sets.reduce(
-        (n, s) => n + (s.completed && s.weight !== null && s.reps !== null ? s.weight * s.reps : 0),
-        0,
-      ),
-    0,
-  );
+  w.exercises
+    .filter((e) => !e.recording_type || ['auto', 'weight'].includes(e.recording_type))
+    .reduce(
+      (sum, e) =>
+        sum +
+        e.sets.reduce(
+          (n, s) =>
+            n + (s.completed && s.weight !== null && s.reps !== null ? s.weight * s.reps : 0),
+          0,
+        ),
+      0,
+    );
 export const workoutSeconds = (w: Workout) =>
   w.end_at ? Math.max(0, (Date.parse(w.end_at) - Date.parse(w.start_at)) / 1000) : 0;
 export const estimated1RM = (weight: number, reps: number) =>
@@ -91,7 +94,9 @@ export function personalRecords(workouts: Workout[]) {
   for (const w of [...workouts]
     .filter((w) => w.status === 'completed')
     .sort((a, b) => a.start_at.localeCompare(b.start_at)))
-    for (const e of w.exercises)
+    for (const e of w.exercises.filter(
+      (e) => !e.recording_type || ['auto', 'weight'].includes(e.recording_type),
+    ))
       for (const s of e.sets) {
         if (!s.completed || !s.weight || !s.reps) continue;
         const current = records.get(e.exercise_id) ?? {

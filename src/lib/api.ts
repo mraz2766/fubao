@@ -1,7 +1,10 @@
 import type { Locale } from '../types/domain';
 import { translator, type TranslationKey } from './i18n';
 export class ApiFailure extends Error {
-  constructor(public code: string) {
+  constructor(
+    public code: string,
+    public fields?: Record<string, string[]>,
+  ) {
     super(code);
   }
 }
@@ -22,8 +25,10 @@ export async function api<T>(
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiFailure('NETWORK');
   }
-  const result = (await response.json()) as T & { error?: { code?: string } };
-  if (!response.ok) throw new ApiFailure(result.error?.code ?? 'INTERNAL');
+  const result = (await response.json()) as T & {
+    error?: { code?: string; fields?: Record<string, string[]> };
+  };
+  if (!response.ok) throw new ApiFailure(result.error?.code ?? 'INTERNAL', result.error?.fields);
   return result as T;
 }
 export function errorText(error: unknown, locale: Locale) {

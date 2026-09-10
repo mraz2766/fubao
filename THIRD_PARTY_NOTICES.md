@@ -42,3 +42,8 @@ Astro, React, Tailwind CSS, shadcn/ui, Radix UI, Lucide, Zod, D3, exifr and nobl
 ## Scenic photography
 
 Photographs from Wikimedia Commons are included under their individual CC BY, CC BY-SA, CC0 or public-domain terms. `src/data/scenic-spots.json` records each author, original file page, license link and source checksum. WebP images in `public/scenery` are resized/re-encoded adaptations, retaining the source image license; attribution is visible in each destination detail and on About. `pnpm data:sync:scenery` explicitly rebuilds these images. They represent destination information, not the owner's personal travel photos.
+
+## Fitness illustration assets
+
+- `react-body-highlighter` (GV79), commit `d03fcd8740033721a51f5a2682de02ec31df92ba`, MIT. Anterior/posterior SVG polygon data adapted into `body-polygons.ts`. License retained at `public/licenses/react-body-highlighter.txt`.
+- `yuhonas/free-exercise-db`, commit `a859101d633a01c4a1a920d6a8ce41dabba0705f`, Unlicense. Explicitly mapped pose images resized and converted to WebP. Source IDs, source SHA-256 values and attribution recorded in the media manifest. License retained at `public/licenses/free-exercise-db.txt`. Gymvisual media from the primary metadata dataset is not included.

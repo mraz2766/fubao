@@ -49,9 +49,12 @@ export interface Exercise {
   instructions_zh: string[];
   image: string | null;
   animation: string | null;
+  images?: string[];
+  attribution?: string;
   favorite?: boolean;
   usage_count?: number;
 }
+export type RecordingType = 'auto' | 'weight' | 'reps' | 'duration' | 'cardio';
 export interface FitnessSet {
   id: string;
   reps: number | null;
@@ -63,6 +66,9 @@ export interface FitnessSet {
   completed: boolean;
 }
 export interface SessionExercise {
+  recording_type?: RecordingType;
+  equipment?: string;
+  image?: string | null;
   id: string;
   exercise_id: string;
   name_en: string;
@@ -71,6 +77,8 @@ export interface SessionExercise {
   sets: FitnessSet[];
 }
 export interface Workout {
+  revision?: number;
+  mutation_id?: string;
   id: string;
   user_id: string;
   title: string;

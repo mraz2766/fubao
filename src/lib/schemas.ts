@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validCompletedSet } from './fitness-recording';
 export const idSchema = z
   .string()
   .min(1)
@@ -30,12 +31,26 @@ export const setSchema = z
   .refine((s) => !s.completed || s.reps !== null || s.duration !== null || s.distance !== null, {
     message: 'A completed set needs reps, duration or distance',
   })
-  .refine((s) => s.weight === null || s.reps !== null, { message: 'Weight requires reps' });
-export const sessionExerciseSchema = z.object({
-  id: idSchema,
-  exercise_id: idSchema,
-  sets: z.array(setSchema).max(100),
-});
+  .refine((s) => !s.completed || s.weight === null || s.reps !== null, {
+    message: 'Weight requires reps',
+  });
+export const sessionExerciseSchema = z
+  .object({
+    id: idSchema,
+    exercise_id: idSchema,
+    recording_type: z.enum(['auto', 'weight', 'reps', 'duration', 'cardio']).default('auto'),
+    sets: z.array(setSchema).max(100),
+  })
+  .superRefine((exercise, ctx) => {
+    exercise.sets.forEach((set, index) => {
+      if (set.completed && !validCompletedSet(set, exercise.recording_type))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['sets', index],
+          message: 'Complete the required fields for this recording type',
+        });
+    });
+  });
 export const workoutSchema = z
   .object({
     id: idSchema,
@@ -52,6 +67,8 @@ export const workoutSchema = z
     visibility: visibilitySchema,
     exercises: z.array(sessionExerciseSchema).max(50),
     updated_at: z.string().optional(),
+    revision: z.number().int().min(0).optional(),
+    mutation_id: idSchema.optional(),
   })
   .refine((w) => !w.end_at || w.end_at >= w.start_at, {
     path: ['end_at'],

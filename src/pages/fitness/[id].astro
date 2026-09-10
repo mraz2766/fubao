@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import WorkoutEditor from '../../features/fitness/WorkoutEditor';
 import WorkoutActions from '../../features/fitness/WorkoutActions';
 import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
 import { listWorkouts } from '../../server/services/fitness';
@@ -17,10 +18,12 @@ if (!workout) return Astro.redirect('/404');
 ---
 
 <Base title={workout.title} active="fitness">
-  <a class="text-link" href="/fitness">
-    <ArrowLeft size={15} />
-    {t('fitness.history')}
-  </a>
+  {(!user || workout.status === 'completed') && (
+    <a class="text-link" href="/fitness?view=history">
+      <ArrowLeft size={15} />
+      {t('fitness.history')}
+    </a>
+  )}
   <div class="detail-header">
     <div>
       <h1>{workout.title}</h1>
@@ -33,72 +36,76 @@ if (!workout) return Astro.redirect('/404');
         · {t(`fitness.${workout.status}`)}
       </p>
     </div>
-    {user && (
+    {user && workout.status === 'completed' && (
       <WorkoutActions locale={locale} preferences={preferences} workout={workout} client:load />
     )}
   </div>
-  <div class="detail-body">
-    <div class="card">
-      <div class="stats">
-        <div class="stat">
-          <strong>{Math.round(workoutSeconds(workout) / 60)}</strong>
-          <span>{t('common.minutes')}</span>
-        </div>
-        <div class="stat">
-          <strong>{workout.exercises.length}</strong>
-          <span>{t('fitness.library')}</span>
-        </div>
-        <div class="stat">
-          <strong>
-            {workout.exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0)}
-          </strong>
-          <span>{t('fitness.set')}</span>
-        </div>
-        <div class="stat">
-          <strong>
-            {Math.round(
-              toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
-            ).toLocaleString(locale)}
-          </strong>
-          <span>
-            {t('dashboard.volume')} · {preferences.weightUnit}
-          </span>
-        </div>
-      </div>
-      {workout.note && (
-        <>
-          <hr class="rule" />
-          <p style="white-space:pre-wrap">{workout.note}</p>
-        </>
-      )}
-    </div>
-    {workout.exercises.map((e) => (
-      <section class="card" style="margin-top:18px">
-        <div class="card-heading">
-          <h2>{exerciseName(e, locale)}</h2>
-          <span class="small muted">{taxonomyLabel(e.target, locale)}</span>
-        </div>
-        {e.sets.map((s, i) => (
-          <div class="detail-set">
-            <span class="muted">
-              {t('fitness.set')} {i + 1}
-            </span>
-            <span>
-              {s.weight !== null
-                ? `${toDisplayWeight(s.weight, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit} × `
-                : ''}
-              {s.reps !== null ? `${s.reps} ${t('fitness.reps')}` : ''}
-              {s.duration !== null ? ` · ${s.duration} ${t('fitness.unitSeconds')}` : ''}
-              {s.distance !== null
-                ? ` · ${toDisplayDistance(s.distance, preferences.distanceUnit).toFixed(2)} ${preferences.distanceUnit}`
-                : ''}
-              {s.rpe !== null ? ` · RPE ${s.rpe}` : ''}
-            </span>
-            {s.completed && <Check size={16} aria-label={t('fitness.completed')} />}{' '}
-            {s.note && <small style="width:100%">{s.note}</small>}
+  {user && workout.status !== 'completed' ? (
+    <WorkoutEditor initial={workout} locale={locale} preferences={preferences} client:load />
+  ) : (
+    <div class="detail-body">
+      <div class="card">
+        <div class="stats">
+          <div class="stat">
+            <strong>{Math.round(workoutSeconds(workout) / 60)}</strong>
+            <span>{t('common.minutes')}</span>
           </div>
-        ))}
-      </section>
-    ))}
-  </div>
+          <div class="stat">
+            <strong>{workout.exercises.length}</strong>
+            <span>{t('fitness.library')}</span>
+          </div>
+          <div class="stat">
+            <strong>
+              {workout.exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0)}
+            </strong>
+            <span>{t('fitness.set')}</span>
+          </div>
+          <div class="stat">
+            <strong>
+              {Math.round(
+                toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
+              ).toLocaleString(locale)}
+            </strong>
+            <span>
+              {t('dashboard.volume')} · {preferences.weightUnit}
+            </span>
+          </div>
+        </div>
+        {workout.note && (
+          <>
+            <hr class="rule" />
+            <p style="white-space:pre-wrap">{workout.note}</p>
+          </>
+        )}
+      </div>
+      {workout.exercises.map((e) => (
+        <section class="card" style="margin-top:18px">
+          <div class="card-heading">
+            <h2>{exerciseName(e, locale)}</h2>
+            <span class="small muted">{taxonomyLabel(e.target, locale)}</span>
+          </div>
+          {e.sets.map((s, i) => (
+            <div class="detail-set">
+              <span class="muted">
+                {t('fitness.set')} {i + 1}
+              </span>
+              <span>
+                {s.weight !== null
+                  ? `${toDisplayWeight(s.weight, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit} × `
+                  : ''}
+                {s.reps !== null ? `${s.reps} ${t('fitness.reps')}` : ''}
+                {s.duration !== null ? ` · ${s.duration} ${t('fitness.unitSeconds')}` : ''}
+                {s.distance !== null
+                  ? ` · ${toDisplayDistance(s.distance, preferences.distanceUnit).toFixed(2)} ${preferences.distanceUnit}`
+                  : ''}
+                {s.rpe !== null ? ` · RPE ${s.rpe}` : ''}
+              </span>
+              {s.completed && <Check size={16} aria-label={t('fitness.completed')} />}{' '}
+              {s.note && <small style="width:100%">{s.note}</small>}
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  )}
 </Base>

@@ -1,4 +1,4 @@
-import { ZodError, flattenError } from 'zod';
+import { ZodError } from 'zod';
 import type { APIContext } from 'astro';
 export class HttpError extends Error {
   constructor(
@@ -55,7 +55,17 @@ export async function readJSON(request: Request, max = 2 * 1024 * 1024): Promise
 }
 export function errorResponse(error: unknown) {
   if (error instanceof ZodError)
-    return json({ error: { code: 'INVALID_INPUT', fields: flattenError(error).fieldErrors } }, 400);
+    return json(
+      {
+        error: {
+          code: 'INVALID_INPUT',
+          fields: Object.fromEntries(
+            error.issues.map((issue) => [issue.path.join('.'), [issue.message]]),
+          ),
+        },
+      },
+      400,
+    );
   if (error instanceof HttpError) return json({ error: { code: error.code } }, error.status);
   console.error('request_failed', error instanceof Error ? error.message : 'unknown');
   return json({ error: { code: 'INTERNAL' } }, 500);

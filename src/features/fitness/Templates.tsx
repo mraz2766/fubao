@@ -6,12 +6,14 @@ import type {
   Exercise,
   Preferences,
   FitnessSet,
+  RecordingType,
 } from '../../types/domain';
 import { toDisplayWeight, toKg, toDisplayDistance, toMeters } from '../../lib/analytics';
 import { translator, exerciseName } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
+import { recordingType } from '../../lib/fitness-recording';
 import { useUnsaved } from '../../lib/use-unsaved';
 const ExerciseSearch = lazy(() => import('./ExerciseSearch'));
 export default function Templates({
@@ -61,7 +63,7 @@ export default function Templates({
         method: 'POST',
         body: {},
       });
-      location.assign(`/fitness/${result.id}?new=1`);
+      location.assign(`/fitness/${result.id}`);
     } catch (e) {
       setError(errorText(e, locale));
       setPending(false);
@@ -96,6 +98,8 @@ export default function Templates({
           name_en: e.name_en,
           name_zh: e.name_zh,
           target: e.target,
+          equipment: e.equipment,
+          recording_type: recordingType(e),
           sets: [
             {
               id: crypto.randomUUID(),
@@ -216,6 +220,29 @@ export default function Templates({
                     <Trash2 size={16} />
                   </Button>
                 </div>
+                <label className="field">
+                  <span>{t('record.recordingType')}</span>
+                  <select
+                    value={recordingType(e)}
+                    onChange={(event) => {
+                      setEditing({
+                        ...editing,
+                        exercises: editing.exercises.map((x) =>
+                          x.id === e.id
+                            ? { ...x, recording_type: event.target.value as RecordingType }
+                            : x,
+                        ),
+                      });
+                      setDirty(true);
+                    }}
+                  >
+                    {(['weight', 'reps', 'duration', 'cardio'] as const).map((v) => (
+                      <option value={v} key={v}>
+                        {t(`record.type.${v}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 {e.sets.map((set, index) => (
                   <div
                     key={set.id}

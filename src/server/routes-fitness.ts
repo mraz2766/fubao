@@ -19,7 +19,10 @@ export async function fitnessRoute(context: APIContext, parts: string[]) {
     method = context.request.method;
   if (resource === 'sessions') {
     if (method === 'GET') {
-      const items = await listWorkouts(context.locals.user, id);
+      const status = context.url.searchParams.get('status');
+      const items = (await listWorkouts(context.locals.user, id)).filter(
+        (w) => !status || w.status === status,
+      );
       if (id) {
         if (!items[0]) throw new HttpError(404, 'NOT_FOUND');
         return json(items[0]);
@@ -31,8 +34,12 @@ export async function fitnessRoute(context: APIContext, parts: string[]) {
       });
     }
     const user = requireUser(context);
-    if (method === 'POST' || method === 'PUT')
-      return json(await saveWorkout(user.id, await readJSON(context.request)));
+    if (method === 'POST' || method === 'PUT') {
+      const input = (await readJSON(context.request)) as Record<string, unknown>;
+      if (id && input.id !== id) throw new HttpError(400, 'INVALID_INPUT');
+      if (action === 'complete') input.status = 'completed';
+      return json(await saveWorkout(user.id, input));
+    }
     if (method === 'DELETE' && id) {
       await deleteWorkout(user.id, id);
       return json({ ok: true });

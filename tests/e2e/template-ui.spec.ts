@@ -34,9 +34,9 @@ test('mobile template form copies previous weight and opens an active workout', 
       .filter({ has: page.getByRole('heading', { name, exact: true }) })
       .getByRole('button', { name: '开始训练' })
       .click();
-    await expect(page).toHaveURL(/\/fitness\/[a-f0-9-]+\?new=1$/);
+    await expect(page).toHaveURL(/\/fitness\/[a-f0-9-]+$/);
     workoutId = new URL(page.url()).pathname.split('/').at(-1);
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.locator('.workout-workspace')).toBeVisible();
     const workout = await (await page.request.get(`/api/fitness/sessions/${workoutId}`)).json();
     expect(workout.status).toBe('active');
     expect(workout.exercises[0].sets).toHaveLength(2);

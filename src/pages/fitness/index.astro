@@ -68,6 +68,21 @@ const muscles = muscleDistribution(workouts, preferences.timezone, period),
       </div>
     )}
   </header>
+  {user && workouts.filter((w) => w.status !== 'completed').length > 0 && (
+    <section class="resume-list" aria-label={t('record.resume')}>
+      {workouts
+        .filter((w) => w.status !== 'completed')
+        .map((w) => (
+          <a class="resume-entry" href={`/fitness/${w.id}`}>
+            <span>
+              {w.title} · {t(`fitness.${w.status}`)}
+            </span>
+            <strong>{t('record.resume')} →</strong>
+          </a>
+        ))}
+    </section>
+  )}
+
   {isView('library') && (
     <section class="fitness-intro">
       <div>
@@ -179,7 +194,7 @@ const muscles = muscleDistribution(workouts, preferences.timezone, period),
   )}
   {isView('library') && (
     <div class="card">
-      <ExerciseSearch locale={locale} owner={!!user} client:load />
+      <ExerciseSearch locale={locale} preferences={preferences} owner={!!user} client:load />
     </div>
   )}
   {isView('templates') && user && (

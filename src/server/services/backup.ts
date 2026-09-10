@@ -145,7 +145,13 @@ export async function importItem(user: User, input: unknown) {
     if (existing.user_id !== user.id) throw new HttpError(409, 'CONFLICT');
     return { status: 'skipped' };
   }
-  if (item.kind === 'session') await saveWorkout(user.id, { ...item.value, updated_at: undefined });
+  if (item.kind === 'session')
+    await saveWorkout(user.id, {
+      ...item.value,
+      updated_at: undefined,
+      revision: undefined,
+      mutation_id: undefined,
+    });
   if (item.kind === 'template') await saveTemplate(user.id, item.value);
   if (item.kind === 'wishlist')
     await statement(
