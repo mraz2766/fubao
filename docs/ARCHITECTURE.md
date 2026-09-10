@@ -27,3 +27,9 @@ JSON 备份导出个人领域数据和照片引用，排除认证信息；恢复
 GitHub 工作流执行冻结安装、领域测试与 Workers 构建。浏览器测试需先迁移并初始化本地库、同步目录、启动预览；使用临时记录并在结束后删除。`tests/e2e` 不应指向生产。
 
 地图和列表分页控制浏览器数据量。当前个人规模的汇总服务会在服务端加载可见记录再聚合；历史规模大幅增长时应增加 SQL 聚合与查询级分页，避免整段历史的服务端内存占用。这不影响目前 SQL 层的可见性隔离。
+
+## Scenic catalog and presentation
+
+Scenic metadata is separate from personal visits. `scenic_spots` links the local licensed catalog to normalized cities; `travel_entries.spot_id` and an optional custom `place_name` preserve both attraction names and city/country aggregation. Discover filters personal states without turning catalog entries into visits. Static licensed photos use Worker assets; user uploads use private R2.
+
+The theme is a tweakcn Graphite adaptation with semantic tokens. Tremor ProgressBar renders through Astro without client hydration; BoardUI Chip is adapted to the same tokens. React islands remain limited to interactive workspaces. Native Workers `node:crypto` scrypt preserves the password hash format without a separate Node server.

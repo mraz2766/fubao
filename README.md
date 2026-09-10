@@ -1,6 +1,6 @@
 # Fubao
 
-Online: https://fubao.mraz2766.workers.dev
+线上地址： https://fubao.mraz2766.workers.dev
 
 个人生活 Dashboard：记录训练、回顾旅行与照片。默认简体中文，支持 English、明暗主题、桌面侧栏和移动端底部导航。
 
@@ -103,7 +103,7 @@ pnpm exec astro preview stop
 
 ## Cloudflare
 
-Live at https://fubao.mraz2766.workers.dev via local build + Wrangler. Workers Builds repository connection still requires account authorization (local OAuth returns 403 for Builds configuration). See [deployment](docs/DEPLOYMENT.md) and [implementation](docs/IMPLEMENTATION.md).
+已上线：https://fubao.mraz2766.workers.dev 。发布链路已连接为 GitHub `main` → Cloudflare Workers Builds → 测试与 Astro Build → D1 migrations → Worker 部署。首次验证提交为 `804d6fd`。GitHub Actions 另行运行检查，不承担部署。详见 [部署说明](docs/DEPLOYMENT.md) 和 [实施记录](docs/IMPLEMENTATION.md)。
 
 Workers uses the Free plan. R2 Standard includes a free monthly allowance but may bill usage beyond it. No paid Workers upgrade was enabled. Production imports all countries and China regions/cities to stay within D1 Free daily write limits; the complete global catalog remains available locally.
 

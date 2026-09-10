@@ -6,7 +6,8 @@
 - Worker: `fubao`; D1: `fubao` (`485b0dc5-48ac-4a37-8ffb-db1d51984d37`); R2: private `fubao`, APAC, Standard.
 - Workers Free confirmed in dashboard on 2026-09-10. R2 public access disabled, no bucket custom domains.
 - Migrations 0001-0004 applied; 1,324 exercises, 4,421 country/China-region/city locations, 12 scenic spots.
-- Initial deployment: local build + Wrangler. Workers Builds connection awaits account authorization; local OAuth returned 403.
+- Initial deployment used local build + Wrangler. GitHub integration is now connected to `mraz2766/fubao`, production branch `main`; preview builds disabled. Owner completed the GitHub app and Cloudflare build-token authorization.
+- Build `bb9d4d5b-43a1-4634-80ae-03c57d715a16` was automatically triggered by push of `804d6fd` and succeeded, deploying version `8710de1b-ba71-4b3e-9a37-c46a012f3ff3`. GitHub Actions provides an independent check workflow; Cloudflare performs deployment.
 
 ## Provision once (new account or fork)
 
