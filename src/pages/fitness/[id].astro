@@ -6,6 +6,9 @@ import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
 import { listWorkouts } from '../../server/services/fitness';
 import {
   workoutSeconds,
+  knownWorkoutSeconds,
+  hasWorkoutVolume,
+  workoutDay,
   workoutVolume,
   toDisplayWeight,
   toDisplayDistance,
@@ -28,11 +31,13 @@ if (!workout) return Astro.redirect('/404');
     <div>
       <h1>{workout.title}</h1>
       <p class="muted small" style="margin-top:10px">
-        {new Intl.DateTimeFormat(locale, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-          timeZone: preferences.timezone,
-        }).format(new Date(workout.start_at))}{' '}
+        {workout.time_precision === 'date'
+          ? workoutDay(workout, preferences.timezone)
+          : new Intl.DateTimeFormat(locale, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+              timeZone: preferences.timezone,
+            }).format(new Date(workout.start_at))}{' '}
         · {t(`fitness.${workout.status}`)}
       </p>
     </div>
@@ -47,24 +52,33 @@ if (!workout) return Astro.redirect('/404');
       <div class="card">
         <div class="stats">
           <div class="stat">
-            <strong>{Math.round(workoutSeconds(workout) / 60)}</strong>
+            <strong>
+              {knownWorkoutSeconds(workout) === null
+                ? '—'
+                : Math.round(workoutSeconds(workout) / 60)}
+            </strong>
             <span>{t('common.minutes')}</span>
           </div>
           <div class="stat">
-            <strong>{workout.exercises.length}</strong>
+            <strong>{workout.exercises.length || '—'}</strong>
             <span>{t('fitness.library')}</span>
           </div>
           <div class="stat">
             <strong>
-              {workout.exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0)}
+              {workout.exercises.reduce(
+                (n, e) => n + e.sets.filter((s) => s.completed).length,
+                0,
+              ) || '—'}
             </strong>
             <span>{t('fitness.set')}</span>
           </div>
           <div class="stat">
             <strong>
-              {Math.round(
-                toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
-              ).toLocaleString(locale)}
+              {hasWorkoutVolume(workout)
+                ? Math.round(
+                    toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
+                  ).toLocaleString(locale)
+                : '—'}
             </strong>
             <span>
               {t('dashboard.volume')} · {preferences.weightUnit}
@@ -91,7 +105,7 @@ if (!workout) return Astro.redirect('/404');
               </span>
               <span>
                 {s.weight !== null
-                  ? `${toDisplayWeight(s.weight, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit} × `
+                  ? `${toDisplayWeight(s.weight, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit}${s.reps !== null ? ' × ' : ''}`
                   : ''}
                 {s.reps !== null ? `${s.reps} ${t('fitness.reps')}` : ''}
                 {s.duration !== null ? ` · ${s.duration} ${t('fitness.unitSeconds')}` : ''}

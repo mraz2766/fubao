@@ -1,24 +1,25 @@
-# Fitness recording update — 2026-09-10
+# Fitness recording — 2026-09-10
 
-## Delivered
+## Daily use
 
-- Separate start-now, backfill, and quick-entry paths. Draft and active sessions open directly in a resumable workspace; completed quick entries can gain exercises.
-- Multi-select exercise picker, inline detail navigation, retained selection across search, existing-exercise positioning, and library-to-session adding.
-- Recording-type-specific inputs, next-set inheritance, copying, ordering, completion validation, summaries and explicit handling of unfinished sets.
-- Debounced serialized saves, partial planned sets, changed-row D1 writes, atomic revision guards, idempotent mutation retries, and protection against stale saves recreating deleted workouts.
-- Configured-timezone editing; cross-midnight backfill. Total volume and PR exclude explicit non-weight recording types.
-- Eighteen reviewed common-exercise image mappings, 36 static pose images, 18 thumbnails, and licensed anterior/posterior SVG anatomy. All 1,324 exercise metadata records remain searchable; unmapped exercises have anatomy and instructions.
+Fitness opens on Today. Choose a common training item to create a completed, private check-in. Today/yesterday/calendar select the date. There is no required name, duration, start/end time, exercise, or measurement. Suggestions rank the owner's last 90 days by frequency and recency; initial ordering is cardio, back, chest, legs, shoulders, arms, core, other.
 
-## Verification
+After saving, Add details updates the same record. Undo removes that new record. Log another explicitly starts another check-in. An in-memory idempotency receipt prevents double taps and ambiguous retry responses from creating duplicates.
 
-- Astro strict check and production build passed.
-- 44 Vitest tests passed, including partial-set validation, recording metrics, configured timezone conversion, DST gaps and posterior muscle mapping.
-- Full 12-scenario Playwright suite passed after restarting the production preview; subsequent focused seven-scenario pass covers the final recording changes plus a new discard/restore scenario (13 distinct E2E scenarios overall).
-- Desktop/mobile at 320, 390, 768 and 1440 px, Chinese/English, light/dark, axe accessibility, privacy, template copies, JSON restoration, conflict and duplicate completion checked.
-- Fresh SQLite database accepted all migrations; local and remote D1 accepted migration 0005. Production exercise-media associations imported explicitly.
+Start workout opens a live workspace or offers to resume an existing session. Choose categories or exercises before completing. Every set measurement is optional; Log set explicitly acknowledges a completed set. Planned/untouched sets stay unfinished and remain available after completion. Valid measurement input does not silently complete a set. Number presets, weight increments, recent measurements, and previous-set inheritance reduce typing.
 
-## Boundaries
+Add details contains duration presets, date, optional exact times, name and note. Exact times only persist after the user enters them; there is no fictional default duration. Public/private controls remain in completed-record details. Autosaves are serialized with an 800 ms debounce; structure changes submit immediately. Error/conflict states preserve input. Only server-confirmed saves survive refresh; no offline write queue is provided.
 
-Only acknowledged server saves survive refresh. Save failures retain inputs in the open page and provide retry; there is no offline write queue. No rest timer or pause accounting is included. Visual QA uses browser emulation; a physical-device keyboard/PWA check remains useful after release.
+## Data and compatibility
 
-Deployment uses the existing GitHub main → Cloudflare Workers Builds pipeline. No paid plan or additional cloud service was enabled for this change.
+Migration 0006 adds `workout_date`, `time_precision` (`date` or `exact`) and nullable `duration_seconds`. Existing records default to exact and retain all timestamps. Date-only check-ins store a noon timestamp in their recording timezone solely to satisfy the legacy non-null column and sort within the day. `workoutDay` uses the explicit date for these records; `knownWorkoutSeconds` never infers elapsed time from their anchor.
+
+A completed session requires a training category or an exercise. Legacy JSON without the new fields is normalized on import; uncategorized old quick records become Other without renaming. Schema version remains 1 with optional additive fields. Export excludes credentials and sessions.
+
+Frequency/streak include check-ins without measurements. Volume requires completed weight × reps. Maximum-weight PR permits weight alone; Epley 1RM still needs eligible reps. Missing metrics render as unknown, not as a measured zero. Only completed, explicitly public records enter visitor data; ongoing sessions remain private.
+
+## Verification and release
+
+`pnpm test`, `pnpm build`, and `pnpm exec playwright test` cover optional measurements, date precision/timezones, cross-midnight edits, live recovery, failed-save retries, revision conflicts, duplicate completion/check-in, private access, templates, old/new JSON and responsive accessibility.
+
+Push main → existing Cloudflare Workers Builds → tests/build → explicit D1 migrations → Worker deployment. This update requires no new paid service. Browser-based mobile testing does not replace a physical-device keyboard/PWA check.

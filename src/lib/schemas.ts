@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { validCompletedSet } from './fitness-recording';
 export const idSchema = z
   .string()
   .min(1)
@@ -17,40 +16,22 @@ export const timeZoneSchema = z
       return false;
     }
   });
-export const setSchema = z
-  .object({
-    id: idSchema,
-    reps: z.number().int().min(1).max(10000).nullable(),
-    weight: z.number().min(0).max(2000).nullable(),
-    duration: z.number().positive().max(604800).nullable(),
-    distance: z.number().positive().max(10000000).nullable(),
-    rpe: z.number().min(1).max(10).nullable(),
-    note: z.string().max(1000),
-    completed: z.boolean(),
-  })
-  .refine((s) => !s.completed || s.reps !== null || s.duration !== null || s.distance !== null, {
-    message: 'A completed set needs reps, duration or distance',
-  })
-  .refine((s) => !s.completed || s.weight === null || s.reps !== null, {
-    message: 'Weight requires reps',
-  });
-export const sessionExerciseSchema = z
-  .object({
-    id: idSchema,
-    exercise_id: idSchema,
-    recording_type: z.enum(['auto', 'weight', 'reps', 'duration', 'cardio']).default('auto'),
-    sets: z.array(setSchema).max(100),
-  })
-  .superRefine((exercise, ctx) => {
-    exercise.sets.forEach((set, index) => {
-      if (set.completed && !validCompletedSet(set, exercise.recording_type))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['sets', index],
-          message: 'Complete the required fields for this recording type',
-        });
-    });
-  });
+export const setSchema = z.object({
+  id: idSchema,
+  reps: z.number().int().min(1).max(10000).nullable(),
+  weight: z.number().min(0).max(2000).nullable(),
+  duration: z.number().positive().max(604800).nullable(),
+  distance: z.number().positive().max(10000000).nullable(),
+  rpe: z.number().min(1).max(10).nullable(),
+  note: z.string().max(1000),
+  completed: z.boolean(),
+});
+export const sessionExerciseSchema = z.object({
+  id: idSchema,
+  exercise_id: idSchema,
+  recording_type: z.enum(['auto', 'weight', 'reps', 'duration', 'cardio']).default('auto'),
+  sets: z.array(setSchema).max(100),
+});
 export const workoutSchema = z
   .object({
     id: idSchema,
@@ -60,6 +41,9 @@ export const workoutSchema = z
     body_parts: z
       .array(z.enum(['back', 'chest', 'legs', 'shoulders', 'arms', 'core', 'cardio', 'other']))
       .max(8),
+    workout_date: z.iso.date().nullable().optional(),
+    time_precision: z.enum(['date', 'exact']).default('exact'),
+    duration_seconds: z.number().int().min(0).max(604800).nullable().optional(),
     start_at: z.iso.datetime(),
     end_at: z.iso.datetime().nullable(),
     timezone: timeZoneSchema,
@@ -74,17 +58,15 @@ export const workoutSchema = z
     path: ['end_at'],
     message: 'End must follow start',
   })
-  .refine((w) => w.status !== 'completed' || !!w.end_at, {
-    path: ['end_at'],
-    message: 'Completed workouts require an end time',
+  .refine((w) => w.time_precision !== 'date' || (!!w.workout_date && !w.end_at), {
+    path: ['workout_date'],
+    message: 'Date-only records need a date and no end timestamp',
   })
   .refine((w) => w.mode !== 'quick' || w.exercises.length === 0)
-  .refine(
-    (w) =>
-      w.mode !== 'detailed' ||
-      w.status !== 'completed' ||
-      w.exercises.some((e) => e.sets.some((s) => s.completed)),
-  );
+  .refine((w) => w.status !== 'completed' || w.body_parts.length > 0 || w.exercises.length > 0, {
+    path: ['body_parts'],
+    message: 'Choose a training item',
+  });
 export const templateSchema = z.object({
   id: idSchema,
   name: z.string().trim().min(1).max(120),

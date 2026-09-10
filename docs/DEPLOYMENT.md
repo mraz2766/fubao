@@ -80,8 +80,10 @@ Workers Free is $0. R2 Standard includes 10 GB-month storage, 1 million Class A 
 
 ## Fitness recording upgrade
 
-Migration `0005_fitness_recording.sql` adds revisions and recording types without rewriting previous training data. Workout updates use atomic revision guards plus changed-row writes; empty planned sets are allowed, completed sets require valid metrics. Automatic saves wait 800 ms after input and serialize requests. Draft/active workouts stay excluded from visitor queries and statistics. There is no offline write queue: only server-confirmed saves survive a refresh.
+Migration `0005_fitness_recording.sql` adds revisions and recording types without rewriting previous training data. Workout updates use atomic revision guards plus changed-row writes; all measurements are optional; supplied values are validated, and completed sets require explicit acknowledgment. Automatic saves wait 800 ms after input and serialize requests. Draft/active workouts stay excluded from visitor queries and statistics. There is no offline write queue: only server-confirmed saves survive a refresh.
 
 Run `pnpm data:sync:fitness-media --dry-run` to validate the pinned image mappings; run without the flag for local D1 or add `--remote` for production. The script builds static WebP assets and approved D1 media associations. Source images are fetched only by this explicit command, never during builds or page requests. Keep `data/exercise-media-mapping.json`, `src/data/exercise-media.json`, static assets, and license notices together. Unmapped exercises remain available with body diagrams and instructions.
 
 The first release maps 18 common exercises (36 pose images + 18 thumbnails, approximately 1 MB). It does not claim image coverage for all 1,324 metadata records. Similar names with different grip/equipment were excluded. Add new mappings only after comparing movement and equipment.
+
+Migration `0006_simple_checkin.sql` adds date precision and nullable duration without changing old timestamps. Apply it before deploying the new Worker (the existing `deploy:ci` command already does this). Check-in and backup compatibility are documented in `FITNESS-RECORDING.md`. Generated static world geometry and Animata notices ship with the application; builds never download datasets or media.

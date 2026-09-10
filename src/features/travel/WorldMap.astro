@@ -1,32 +1,23 @@
 ---
-import { geoNaturalEarth1, geoPath } from 'd3-geo';
-import world from '../../data/world.json';
-import type { GeoPermissibleObjects } from 'd3-geo';
+import geometry from '../../data/world-paths.json';
 const {
   visited = [],
   wishlist = [],
   compact = false,
 } = Astro.props as { visited?: string[]; wishlist?: string[]; compact?: boolean };
-const projection = geoNaturalEarth1().fitExtent(
-  [
-    [8, 8],
-    [792, 382],
-  ],
-  world as unknown as GeoPermissibleObjects,
-);
-const path = geoPath(projection);
 ---
 
 <svg viewBox="0 0 800 390" class:list={['world-map', { compact }]} aria-hidden="true">
   <g>
-    {world.features.map((f) => (
-      <path
-        d={path(f as unknown as GeoPermissibleObjects) ?? ''}
+    {geometry.countries.map((f) => (
+      <use
+        href={compact ? undefined : `${geometry.asset}#country-${f.code}`}
+        data-map-href={compact ? `${geometry.asset}#country-${f.code}` : undefined}
         class:list={[
           'country',
           {
-            visited: visited.includes(String(f.properties.code)),
-            wish: wishlist.includes(String(f.properties.code)),
+            visited: visited.includes(String(f.code)),
+            wish: wishlist.includes(String(f.code)),
           },
         ]}
       />
@@ -57,3 +48,18 @@ const path = geoPath(projection);
     max-height: 210px;
   }
 </style>
+
+<script>
+  // Hidden maps do not compete with the first-screen photo for network bandwidth.
+  document.querySelectorAll<HTMLDetailsElement>('.dashboard-map').forEach((details) => {
+    const load = () => {
+      if (details.open)
+        details.querySelectorAll<SVGUseElement>('[data-map-href]').forEach((use) => {
+          use.setAttribute('href', use.dataset.mapHref!);
+          delete use.dataset.mapHref;
+        });
+    };
+    details.addEventListener('toggle', load);
+    load();
+  });
+</script>

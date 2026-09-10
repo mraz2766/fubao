@@ -1,4 +1,4 @@
-import { all, db, first, ownerId, statement } from '../db';
+import { all, db, first, statement } from '../db';
 import {
   defaultPreferences,
   defaultWidgets,
@@ -7,27 +7,22 @@ import {
 } from '../../types/domain';
 import { preferencesSchema } from '../../lib/schemas';
 export async function getPreferences(userId?: string | null): Promise<Preferences> {
-  const id = userId ?? (await ownerId());
-  if (!id) return { ...defaultPreferences };
   const row = await first<{ preferences: string }>(
-    'SELECT preferences FROM user_settings WHERE user_id=?',
-    id,
+    'SELECT preferences FROM user_settings WHERE user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))',
+    userId ?? null,
   );
   if (!row) return { ...defaultPreferences };
   const parsed = preferencesSchema.safeParse(JSON.parse(row.preferences));
   return parsed.success ? parsed.data : { ...defaultPreferences };
 }
 export async function getWidgets(): Promise<Widget[]> {
-  const id = await ownerId();
-  if (!id) return defaultWidgets;
   const rows = await all<{
     key: Widget['key'];
     visible: number;
     size: Widget['size'];
     position: number;
   }>(
-    'SELECT key,visible,size,position FROM dashboard_widgets WHERE user_id=? ORDER BY position',
-    id,
+    'SELECT key,visible,size,position FROM dashboard_widgets WHERE user_id=(SELECT id FROM users ORDER BY created_at LIMIT 1) ORDER BY position',
   );
   return rows.length
     ? rows.map((r) => ({ key: r.key, visible: !!r.visible, size: r.size, order: r.position }))

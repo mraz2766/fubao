@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import mediaManifest from '../../data/exercise-media.json';
-import { validCompletedSet } from '../../lib/fitness-recording';
-import { all, db, first, ownerId, statement } from '../db';
+import { trainingPart, validCompletedSet } from '../../lib/fitness-recording';
+import { all, db, first, statement } from '../db';
 import { HttpError } from '../http';
 import { workoutSchema, templateSchema } from '../../lib/schemas';
 import type {
@@ -16,24 +16,26 @@ type WorkoutRow = Omit<Workout, 'body_parts' | 'exercises'> & { body_parts: stri
 type ExerciseRow = Omit<SessionExercise, 'sets'> & { session_id: string };
 type SetRow = Omit<FitnessSet, 'completed'> & { session_exercise_id: string; completed: number };
 export async function listWorkouts(user: User | null, id?: string): Promise<Workout[]> {
-  const owner = user?.id ?? (await ownerId());
-  if (!owner) return [];
-  const scope = `s.user_id=?${user ? '' : " AND s.visibility='public' AND s.status='completed'"}${id ? ' AND s.id=?' : ''}`;
+  const owner = user?.id ?? null;
+  const scope = `s.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND s.visibility='public' AND s.status='completed'"}${id ? ' AND s.id=?' : ''}`;
   const bindings = id ? [owner, id] : [owner];
-  const [sessions, exercises, sets] = await Promise.all([
-    all<WorkoutRow>(
+  const results = await db().batch([
+    statement(
       `SELECT s.* FROM fitness_sessions s WHERE ${scope} ORDER BY s.start_at DESC`,
       ...bindings,
     ),
-    all<ExerciseRow>(
+    statement(
       `SELECT e.id,e.session_id,e.exercise_id,l.name_en,l.name_zh,l.target,l.equipment,e.recording_type FROM fitness_session_exercises e JOIN exercise_library l ON l.id=e.exercise_id JOIN fitness_sessions s ON s.id=e.session_id WHERE ${scope} ORDER BY e.position`,
       ...bindings,
     ),
-    all<SetRow>(
+    statement(
       `SELECT f.* FROM fitness_sets f JOIN fitness_session_exercises e ON e.id=f.session_exercise_id JOIN fitness_sessions s ON s.id=e.session_id WHERE ${scope} ORDER BY f.position`,
       ...bindings,
     ),
   ]);
+  const sessions = results[0].results as unknown as WorkoutRow[];
+  const exercises = results[1].results as unknown as ExerciseRow[];
+  const sets = results[2].results as unknown as SetRow[];
   const setMap = new Map<string, FitnessSet[]>();
   for (const row of sets) {
     const { session_exercise_id, ...set } = row;
@@ -50,7 +52,11 @@ export async function listWorkouts(user: User | null, id?: string): Promise<Work
   }
   return sessions.map((s) => ({
     ...s,
-    body_parts: JSON.parse(s.body_parts),
+    body_parts: JSON.parse(s.body_parts).length
+      ? JSON.parse(s.body_parts)
+      : [...new Set((exerciseMap.get(s.id) ?? []).map((e) => trainingPart(e.target)))].concat(
+          (exerciseMap.get(s.id) ?? []).length || s.status !== 'completed' ? [] : ['other'],
+        ),
     exercises: exerciseMap.get(s.id) ?? [],
   }));
 }
@@ -80,6 +86,16 @@ export async function saveWorkout(userId: string, input: unknown) {
       w.exercises.reduce((n, e) => n + e.sets.length, 0)
   )
     throw new HttpError(400, 'INVALID_INPUT');
+  if (!w.body_parts.length && w.exercises.length) {
+    for (const e of w.exercises) {
+      const row = await first<{ target: string }>(
+        'SELECT target FROM exercise_library WHERE id=?',
+        e.exercise_id,
+      );
+      if (row) w.body_parts.push(trainingPart(row.target));
+    }
+    w.body_parts = [...new Set(w.body_parts)];
+  }
   const guard = crypto.randomUUID();
   const statements = existing
     ? [
@@ -94,7 +110,7 @@ export async function saveWorkout(userId: string, input: unknown) {
     : [];
   statements.push(
     statement(
-      `INSERT INTO fitness_sessions(id,user_id,title,mode,status,body_parts,start_at,end_at,timezone,note,visibility,updated_at,revision,last_mutation_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ${existing ? 'ON CONFLICT(id) DO UPDATE SET title=excluded.title,mode=excluded.mode,status=excluded.status,body_parts=excluded.body_parts,start_at=excluded.start_at,end_at=excluded.end_at,timezone=excluded.timezone,note=excluded.note,visibility=excluded.visibility,updated_at=excluded.updated_at,revision=excluded.revision,last_mutation_id=excluded.last_mutation_id' : ''}`,
+      `INSERT INTO fitness_sessions(id,user_id,title,mode,status,body_parts,start_at,end_at,timezone,note,visibility,updated_at,revision,last_mutation_id,workout_date,time_precision,duration_seconds) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ${existing ? 'ON CONFLICT(id) DO UPDATE SET title=excluded.title,mode=excluded.mode,status=excluded.status,body_parts=excluded.body_parts,start_at=excluded.start_at,end_at=excluded.end_at,timezone=excluded.timezone,note=excluded.note,visibility=excluded.visibility,updated_at=excluded.updated_at,revision=excluded.revision,last_mutation_id=excluded.last_mutation_id,workout_date=excluded.workout_date,time_precision=excluded.time_precision,duration_seconds=excluded.duration_seconds' : ''}`,
       w.id,
       userId,
       w.title,
@@ -105,10 +121,13 @@ export async function saveWorkout(userId: string, input: unknown) {
       w.end_at,
       w.timezone,
       w.note,
-      w.visibility,
+      w.status === 'completed' ? w.visibility : 'private',
       new Date().toISOString(),
       (existing?.revision ?? 0) + 1,
       w.mutation_id ?? null,
+      w.workout_date ?? null,
+      w.time_precision,
+      w.duration_seconds ?? null,
     ),
   );
   for (const old of existing?.exercises ?? []) {

@@ -39,3 +39,5 @@ if (!dryRun) {
 console.log(
   `${dryRun ? 'Validated' : 'Saved'} ${features.length} countries; source ${s.commit}; SHA256 ${s.sha256}`,
 );
+
+if (!dryRun) await import('./render-world-map');

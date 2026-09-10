@@ -30,24 +30,22 @@ test('owner quick check-in remains private until published', async ({ page, requ
   await page.getByRole('button', { name: '进入 Fubao' }).click();
   await expect(page).toHaveURL('/');
   await page.goto('/fitness');
-  await page.getByRole('button', { name: '快速打卡' }).click();
-  await page.getByLabel('训练类型').fill('E2E 私人打卡');
-  await page.getByLabel('开始时间').fill('2026-09-09T18:05');
-  await page.getByLabel('结束时间').fill('2026-09-09T19:22');
-  await page.getByRole('button', { name: '进入记录', exact: true }).click();
-  await expect(page).toHaveURL(/\/fitness\/[a-f0-9-]+$/);
-  const id = new URL(page.url()).pathname.split('/').at(-1)!;
+  const receipt = page.waitForResponse(
+    (r) => r.url().endsWith('/api/fitness/checkin') && r.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: '背部', exact: true }).click();
+  const saved = await (await receipt).json(),
+    id = saved.id;
   try {
-    await page.getByRole('button', { name: '完成训练', exact: true }).click();
-    await page.getByRole('button', { name: '确认保存', exact: true }).click();
-    await expect(page.locator('.workout-workspace')).toHaveCount(0);
+    expect(saved.time_precision).toBe('date');
+    expect(saved.end_at).toBeNull();
+    expect(saved.duration_seconds).toBeNull();
     expect((await request.get(`/api/fitness/sessions/${id}`)).status()).toBe(404);
-    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await page.getByRole('button', { name: '补充记录', exact: true }).click();
+    await page.locator('summary').filter({ hasText: '可见范围' }).click();
     await page.getByLabel('可见范围').selectOption('public');
-    await page.getByRole('button', { name: '保存', exact: true }).click();
-    await page.getByRole('button', { name: '确认保存', exact: true }).click();
+    await page.locator('.record-footer').getByRole('button', { name: '保存', exact: true }).click();
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'E2E 私人打卡', exact: true })).toBeVisible();
     expect((await request.get(`/api/fitness/sessions/${id}`)).status()).toBe(200);
   } finally {
     await page.request.delete(`/api/fitness/sessions/${id}`, { headers });

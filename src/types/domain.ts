@@ -77,6 +77,9 @@ export interface SessionExercise {
   sets: FitnessSet[];
 }
 export interface Workout {
+  workout_date?: string | null;
+  time_precision?: 'date' | 'exact';
+  duration_seconds?: number | null;
   revision?: number;
   mutation_id?: string;
   id: string;

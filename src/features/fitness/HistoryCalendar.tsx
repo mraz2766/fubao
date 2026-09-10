@@ -16,7 +16,14 @@ export default function HistoryCalendar({
   today: string;
   days: Record<
     string,
-    { count: number; minutes: number; volume: number; sets: number; exercises: number }
+    {
+      count: number;
+      minutes: number;
+      durationKnown?: boolean;
+      volume: number;
+      sets: number;
+      exercises: number;
+    }
   >;
   selected?: string;
 }) {
@@ -127,10 +134,10 @@ export default function HistoryCalendar({
                     : undefined,
                 }}
                 href={`/fitness?day=${day}`}
-                aria-label={`${day}: ${data ? `${data.count} ${t('common.times')}, ${Math.round(data.minutes)} ${t('common.minutes')}, ${data.exercises} ${t('fitness.library')}, ${data.sets} ${t('fitness.set')}` : t('dashboard.rest')}`}
+                aria-label={`${day}: ${data ? `${data.count} ${t('common.times')}, ${data.durationKnown ? `${Math.round(data.minutes)} ${t('common.minutes')}` : t('simple.notRecorded')}, ${data.exercises} ${t('fitness.library')}, ${data.sets} ${t('fitness.set')}` : t('dashboard.rest')}`}
                 title={
                   data
-                    ? `${Math.round(data.minutes)} min · ${data.sets} sets · ${Math.round(data.volume)} kg`
+                    ? `${data.durationKnown ? `${Math.round(data.minutes)} ${t('common.minutes')}` : t('simple.notRecorded')} · ${data.sets} ${t('fitness.set')}`
                     : day
                 }
               >

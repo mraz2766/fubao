@@ -1,0 +1,16 @@
+---
+// Adapted from Animata Slide Arrow Button, MIT. See public/licenses/animata.txt.
+import { ArrowRight } from 'lucide-react';
+const {
+  href,
+  label,
+  class: className = '',
+} = Astro.props as { href: string; label: string; class?: string };
+---
+
+<a href={href} class:list={['animata-slide', className]}>
+  <span class="slide-fill" aria-hidden="true">
+    <ArrowRight size={17} />
+  </span>
+  <span class="slide-label">{label}</span>
+</a>

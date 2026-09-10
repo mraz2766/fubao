@@ -7,16 +7,37 @@ export function recordingType(
   if (/run|treadmill|bicycl|elliptical|rowing machine/i.test(e.name_en)) return 'cardio';
   return e.equipment === 'body weight' ? 'reps' : 'weight';
 }
-export function validCompletedSet(s: FitnessSet, type: RecordingType) {
-  if (type === 'weight') return s.weight !== null && s.weight >= 0 && s.reps !== null && s.reps > 0;
-  if (type === 'reps') return s.reps !== null && s.reps > 0;
-  if (type === 'duration') return s.duration !== null && s.duration > 0;
-  if (type === 'cardio')
-    return s.duration !== null && s.duration > 0 && s.distance !== null && s.distance > 0;
+// Completion is an explicit user action; only supplied measurements are validated.
+export function validCompletedSet(s: FitnessSet, _type: RecordingType) {
   return (
-    (s.reps !== null || s.duration !== null || s.distance !== null) &&
-    (s.weight === null || s.reps !== null)
+    (s.weight === null || (Number.isFinite(s.weight) && s.weight >= 0 && s.weight <= 2000)) &&
+    (s.reps === null || (Number.isInteger(s.reps) && s.reps >= 1 && s.reps <= 10000)) &&
+    (s.duration === null ||
+      (Number.isFinite(s.duration) && s.duration > 0 && s.duration <= 604800)) &&
+    (s.distance === null ||
+      (Number.isFinite(s.distance) && s.distance > 0 && s.distance <= 10000000)) &&
+    (s.rpe === null || (Number.isFinite(s.rpe) && s.rpe >= 1 && s.rpe <= 10))
   );
+}
+export const trainingParts = [
+  'cardio',
+  'back',
+  'chest',
+  'legs',
+  'shoulders',
+  'arms',
+  'core',
+  'other',
+] as const;
+export function trainingPart(target: string): (typeof trainingParts)[number] {
+  if (/cardio|cardiovascular/i.test(target)) return 'cardio';
+  if (/back|lat|trap|spine/i.test(target)) return 'back';
+  if (/chest|pectoral|serratus/i.test(target)) return 'chest';
+  if (/leg|quad|hamstring|glute|calv|calves|adductor|abductor/i.test(target)) return 'legs';
+  if (/shoulder|delt/i.test(target)) return 'shoulders';
+  if (/arm|bicep|tricep|forearm/i.test(target)) return 'arms';
+  if (/abs|abdominal|core|oblique/i.test(target)) return 'core';
+  return 'other';
 }
 export const blankSet = (): FitnessSet => ({
   id: crypto.randomUUID(),

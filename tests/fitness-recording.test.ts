@@ -12,13 +12,13 @@ describe('fitness recording', () => {
   it('persists a partially entered weight until the set is completed', () => {
     const s = { ...blankSet(), weight: 100 };
     expect(setSchema.safeParse(s).success).toBe(true);
-    expect(setSchema.safeParse({ ...s, completed: true }).success).toBe(false);
+    expect(setSchema.safeParse({ ...s, completed: true }).success).toBe(true);
     expect(validCompletedSet({ ...s, reps: 8 }, 'weight')).toBe(true);
   });
-  it('requires relevant metrics without inventing cardio or bodyweight volume', () => {
+  it('allows omitted measurements for every recording type', () => {
     expect(validCompletedSet({ ...blankSet(), reps: 10 }, 'reps')).toBe(true);
     expect(validCompletedSet({ ...blankSet(), duration: 60 }, 'duration')).toBe(true);
-    expect(validCompletedSet({ ...blankSet(), duration: 600 }, 'cardio')).toBe(false);
+    expect(validCompletedSet({ ...blankSet(), duration: 600 }, 'cardio')).toBe(true);
     expect(validCompletedSet({ ...blankSet(), duration: 600, distance: 1000 }, 'cardio')).toBe(
       true,
     );

@@ -56,19 +56,21 @@ describe('fitness validation', () => {
     start_at: '2026-09-10T08:00:00Z',
     end_at: '2026-09-10T09:00:00Z',
     timezone: 'Asia/Shanghai',
-    body_parts: [],
+    body_parts: ['back'],
     note: '',
     visibility: 'private',
     exercises: [],
   };
   it('allows quick check-in without any exercises', () =>
     expect(workoutSchema.safeParse(w).success).toBe(true));
-  it('rejects a completed workout without an end', () =>
-    expect(workoutSchema.safeParse({ ...w, end_at: null }).success).toBe(false));
+  it('allows completed workouts with unknown duration', () =>
+    expect(workoutSchema.safeParse({ ...w, end_at: null }).success).toBe(true));
   it('rejects reversed timestamps', () =>
     expect(workoutSchema.safeParse({ ...w, end_at: '2026-09-10T07:00:00Z' }).success).toBe(false));
-  it('requires measurable completed detailed sets', () =>
-    expect(workoutSchema.safeParse({ ...w, mode: 'detailed' }).success).toBe(false));
+  it('requires a training item but no measurements', () => {
+    expect(workoutSchema.safeParse({ ...w, mode: 'detailed' }).success).toBe(true);
+    expect(workoutSchema.safeParse({ ...w, body_parts: [] }).success).toBe(false);
+  });
   it('validates RPE and weight/rep relationship', () => {
     const s = {
       id: 'set1',

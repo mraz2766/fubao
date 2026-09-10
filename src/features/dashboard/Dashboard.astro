@@ -1,6 +1,8 @@
 ---
-import { ArrowUpRight, Dumbbell, MapPin, Check, Clock, ArrowRight } from 'lucide-react';
+import { ArrowUpRight, Dumbbell, MapPin, Check, Clock } from 'lucide-react';
 import { ProgressBar } from '../../components/ui/progress-bar';
+import TiltedCover from '../../components/animata/TiltedCover.astro';
+import SlideArrow from '../../components/animata/SlideArrow.astro';
 import WorldMap from '../travel/WorldMap.astro';
 import { translator } from '../../lib/i18n';
 import { fitnessSummary, toDisplayWeight, travelDays } from '../../lib/analytics';
@@ -110,7 +112,7 @@ const dateText = (
                   {t('common.today')}
                 </span>
                 <h3>{today?.title ?? t('dashboard.noWorkout')}</h3>
-                {today ? (
+                {today && today.time_precision !== 'date' ? (
                   <p class="muted">
                     {dateText(today.start_at, { hour: '2-digit', minute: '2-digit' })} —{' '}
                     {today.end_at
@@ -118,12 +120,7 @@ const dateText = (
                       : ''}
                   </p>
                 ) : (
-                  owner && (
-                    <a href="/fitness?new=1" class="text-link">
-                      {t('fitness.start')}
-                      <ArrowRight size={14} />
-                    </a>
-                  )
+                  !today && owner && <SlideArrow href="/fitness" label={t('fitness.quick')} />
                 )}
               </div>
             </div>
@@ -135,7 +132,7 @@ const dateText = (
               </div>
               <div class="stat">
                 <strong>
-                  {Math.round(summary.weekSeconds / 60)}
+                  {summary.weekDurationKnown ? Math.round(summary.weekSeconds / 60) : '—'}
                   <small> {t('common.minutes')}</small>
                 </strong>
                 <span>
@@ -151,9 +148,11 @@ const dateText = (
               </div>
               <div class="stat">
                 <strong>
-                  {Math.round(
-                    toDisplayWeight(summary.weekVolume, preferences.weightUnit),
-                  ).toLocaleString(locale)}
+                  {summary.weekVolumeKnown
+                    ? Math.round(
+                        toDisplayWeight(summary.weekVolume, preferences.weightUnit),
+                      ).toLocaleString(locale)
+                    : '—'}
                 </strong>
                 <span>
                   {t('dashboard.volume')} · {preferences.weightUnit}
@@ -177,34 +176,36 @@ const dateText = (
                 <ArrowUpRight size={18} />
               </a>
             </div>
-            {recentTrip ? (
-              <a href={`/travel/${recentTrip.id}`} class="dashboard-landscape">
-                <img
-                  src={`/api/media/${recentTrip.photos[0]?.id}/large`}
-                  alt={
-                    locale === 'zh-CN'
-                      ? recentTrip.location.name_zh || recentTrip.location.name
-                      : recentTrip.location.name
-                  }
-                  width="640"
-                  height="360"
-                  loading="lazy"
-                />
-              </a>
-            ) : (
-              <a href="/travel?view=discover&spot=li-river" class="dashboard-landscape">
-                <img
-                  src="/scenery/li-river-small.webp"
-                  alt={locale === 'zh-CN' ? '漓江景点摄影' : 'Li River destination photography'}
-                  width="640"
-                  height="360"
-                />
-                <span>{t('travel.discover')} ↗</span>
-              </a>
-            )}
+            <TiltedCover
+              href={recentTrip ? `/travel/${recentTrip.id}` : '/travel?view=discover&spot=li-river'}
+              src={
+                recentTrip
+                  ? `/api/media/${recentTrip.photos[0]?.id}/thumbnail`
+                  : '/scenery/li-river-small.webp'
+              }
+              alt={
+                recentTrip
+                  ? locale === 'zh-CN'
+                    ? recentTrip.location.name_zh || recentTrip.location.name
+                    : recentTrip.location.name
+                  : locale === 'zh-CN'
+                    ? '漓江景点摄影'
+                    : 'Li River destination photography'
+              }
+              label={
+                recentTrip
+                  ? locale === 'zh-CN'
+                    ? recentTrip.location.name_zh || recentTrip.location.name
+                    : recentTrip.location.name
+                  : t('travel.discover')
+              }
+            />
             <details class="dashboard-map">
               <summary>{t('travel.map')}</summary>
               <WorldMap visited={countries} compact />
+              <noscript>
+                <a href="/travel?view=map&amp;scope=world">{t('travel.map')}</a>
+              </noscript>
             </details>
             <div class="stats">
               <div class="stat">
@@ -303,7 +304,11 @@ const dateText = (
                 </span>
                 <div class="recent-info">
                   <h3>{recentWorkout.title}</h3>
-                  <span class="small muted">{dateText(recentWorkout.start_at)}</span>
+                  <span class="small muted">
+                    {recentWorkout.time_precision === 'date'
+                      ? recentWorkout.workout_date
+                      : dateText(recentWorkout.start_at)}
+                  </span>
                 </div>
                 <ArrowUpRight size={16} />
               </a>

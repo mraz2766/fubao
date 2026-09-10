@@ -140,8 +140,7 @@ export default function Discover({
                 aria-label={name(d)}
               >
                 <img
-                  src={i === 0 ? d.image.src : d.image.thumbnail}
-                  srcSet={`${d.image.thumbnail} 640w, ${d.image.src} ${d.image.width}w`}
+                  src={d.image.thumbnail}
                   sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 45vw"
                   alt={name(d)}
                   width={d.image.width}

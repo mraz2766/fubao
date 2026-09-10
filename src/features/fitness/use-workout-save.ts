@@ -45,7 +45,11 @@ export function useWorkoutSave(initial: Workout, automatic: boolean) {
               ...(complete
                 ? {
                     status: 'completed' as const,
-                    end_at: current.current.end_at ?? new Date().toISOString(),
+                    end_at:
+                      current.current.time_precision === 'date'
+                        ? null
+                        : (current.current.end_at ??
+                          (current.current.status === 'active' ? new Date().toISOString() : null)),
                   }
                 : {}),
             };

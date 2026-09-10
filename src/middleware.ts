@@ -21,7 +21,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
   try {
     context.locals.user = await authenticate(context.cookies.get('fubao.session')?.value);
-    context.locals.preferences = await getPreferences(context.locals.user?.id);
+    const needsPreferences =
+      !isApi ||
+      ['/api/dashboard', '/api/fitness/analytics', '/api/fitness/checkin'].includes(
+        context.url.pathname,
+      ) ||
+      /\/api\/fitness\/templates\/[^/]+\/start$/.test(context.url.pathname);
+    if (needsPreferences)
+      context.locals.preferences = await getPreferences(context.locals.user?.id);
     if (!context.locals.user) {
       try {
         const display = JSON.parse(

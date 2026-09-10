@@ -177,3 +177,34 @@ it('round-trips imperial units without mutating stored values', () => {
   expect(toKg(toDisplayWeight(100, 'lb'), 'lb')).toBeCloseTo(100, 8);
   expect(toMeters(toDisplayDistance(5000, 'mile'), 'mile')).toBeCloseTo(5000, 8);
 });
+
+describe('optional measurements', () => {
+  it('keeps date-only check-ins stable across timezones and contributes no invented duration', async () => {
+    const { workoutDay, knownWorkoutSeconds } = await import('../src/lib/analytics');
+    const w = workout({
+      time_precision: 'date',
+      workout_date: '2026-09-09',
+      start_at: '2026-09-09T04:00:00Z',
+      end_at: null,
+      duration_seconds: null,
+      body_parts: ['back'],
+    });
+    expect(workoutDay(w, 'America/Los_Angeles')).toBe('2026-09-09');
+    expect(knownWorkoutSeconds(w)).toBeNull();
+    const summary = fitnessSummary([w], defaultPreferences, new Date('2026-09-10T08:00:00Z'));
+    expect(summary.weekCount).toBe(1);
+    expect(summary.current).toBe(1);
+    expect(summary.weekSeconds).toBe(0);
+    expect(summary.durationKnown).toBe(false);
+    expect(knownWorkoutSeconds({ ...w, duration_seconds: 2700 })).toBe(2700);
+  });
+  it('recognizes weight-only PR without fabricating volume or estimated 1RM', () => {
+    const w = detailed();
+    w.exercises[0].sets[0].reps = null;
+    expect(workoutVolume(w)).toBe(0);
+    expect(personalRecords([w])[0].weight).toBe(100);
+    expect(personalRecords([w])[0].estimated).toBe(0);
+    w.exercises[0].sets[0].weight = null;
+    expect(personalRecords([w])).toEqual([]);
+  });
+});

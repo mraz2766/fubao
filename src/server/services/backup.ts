@@ -39,6 +39,19 @@ export async function exportBackup(user: User) {
     sources,
   };
 }
+const legacyWorkoutSchema = z.preprocess((input) => {
+  if (!input || typeof input !== 'object') return input;
+  const w = input as Record<string, unknown>;
+  if (
+    !('time_precision' in w) &&
+    Array.isArray(w.body_parts) &&
+    !w.body_parts.length &&
+    Array.isArray(w.exercises) &&
+    !w.exercises.length
+  )
+    return { ...w, body_parts: ['other'] };
+  return input;
+}, workoutSchema);
 const photo = z.object({
   id: idSchema,
   large_key: z.string().max(500),
@@ -77,7 +90,7 @@ export const backupSchema = z.object({
   schemaVersion: z.literal(1),
   exportedAt: z.iso.datetime(),
   fitness: z.object({
-    sessions: z.array(workoutSchema).max(20000),
+    sessions: z.array(legacyWorkoutSchema).max(20000),
     templates: z.array(templateSchema).max(2000),
     favorites: z.array(idSchema).max(20000),
   }),
@@ -114,7 +127,7 @@ export async function previewBackup(user: User, input: unknown) {
   };
 }
 export const importItemSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('session'), value: workoutSchema }),
+  z.object({ kind: z.literal('session'), value: legacyWorkoutSchema }),
   z.object({ kind: z.literal('template'), value: templateSchema }),
   z.object({ kind: z.literal('trip'), value: entry }),
   z.object({ kind: z.literal('wishlist'), value: wish }),

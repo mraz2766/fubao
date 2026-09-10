@@ -28,8 +28,21 @@ export const workoutVolume = (w: Workout) =>
         ),
       0,
     );
-export const workoutSeconds = (w: Workout) =>
-  w.end_at ? Math.max(0, (Date.parse(w.end_at) - Date.parse(w.start_at)) / 1000) : 0;
+export const workoutDay = (w: Workout, timezone: string) =>
+  w.time_precision === 'date' && w.workout_date ? w.workout_date : dayKey(w.start_at, timezone);
+export const knownWorkoutSeconds = (w: Workout): number | null =>
+  w.time_precision === 'date'
+    ? (w.duration_seconds ?? null)
+    : w.end_at
+      ? Math.max(0, (Date.parse(w.end_at) - Date.parse(w.start_at)) / 1000)
+      : null;
+export const workoutSeconds = (w: Workout) => knownWorkoutSeconds(w) ?? 0;
+export const hasWorkoutVolume = (w: Workout) =>
+  w.exercises.some(
+    (e) =>
+      (!e.recording_type || ['auto', 'weight'].includes(e.recording_type)) &&
+      e.sets.some((s) => s.completed && s.weight !== null && s.reps !== null),
+  );
 export const estimated1RM = (weight: number, reps: number) =>
   reps >= 1 && reps <= 10 && weight > 0 ? (reps === 1 ? weight : weight * (1 + reps / 30)) : null;
 export function streaks(days: string[], today: string) {
@@ -56,7 +69,7 @@ export function fitnessSummary(workouts: Workout[], p: Preferences, now = new Da
     weekStart = weekBeginning(today, p.weekStart),
     nextWeek = shiftDay(weekStart, 7);
   const complete = workouts.filter((w) => w.status === 'completed');
-  const daily = complete.map((w) => ({ w, day: dayKey(w.start_at, p.timezone) }));
+  const daily = complete.map((w) => ({ w, day: workoutDay(w, p.timezone) }));
   const week = daily.filter((x) => x.day >= weekStart && x.day < nextWeek).map((x) => x.w);
   return {
     today,
@@ -64,6 +77,10 @@ export function fitnessSummary(workouts: Workout[], p: Preferences, now = new Da
     todayWorkouts: daily.filter((x) => x.day === today).map((x) => x.w),
     weekCount: week.length,
     monthCount: daily.filter((x) => x.day.slice(0, 7) === today.slice(0, 7)).length,
+    weekDurationKnown: week.some((w) => knownWorkoutSeconds(w) !== null),
+    weekVolumeKnown: week.some(hasWorkoutVolume),
+    durationKnown: complete.some((w) => knownWorkoutSeconds(w) !== null),
+    volumeKnown: complete.some(hasWorkoutVolume),
     weekSeconds: week.reduce((n, w) => n + workoutSeconds(w), 0),
     weekVolume: week.reduce((n, w) => n + workoutVolume(w), 0),
     totalSeconds: complete.reduce((n, w) => n + workoutSeconds(w), 0),
@@ -98,7 +115,7 @@ export function personalRecords(workouts: Workout[]) {
       (e) => !e.recording_type || ['auto', 'weight'].includes(e.recording_type),
     ))
       for (const s of e.sets) {
-        if (!s.completed || !s.weight || !s.reps) continue;
+        if (!s.completed || !s.weight) continue;
         const current = records.get(e.exercise_id) ?? {
           exerciseId: e.exercise_id,
           name_en: e.name_en,
@@ -113,7 +130,7 @@ export function personalRecords(workouts: Workout[]) {
           current.weight = s.weight;
           current.date = w.start_at;
         }
-        current.estimated = Math.max(current.estimated, estimated1RM(s.weight, s.reps) ?? 0);
+        current.estimated = Math.max(current.estimated, estimated1RM(s.weight, s.reps ?? 0) ?? 0);
         records.set(e.exercise_id, current);
       }
   return [...records.values()].sort((a, b) => b.date.localeCompare(a.date));
@@ -130,8 +147,8 @@ export function muscleDistribution(
   for (const w of workouts)
     if (
       w.status === 'completed' &&
-      dayKey(w.start_at, timezone) >= from &&
-      dayKey(w.start_at, timezone) <= today
+      workoutDay(w, timezone) >= from &&
+      workoutDay(w, timezone) <= today
     )
       for (const e of w.exercises) {
         const n = e.sets.filter((s) => s.completed).length;

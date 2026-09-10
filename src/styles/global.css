@@ -2635,7 +2635,479 @@ textarea {
     gap: 8px;
   }
 }
-.record-metadata > summary { padding:12px 0; cursor:pointer; color:var(--muted); font-size:13px; }
-.record-metadata[open] > summary { margin-bottom:12px; }
-.workout-workspace .record-summary { padding-top:12px; }
-.skip-link:not(:focus) { clip-path:inset(50%); }
+.record-metadata > summary {
+  padding: 12px 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.record-metadata[open] > summary {
+  margin-bottom: 12px;
+}
+.workout-workspace .record-summary {
+  padding-top: 12px;
+}
+.skip-link:not(:focus) {
+  clip-path: inset(50%);
+}
+
+/* Daily recording: one action surface, secondary details on demand. */
+.quick-checkin {
+  padding: clamp(20px, 4vw, 40px) 0;
+}
+.quick-checkin .card-heading {
+  margin-top: 12px;
+}
+.quick-checkin h2 {
+  font-size: clamp(24px, 4vw, 32px);
+  letter-spacing: -0.035em;
+}
+.quick-checkin .card-heading p {
+  margin-top: 10px;
+}
+.date-options {
+  margin: 24px 0;
+}
+.checkin-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.checkin-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 18px;
+  min-height: 76px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 180ms,
+    transform 180ms;
+}
+.checkin-option:hover,
+.checkin-option:focus-visible {
+  background: var(--accent-soft);
+}
+.checkin-option:active {
+  transform: scale(0.98);
+}
+.checkin-option svg {
+  color: var(--accent);
+}
+.checkin-option:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.checkin-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 0;
+}
+.checkin-result > svg {
+  color: var(--accent);
+}
+.daily-recent {
+  margin: 24px 0;
+}
+.record-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.record-presets button {
+  min-height: 44px;
+  padding: 8px 12px;
+}
+.record-more {
+  margin: 10px 0;
+}
+.record-more summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.record-more[open] > .row-controls {
+  flex-wrap: wrap;
+}
+.record-set-inputs {
+  align-items: start;
+}
+@media (max-width: 600px) {
+  .checkin-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .checkin-option {
+    padding: 18px 14px;
+  }
+  .checkin-result .form-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .section-tabs {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkin-option {
+    transition: none;
+  }
+}
+
+/* Animata's color-led widgets and interaction patterns, adapted for SSR and touch.
+   MIT Copyright (c) Animata — /licenses/animata.txt */
+:root {
+  --coral: #a63932;
+  --coral-soft: #f5cec5;
+  --teal: #155e50;
+  --teal-soft: #c8e3d9;
+  --violet: #593f91;
+  --violet-soft: #ddd2f4;
+  --ink-blue: #343f84;
+  --ink-blue-soft: #d9ddf5;
+}
+[data-theme='dark'] {
+  --coral: #ffb9a8;
+  --coral-soft: #462e30;
+  --teal: #a5e5d3;
+  --teal-soft: #203f39;
+  --violet: #d6baff;
+  --violet-soft: #352a4d;
+  --ink-blue: #bfc7ff;
+  --ink-blue-soft: #292e4a;
+}
+body[data-page='home'] .page-header h1 {
+  letter-spacing: -0.055em;
+}
+.brand-mark {
+  background: #7450bc;
+  box-shadow: 3px 3px 0 var(--coral-soft);
+}
+.nav-item.active {
+  background: var(--violet-soft);
+  color: var(--violet);
+}
+.nav-item svg,
+.text-link svg {
+  transition: transform 180ms ease;
+}
+.nav-item:hover svg,
+.nav-item:focus-visible svg,
+.text-link:hover svg {
+  transform: translateY(-2px);
+}
+.bento > .card {
+  border: 0;
+  border-radius: 18px;
+}
+.bento .dashboard-fitness {
+  background: var(--coral-soft);
+  --accent: var(--coral);
+  --accent-soft: color-mix(in srgb, var(--coral) 12%, transparent);
+}
+.bento .dashboard-travel {
+  background: var(--teal-soft);
+  --accent: var(--teal);
+}
+.bento .dashboard-weekly {
+  background: var(--violet-soft);
+  padding: 26px;
+  --accent: var(--violet);
+}
+.bento .dashboard-recent {
+  background: var(--ink-blue-soft);
+  padding: 26px;
+  --accent: var(--ink-blue);
+}
+.bento .card-heading h2 svg {
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-radius: 10px;
+  color: var(--accent);
+}
+.bento .rule {
+  border-color: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.bento .ring-track {
+  stroke: color-mix(in srgb, var(--coral) 15%, transparent);
+}
+.bento .ring-value {
+  stroke: var(--coral);
+  stroke-width: 10;
+}
+.bento .progress-ring {
+  filter: none;
+}
+.bento .day-dot {
+  background: color-mix(in srgb, var(--violet) 10%, transparent);
+}
+.bento .day-dot.trained {
+  background: var(--violet);
+  color: var(--surface);
+}
+.bento .week-day.today {
+  background: color-mix(in srgb, var(--violet) 13%, transparent);
+}
+.bento .recent-icon {
+  background: color-mix(in srgb, var(--ink-blue) 12%, transparent);
+  color: var(--ink-blue);
+}
+.bento .stat strong {
+  font-variant-numeric: tabular-nums;
+}
+.animata-slide {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 10px 18px 10px 52px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.slide-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  background: #6741a5;
+  color: #fff;
+  transition: width 200ms ease;
+  z-index: -1;
+}
+.slide-label {
+  transition:
+    transform 200ms ease,
+    color 200ms ease;
+}
+.animata-slide:is(:hover, :focus-visible, :active) .slide-fill {
+  width: 100%;
+}
+.animata-slide:is(:hover, :focus-visible, :active) .slide-label {
+  color: #fff;
+  transform: translateX(-25px);
+}
+.animata-cover {
+  display: block;
+  position: relative;
+  margin: 14px 4px 24px;
+  isolation: isolate;
+  padding: 4px;
+}
+.cover-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: var(--teal);
+  opacity: 0.3;
+  transform: rotate(-3deg) scale(0.99);
+  transition: transform 230ms ease;
+  z-index: -1;
+}
+.cover-photo {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  transform: rotate(1deg);
+  transition: transform 230ms ease;
+}
+.cover-photo img {
+  display: block;
+  width: 100%;
+  height: 210px;
+  object-fit: cover;
+}
+.cover-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #132d26d9;
+  color: white;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.animata-cover:is(:hover, :focus-visible, :active) .cover-back {
+  transform: rotate(-5deg) scale(1.015);
+}
+.animata-cover:is(:hover, :focus-visible, :active) .cover-photo {
+  transform: rotate(0deg) translateY(-3px);
+}
+.section-tabs {
+  gap: 4px;
+  border: 0;
+  padding: 5px;
+  background: var(--surface-soft);
+  border-radius: 12px;
+  width: fit-content;
+  max-width: 100%;
+}
+.section-tabs a {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-height: 44px;
+  transition:
+    background 180ms,
+    color 180ms,
+    transform 180ms;
+}
+.section-tabs a.active {
+  background: var(--violet-soft);
+  color: var(--violet);
+  box-shadow: 0 2px 6px #00000007;
+}
+.section-tabs a:hover,
+.section-tabs a:focus-visible {
+  background: var(--surface);
+}
+.section-tabs a:active {
+  transform: scale(0.97);
+}
+.checkin-option:nth-child(4n + 1) {
+  background: var(--coral-soft);
+  color: var(--text);
+  border-color: transparent;
+}
+.checkin-option:nth-child(4n + 2) {
+  background: var(--violet-soft);
+  color: var(--text);
+  border-color: transparent;
+}
+.checkin-option:nth-child(4n + 3) {
+  background: var(--teal-soft);
+  color: var(--text);
+  border-color: transparent;
+}
+.checkin-option:nth-child(4n + 4) {
+  background: var(--ink-blue-soft);
+  color: var(--text);
+  border-color: transparent;
+}
+.checkin-option svg {
+  color: inherit;
+  opacity: 0.6;
+}
+.checkin-option:hover,
+.checkin-option:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.set-exercise {
+  border-left: 3px solid var(--violet);
+}
+.set-row.done {
+  background: var(--teal-soft);
+}
+body[data-page='travel'] .travel-statistics {
+  background: var(--teal-soft);
+  border-radius: 14px;
+  padding: 20px;
+}
+.destination-photo img,
+.travel-cover img {
+  transition: transform 230ms ease;
+}
+.destination-photo:is(:hover, :focus-visible, :active) img,
+.travel-card:is(:hover, :focus-visible, :active) img {
+  transform: scale(1.035);
+}
+.destination-arrow {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+body[data-page='settings'] .settings-section > h2 {
+  color: var(--violet);
+}
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+@media (max-width: 640px) {
+  .bento > .card {
+    border-radius: 14px;
+  }
+  .bento .dashboard-weekly,
+  .bento .dashboard-recent {
+    padding: 20px;
+  }
+  .cover-photo img {
+    height: 190px;
+  }
+  .section-tabs a {
+    padding: 9px 11px;
+  }
+  .page-header .animata-slide {
+    margin-top: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animata-slide *,
+  .animata-cover *,
+  .section-tabs a,
+  .nav-item svg,
+  .text-link svg,
+  .destination-photo img,
+  .travel-cover img {
+    transition: none !important;
+    transform: none !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+:root {
+  --muted-foreground: #57515f;
+}
+[data-theme='dark'] {
+  --muted-foreground: #beb5c9;
+}
+/* Theme changes must switch foreground and background together, preserving contrast. */
+.button,
+.section-tabs a,
+.checkin-option,
+.part-chip,
+.segmented button,
+.nav-item {
+  transition-property: transform, box-shadow;
+}
+.card-link :is(.dashboard-map, .animata-cover, .animata-slide) {
+  position: relative;
+  z-index: 1;
+}
+.bento .ring-value {
+  transition: stroke-dashoffset 250ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bento .ring-value {
+    transition: none;
+  }
+}

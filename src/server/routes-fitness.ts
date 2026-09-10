@@ -1,3 +1,7 @@
+import { z } from 'zod';
+import { idSchema } from '../lib/schemas';
+import { zonedISO, trainingParts } from '../lib/fitness-recording';
+import { translator } from '../lib/i18n';
 import type { APIContext } from 'astro';
 import { HttpError, json, readJSON, requireUser } from './http';
 import {
@@ -17,6 +21,48 @@ import type { Workout } from '../types/domain';
 export async function fitnessRoute(context: APIContext, parts: string[]) {
   const [resource, id, action] = parts,
     method = context.request.method;
+  if (resource === 'checkin' && method === 'POST') {
+    const user = requireUser(context);
+    const input = z
+      .object({
+        id: idSchema,
+        mutation_id: idSchema,
+        date: z.iso.date(),
+        part: z.enum(trainingParts),
+      })
+      .parse(await readJSON(context.request));
+    const t = translator(context.locals.locale);
+    const w = {
+      id: input.id,
+      mutation_id: input.mutation_id,
+      title: t(`fitness.${input.part}`),
+      mode: 'quick',
+      status: 'completed',
+      body_parts: [input.part],
+      workout_date: input.date,
+      time_precision: 'date',
+      duration_seconds: null,
+      start_at: zonedISO(input.date + 'T12:00', context.locals.preferences.timezone),
+      end_at: null,
+      timezone: context.locals.preferences.timezone,
+      note: '',
+      visibility: 'private',
+      exercises: [],
+    };
+    try {
+      return json(await saveWorkout(user.id, w), 201);
+    } catch (error) {
+      // Concurrent identical requests may race the insert. Return only the matching receipt.
+      const existing = (await listWorkouts(user, input.id))[0];
+      const receipt = await statement(
+        'SELECT last_mutation_id FROM fitness_sessions WHERE id=? AND user_id=?',
+        input.id,
+        user.id,
+      ).first<{ last_mutation_id: string }>();
+      if (existing && receipt?.last_mutation_id === input.mutation_id) return json(existing);
+      throw error;
+    }
+  }
   if (resource === 'sessions') {
     if (method === 'GET') {
       const status = context.url.searchParams.get('status');
@@ -47,6 +93,15 @@ export async function fitnessRoute(context: APIContext, parts: string[]) {
   }
   if (resource === 'exercises') {
     if (method === 'GET') {
+      if (id && action === 'last-set') {
+        const user = requireUser(context);
+        const set = await statement(
+          `SELECT f.* FROM fitness_sets f JOIN fitness_session_exercises e ON e.id=f.session_exercise_id JOIN fitness_sessions s ON s.id=e.session_id WHERE s.user_id=? AND e.exercise_id=? AND s.status='completed' AND f.completed=1 AND (f.weight IS NOT NULL OR f.reps IS NOT NULL OR f.duration IS NOT NULL OR f.distance IS NOT NULL) ORDER BY s.start_at DESC,f.position DESC LIMIT 1`,
+          user.id,
+          id,
+        ).first();
+        return json({ set: set ? { ...set, completed: !!set.completed } : null });
+      }
       if (id === 'filters') return json(await exerciseFilters());
       if (id) return json(await getExercise(id));
       return json(await searchExercises(context.url.searchParams, context.locals.user));

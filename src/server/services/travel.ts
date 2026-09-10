@@ -1,4 +1,4 @@
-import { all, db, first, ownerId, statement } from '../db';
+import { all, db, first, statement } from '../db';
 import { HttpError } from '../http';
 import { storage } from '../storage';
 import { tripSchema, idSchema } from '../../lib/schemas';
@@ -6,24 +6,26 @@ import { webpDimensions } from '../../lib/image-validation';
 import type { User, Trip, TravelPhoto, Location, Wish } from '../../types/domain';
 type TripRow = Omit<Trip, 'photos' | 'location' | 'tags'> & { tags: string };
 export async function listTrips(user: User | null, id?: string): Promise<Trip[]> {
-  const owner = user?.id ?? (await ownerId());
-  if (!owner) return [];
-  const scope = `t.user_id=? AND t.deleted_at IS NULL${user ? '' : " AND t.visibility='public'"}${id ? ' AND t.id=?' : ''}`,
+  const owner = user?.id ?? null;
+  const scope = `t.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND t.deleted_at IS NULL${user ? '' : " AND t.visibility='public'"}${id ? ' AND t.id=?' : ''}`,
     bindings = id ? [owner, id] : [owner];
-  const [entries, photos, locations] = await Promise.all([
-    all<TripRow>(
+  const results = await db().batch([
+    statement(
       `SELECT t.* FROM travel_entries t WHERE ${scope} ORDER BY t.start_date IS NULL,t.start_date DESC,t.updated_at DESC`,
       ...bindings,
     ),
-    all<TravelPhoto & { travel_id: string }>(
+    statement(
       `SELECT p.* FROM travel_photos p JOIN travel_entries t ON t.id=p.travel_id WHERE ${scope} ORDER BY p.position`,
       ...bindings,
     ),
-    all<Location & { travel_id: string }>(
+    statement(
       `SELECT l.*,t.id travel_id,t.spot_id,COALESCE(NULLIF(t.place_name,''),p.name_zh,l.name_zh) name_zh,COALESCE(NULLIF(t.place_name,''),p.name_en,l.name) name,COALESCE(p.latitude,l.latitude) latitude,COALESCE(p.longitude,l.longitude) longitude FROM locations l JOIN travel_entries t ON t.location_id=l.id LEFT JOIN scenic_spots p ON p.id=t.spot_id WHERE ${scope}`,
       ...bindings,
     ),
   ]);
+  const entries = results[0].results as unknown as TripRow[];
+  const photos = results[1].results as unknown as (TravelPhoto & { travel_id: string })[];
+  const locations = results[2].results as unknown as (Location & { travel_id: string })[];
   const locationMap = new Map(locations.map((l) => [l.travel_id, l]));
   const photoMap = new Map<string, TravelPhoto[]>();
   for (const p of photos) {
@@ -39,12 +41,11 @@ export async function listTrips(user: User | null, id?: string): Promise<Trip[]>
   }));
 }
 export async function listWishlist(user: User | null): Promise<Wish[]> {
-  const id = user?.id ?? (await ownerId());
-  if (!id) return [];
+  const id = user?.id ?? null;
   const rows = await all<
     Location & { wish_id: string; location_id: string; visibility: Wish['visibility'] }
   >(
-    `SELECT l.*,w.id wish_id,w.location_id,w.visibility,w.spot_id,COALESCE(p.name_zh,l.name_zh) name_zh,COALESCE(p.name_en,l.name) name FROM travel_wishlist w JOIN locations l ON l.id=w.location_id LEFT JOIN scenic_spots p ON p.id=w.spot_id WHERE w.user_id=?${user ? '' : " AND w.visibility='public'"} ORDER BY w.created_at DESC`,
+    `SELECT l.*,w.id wish_id,w.location_id,w.visibility,w.spot_id,COALESCE(p.name_zh,l.name_zh) name_zh,COALESCE(p.name_en,l.name) name FROM travel_wishlist w JOIN locations l ON l.id=w.location_id LEFT JOIN scenic_spots p ON p.id=w.spot_id WHERE w.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND w.visibility='public'"} ORDER BY w.created_at DESC`,
     id,
   );
   return rows.map((r) => ({
