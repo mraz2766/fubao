@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fubao",
+  "workers_dev": true,
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": "./dist", "binding": "ASSETS" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fubao",
+      "database_id": "485b0dc5-48ac-4a37-8ffb-db1d51984d37",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "fubao" }],
+  "vars": { "APP_ENV": "production" },
+  "observability": { "enabled": true },
+  "triggers": { "crons": ["15 19 * * *"] },
+}

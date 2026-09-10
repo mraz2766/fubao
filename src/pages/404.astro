@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import { translator } from '../lib/i18n';
+Astro.response.status = 404;
+const t = translator(Astro.locals.locale);
+---
+
+<Base title="404">
+  <div class="empty">
+    <h1>404</h1>
+    <p>{t('error.NOT_FOUND')}</p>
+    <a class="button button-secondary" href="/">
+      {t('nav.home')}
+    </a>
+  </div>
+</Base>

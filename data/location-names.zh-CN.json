@@ -1,0 +1,21 @@
+{
+  "CN": {"Shanghai":"上海","Beijing":"北京","Guangzhou":"广州","Shenzhen":"深圳","Hangzhou":"杭州","Chengdu":"成都","Chongqing":"重庆","Nanjing":"南京","Suzhou":"苏州","Wuhan":"武汉","Tianjin":"天津","Xiamen":"厦门","Qingdao":"青岛","Dalian":"大连","Shenyang":"沈阳","Harbin":"哈尔滨","Changchun":"长春","Kunming":"昆明","Guiyang":"贵阳","Lijiang":"丽江","Dali":"大理","Guilin":"桂林","Nanning":"南宁","Haikou":"海口","Sanya":"三亚","Lhasa":"拉萨","Urumqi":"乌鲁木齐","Xi’an":"西安","Xi'an":"西安","Zhengzhou":"郑州","Changsha":"长沙","Nanchang":"南昌","Fuzhou":"福州","Foshan":"佛山","Dongguan":"东莞","Zhuhai":"珠海","Wuxi":"无锡","Ningbo":"宁波","Wenzhou":"温州","Hefei":"合肥","Jinan":"济南","Taiyuan":"太原","Shijiazhuang":"石家庄","Lanzhou":"兰州","Xining":"西宁","Yinchuan":"银川","Hohhot":"呼和浩特"},
+  "TH": {"Chiang Mai":"清迈","Bangkok":"曼谷","Phuket":"普吉","Pattaya":"芭提雅","Chiang Rai":"清莱","Krabi":"甲米"},
+  "JP": {"Tokyo":"东京","Kyoto":"京都","Osaka":"大阪","Nara":"奈良","Sapporo":"札幌","Fukuoka":"福冈","Yokohama":"横滨"},
+  "KR": {"Seoul":"首尔","Busan":"釜山","Jeju City":"济州"},
+  "SG": {"Singapore":"新加坡"},
+  "MY": {"Kuala Lumpur":"吉隆坡","George Town":"乔治市"},
+  "VN": {"Hanoi":"河内","Ho Chi Minh City":"胡志明市","Da Nang":"岘港"},
+  "ID": {"Denpasar":"登巴萨","Jakarta":"雅加达","Ubud":"乌布"},
+  "GB": {"London":"伦敦","Edinburgh":"爱丁堡","Manchester":"曼彻斯特"},
+  "FR": {"Paris":"巴黎","Lyon":"里昂","Nice":"尼斯"},
+  "IT": {"Rome":"罗马","Florence":"佛罗伦萨","Venice":"威尼斯","Milan":"米兰"},
+  "ES": {"Barcelona":"巴塞罗那","Madrid":"马德里"},
+  "US": {"New York City":"纽约","New York":"纽约","San Francisco":"旧金山","Los Angeles":"洛杉矶","Seattle":"西雅图","Boston":"波士顿","Chicago":"芝加哥"},
+  "AU": {"Sydney":"悉尼","Melbourne":"墨尔本"},
+  "NZ": {"Auckland":"奥克兰","Queenstown":"皇后镇"},
+  "CA": {"Vancouver":"温哥华","Toronto":"多伦多"},
+  "HK": {"Hong Kong":"香港"},
+  "MO": {"Macau":"澳门"},
+  "TW": {"Taipei":"台北","Kaohsiung":"高雄","Taichung":"台中"}
+}

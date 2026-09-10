@@ -1,0 +1,337 @@
+---
+import { ArrowUpRight, Dumbbell, MapPin, Check, Clock, ArrowRight } from 'lucide-react';
+import { ProgressBar } from '../../components/ui/progress-bar';
+import WorldMap from '../travel/WorldMap.astro';
+import { translator } from '../../lib/i18n';
+import { fitnessSummary, toDisplayWeight, travelDays } from '../../lib/analytics';
+import type { Locale, Preferences, Widget, Workout, Trip } from '../../types/domain';
+const {
+  workouts = [],
+  trips = [],
+  widgets,
+  preferences,
+  locale,
+  owner = false,
+} = Astro.props as {
+  workouts: Workout[];
+  trips: Trip[];
+  widgets: Widget[];
+  preferences: Preferences;
+  locale: Locale;
+  owner?: boolean;
+};
+const t = translator(locale),
+  summary = fitnessSummary(workouts, preferences),
+  today = summary.todayWorkouts[0];
+const countries = [...new Set(trips.map((trip) => trip.location.country_code))],
+  cities = new Set(trips.filter((t) => t.location.kind === 'city').map((t) => t.location_id)).size;
+const recentWorkout = workouts.find((w) => w.status === 'completed'),
+  recentTrip = trips[0];
+const dateText = (
+  date: string,
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
+) =>
+  new Intl.DateTimeFormat(locale, { timeZone: preferences.timezone, ...opts }).format(
+    new Date(date),
+  );
+---
+
+<div class="bento">
+  {widgets
+    .filter((w) => w.visible)
+    .sort((a, b) => a.order - b.order)
+    .map((widget) => (
+      <section
+        class:list={[
+          'card',
+          `widget-${widget.size}`,
+          `dashboard-${widget.key}`,
+          { 'card-link': widget.key === 'fitness' || widget.key === 'travel' },
+        ]}
+      >
+        {widget.key === 'fitness' && (
+          <>
+            <div class="card-heading">
+              <h2>
+                <Dumbbell size={18} strokeWidth={1.6} />
+                {t('dashboard.fitness')}
+              </h2>
+              <a
+                href={today ? `/fitness/${today.id}` : '/fitness'}
+                aria-label={t('fitness.title')}
+                class="button button-ghost button-icon"
+              >
+                <ArrowUpRight size={18} />
+              </a>
+            </div>
+            <div class="fitness-main">
+              <svg
+                class="progress-ring"
+                viewBox="0 0 160 160"
+                role="img"
+                aria-label={`${t('dashboard.goal')}: ${summary.weekCount}/${preferences.weeklyGoal}`}
+              >
+                <circle cx="80" cy="80" r="66" fill="none" stroke-width="7" class="ring-track" />
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="66"
+                  fill="none"
+                  stroke-width="7"
+                  class="ring-value"
+                  stroke-dasharray="414.69"
+                  stroke-dashoffset={
+                    414.69 * (1 - Math.min(1, summary.weekCount / preferences.weeklyGoal))
+                  }
+                  transform="rotate(-90 80 80)"
+                />
+                <text
+                  x="80"
+                  y="83"
+                  text-anchor="middle"
+                  fill="var(--text)"
+                  font-size="42"
+                  font-weight="500"
+                  letter-spacing="-2"
+                >
+                  {summary.weekCount}
+                  <tspan font-size="18" fill="var(--muted)">
+                    {' '}
+                    / {preferences.weeklyGoal}
+                  </tspan>
+                </text>
+                <text x="80" y="107" text-anchor="middle" fill="var(--muted)" font-size="11">
+                  {t('dashboard.goal')}
+                </text>
+              </svg>
+              <div class="fitness-message">
+                <span class="badge">
+                  <span style="width:5px;height:5px;background:var(--accent);border-radius:50%"></span>
+                  {t('common.today')}
+                </span>
+                <h3>{today?.title ?? t('dashboard.noWorkout')}</h3>
+                {today ? (
+                  <p class="muted">
+                    {dateText(today.start_at, { hour: '2-digit', minute: '2-digit' })} —{' '}
+                    {today.end_at
+                      ? dateText(today.end_at, { hour: '2-digit', minute: '2-digit' })
+                      : ''}
+                  </p>
+                ) : (
+                  owner && (
+                    <a href="/fitness?new=1" class="text-link">
+                      {t('fitness.start')}
+                      <ArrowRight size={14} />
+                    </a>
+                  )
+                )}
+              </div>
+            </div>
+            <hr class="rule" />
+            <div class="stats">
+              <div class="stat">
+                <strong>{summary.monthCount}</strong>
+                <span>{t('dashboard.month')}</span>
+              </div>
+              <div class="stat">
+                <strong>
+                  {Math.round(summary.weekSeconds / 60)}
+                  <small> {t('common.minutes')}</small>
+                </strong>
+                <span>
+                  {t('dashboard.week')} · {t('dashboard.duration')}
+                </span>
+              </div>
+              <div class="stat">
+                <strong>
+                  {summary.current}
+                  <small> {t('common.days')}</small>
+                </strong>
+                <span>{t('dashboard.streak')}</span>
+              </div>
+              <div class="stat">
+                <strong>
+                  {Math.round(
+                    toDisplayWeight(summary.weekVolume, preferences.weightUnit),
+                  ).toLocaleString(locale)}
+                </strong>
+                <span>
+                  {t('dashboard.volume')} · {preferences.weightUnit}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+        {widget.key === 'travel' && (
+          <>
+            <div class="card-heading">
+              <h2>
+                <MapPin size={18} strokeWidth={1.6} />
+                {t('dashboard.travel')}
+              </h2>
+              <a
+                href="/travel"
+                aria-label={t('travel.title')}
+                class="button button-ghost button-icon"
+              >
+                <ArrowUpRight size={18} />
+              </a>
+            </div>
+            {recentTrip ? (
+              <a href={`/travel/${recentTrip.id}`} class="dashboard-landscape">
+                <img
+                  src={`/api/media/${recentTrip.photos[0]?.id}/large`}
+                  alt={
+                    locale === 'zh-CN'
+                      ? recentTrip.location.name_zh || recentTrip.location.name
+                      : recentTrip.location.name
+                  }
+                  width="640"
+                  height="360"
+                  loading="lazy"
+                />
+              </a>
+            ) : (
+              <a href="/travel?view=discover&spot=li-river" class="dashboard-landscape">
+                <img
+                  src="/scenery/li-river-small.webp"
+                  alt={locale === 'zh-CN' ? '漓江景点摄影' : 'Li River destination photography'}
+                  width="640"
+                  height="360"
+                />
+                <span>{t('travel.discover')} ↗</span>
+              </a>
+            )}
+            <details class="dashboard-map">
+              <summary>{t('travel.map')}</summary>
+              <WorldMap visited={countries} compact />
+            </details>
+            <div class="stats">
+              <div class="stat">
+                <strong>{countries.length}</strong>
+                <span>{t('travel.countries')}</span>
+              </div>
+              <div class="stat">
+                <strong>{cities}</strong>
+                <span>{t('travel.cities')}</span>
+              </div>
+              <div class="stat">
+                <strong>{trips.length}</strong>
+                <span>{t('travel.trips')}</span>
+              </div>
+              <div class="stat">
+                <strong>{travelDays(trips, Number(summary.today.slice(0, 4)))}</strong>
+                <span>{t('travel.days')}</span>
+              </div>
+            </div>
+            <hr class="rule" />
+            {recentTrip ? (
+              <a class="recent-row" href={`/travel/${recentTrip.id}`} style="padding:0">
+                <img
+                  src={`/api/media/${recentTrip.photos[0]?.id}/thumbnail`}
+                  width="64"
+                  height="48"
+                  loading="lazy"
+                  alt=""
+                  style="object-fit:cover;border-radius:7px"
+                />
+                <div class="recent-info">
+                  <h3>
+                    {locale === 'zh-CN'
+                      ? recentTrip.location.name_zh || recentTrip.location.name
+                      : recentTrip.location.name}
+                  </h3>
+                  <span class="small muted">{recentTrip.start_date ?? t('common.undated')}</span>
+                </div>
+                <ArrowUpRight size={16} />
+              </a>
+            ) : (
+              <div>
+                <h3 style="font-size:14px">{t('dashboard.noTravel')}</h3>
+                <p class="small muted" style="margin-top:4px">
+                  {t('dashboard.travelHint')}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+        {widget.key === 'weekly' && (
+          <>
+            <div class="card-heading">
+              <h2>{t('dashboard.weekly')}</h2>
+              <span class="small muted">{dateText(`${summary.weekStart}T12:00:00Z`)}</span>
+            </div>
+            <div class="weekly-dots">
+              {summary.days.map(({ day, trained }) => (
+                <a
+                  href={`/fitness?day=${day}`}
+                  class:list={['week-day', { today: day === summary.today }]}
+                  aria-label={`${day} · ${trained ? t('dashboard.trained') : t('dashboard.rest')}`}
+                >
+                  <span>{dateText(`${day}T12:00:00Z`, { weekday: 'narrow' })}</span>
+                  <span class:list={['day-dot', { trained }]}>
+                    {trained ? (
+                      <Check size={13} />
+                    ) : (
+                      <span style="width:4px;height:4px;border-radius:50%;background:var(--muted);opacity:.3"></span>
+                    )}
+                  </span>
+                  <span>{Number(day.slice(8))}</span>
+                </a>
+              ))}
+            </div>
+            <ProgressBar
+              value={summary.weekCount}
+              max={preferences.weeklyGoal}
+              aria-label={t('dashboard.goal')}
+            />
+            <p class="footer-note">
+              {summary.weekCount} / {preferences.weeklyGoal} {t('common.times')}
+            </p>
+          </>
+        )}
+        {widget.key === 'recent' && (
+          <>
+            <div class="card-heading">
+              <h2>{t('dashboard.recent')}</h2>
+              <Clock size={17} strokeWidth={1.5} />
+            </div>
+            {recentWorkout && (
+              <a class="recent-row" href={`/fitness/${recentWorkout.id}`}>
+                <span class="recent-icon">
+                  <Dumbbell size={20} />
+                </span>
+                <div class="recent-info">
+                  <h3>{recentWorkout.title}</h3>
+                  <span class="small muted">{dateText(recentWorkout.start_at)}</span>
+                </div>
+                <ArrowUpRight size={16} />
+              </a>
+            )}
+            {recentTrip && (
+              <a class="recent-row" href={`/travel/${recentTrip.id}`}>
+                <span class="recent-icon">
+                  <MapPin size={20} />
+                </span>
+                <div class="recent-info">
+                  <h3>
+                    {locale === 'zh-CN'
+                      ? recentTrip.location.name_zh || recentTrip.location.name
+                      : recentTrip.location.name}
+                  </h3>
+                  <span class="small muted">{recentTrip.start_date ?? t('common.undated')}</span>
+                </div>
+                <ArrowUpRight size={16} />
+              </a>
+            )}
+            {!recentWorkout && !recentTrip && (
+              <div class="empty">
+                <Clock size={26} strokeWidth={1} />
+                <p class="small">{t('dashboard.noRecent')}</p>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    ))}
+</div>

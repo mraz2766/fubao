@@ -1,0 +1,10 @@
+---
+import Base from '../layouts/Base.astro';
+import Login from '../features/settings/Login';
+import { translator } from '../lib/i18n';
+if (Astro.locals.user) return Astro.redirect('/');
+---
+
+<Base title={translator(Astro.locals.locale)('auth.login')} active="settings">
+  <Login locale={Astro.locals.locale} client:load />
+</Base>

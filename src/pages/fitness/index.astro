@@ -1,0 +1,299 @@
+---
+import { ProgressBar } from '../../components/ui/progress-bar';
+import Base from '../../layouts/Base.astro';
+import WorkoutActions from '../../features/fitness/WorkoutActions';
+import ExerciseSearch from '../../features/fitness/ExerciseSearch';
+import HistoryCalendar from '../../features/fitness/HistoryCalendar';
+import Templates from '../../features/fitness/Templates';
+import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
+import {
+  dayKey,
+  fitnessSummary,
+  workoutSeconds,
+  workoutVolume,
+  personalRecords,
+  muscleDistribution,
+  toDisplayWeight,
+} from '../../lib/analytics';
+import { listWorkouts, listTemplates } from '../../server/services/fitness';
+import { ArrowUpRight, Dumbbell } from 'lucide-react';
+const { locale, preferences, user } = Astro.locals,
+  t = translator(locale);
+const catalogCount = await (
+  await import('../../server/db')
+).first<{ count: number }>('SELECT COUNT(*) count FROM exercise_library WHERE active=1');
+const view =
+    Astro.url.searchParams.get('view') ??
+    (Astro.url.searchParams.has('day') ? 'history' : 'library'),
+  selected = Astro.url.searchParams.get('day') ?? undefined;
+const workouts = await listWorkouts(user),
+  summary = fitnessSummary(workouts, preferences);
+const filtered = selected
+  ? workouts.filter((w) => dayKey(w.start_at, preferences.timezone) === selected)
+  : workouts;
+const page = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0),
+  visible = filtered.slice(page * 20, page * 20 + 20);
+const days: Record<
+  string,
+  { count: number; minutes: number; volume: number; sets: number; exercises: number }
+> = {};
+for (const w of workouts.filter((w) => w.status === 'completed')) {
+  const key = dayKey(w.start_at, preferences.timezone),
+    current = days[key] ?? { count: 0, minutes: 0, volume: 0, sets: 0, exercises: 0 };
+  days[key] = {
+    count: current.count + 1,
+    minutes: current.minutes + workoutSeconds(w) / 60,
+    volume: current.volume + workoutVolume(w),
+    sets:
+      current.sets + w.exercises.reduce((n, e) => n + e.sets.filter((s) => s.completed).length, 0),
+    exercises: current.exercises + w.exercises.length,
+  };
+}
+const isView = (name: string) => view === name;
+const period = Astro.url.searchParams.get('period') === '7' ? 7 : 30;
+const muscles = muscleDistribution(workouts, preferences.timezone, period),
+  records = personalRecords(workouts);
+---
+
+<Base title={t('nav.fitness')} active="fitness">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">FITNESS / YOUR RHYTHM</span>
+      <h1>{t('fitness.title')}</h1>
+      <p>{t('fitness.subtitle')}</p>
+    </div>
+    {user && (
+      <div class="page-actions">
+        <WorkoutActions locale={locale} preferences={preferences} client:load />
+      </div>
+    )}
+  </header>
+  {isView('library') && (
+    <section class="fitness-intro">
+      <div>
+        <span class="eyebrow">MOVEMENT LIBRARY</span>
+        <h2>{t('fitness.catalogTitle')}</h2>
+        <p>{t('fitness.catalogHint')}</p>
+      </div>
+      <div class="catalog-count">
+        <strong>{catalogCount?.count.toLocaleString(locale) ?? 0}</strong>
+        <span>{t('fitness.catalogCount')}</span>
+      </div>
+    </section>
+  )}
+  <nav class="section-tabs" aria-label={t('fitness.title')}>
+    {(['history', 'library', 'templates', 'analytics'] as const)
+      .filter((v) => v !== 'templates' || !!user)
+      .map((v) => (
+        <a
+          href={`/fitness?view=${v}`}
+          class:list={{ active: view === v }}
+          aria-current={view === v ? 'page' : undefined}
+        >
+          {t(`fitness.${v}`)}
+        </a>
+      ))}
+  </nav>
+  {isView('history') && (
+    <>
+      <HistoryCalendar
+        locale={locale}
+        weekStart={preferences.weekStart}
+        today={summary.today}
+        days={days}
+        selected={selected}
+        client:visible
+      />
+      {selected && (
+        <div class="card-heading">
+          <h2>{selected}</h2>
+          <a class="text-link" href="/fitness?view=history">
+            {t('common.all')}
+          </a>
+        </div>
+      )}
+      <div class="workout-list">
+        {visible.map((w) => (
+          <a class="workout-card card-link" href={`/fitness/${w.id}`}>
+            <span class="workout-date">
+              <strong>
+                {new Intl.DateTimeFormat(locale, {
+                  day: 'numeric',
+                  timeZone: preferences.timezone,
+                }).format(new Date(w.start_at))}
+              </strong>
+              <span>
+                {new Intl.DateTimeFormat(locale, {
+                  month: 'short',
+                  timeZone: preferences.timezone,
+                }).format(new Date(w.start_at))}
+              </span>
+            </span>
+            <div class="workout-content">
+              <h3>{w.title}</h3>
+              <div class="workout-meta">
+                <span>
+                  {Math.round(workoutSeconds(w) / 60)} {t('common.minutes')}
+                </span>
+                <span>
+                  {w.exercises.length} {t('fitness.library')}
+                </span>
+                <span>{t(`fitness.${w.status}`)}</span>
+                {user && <span>{t(`common.${w.visibility}`)}</span>}
+              </div>
+            </div>
+            <ArrowUpRight size={18} className="muted" />
+          </a>
+        ))}
+      </div>
+      {!visible.length && (
+        <div class="card empty">
+          <Dumbbell size={30} strokeWidth={1} />
+          <p>{t('dashboard.noWorkout')}</p>
+          {user && (
+            <a href="/fitness?new=1" class="text-link">
+              {t('fitness.start')}
+            </a>
+          )}
+        </div>
+      )}
+      <div class="form-actions">
+        {page > 0 && (
+          <a
+            class="button button-secondary"
+            href={`/fitness?view=history&page=${page - 1}${selected ? `&day=${selected}` : ''}`}
+          >
+            {t('common.previous')}
+          </a>
+        )}
+        {filtered.length > (page + 1) * 20 && (
+          <a
+            class="button button-secondary"
+            href={`/fitness?view=history&page=${page + 1}${selected ? `&day=${selected}` : ''}`}
+          >
+            {t('common.next')}
+          </a>
+        )}
+      </div>
+    </>
+  )}
+  {isView('library') && (
+    <div class="card">
+      <ExerciseSearch locale={locale} owner={!!user} client:load />
+    </div>
+  )}
+  {isView('templates') && user && (
+    <Templates
+      preferences={preferences}
+      locale={locale}
+      initial={await listTemplates(user.id)}
+      client:load
+    />
+  )}
+  {isView('analytics') && (
+    <>
+      <div class="card">
+        <div class="stats">
+          <div class="stat">
+            <strong>{summary.weekCount}</strong>
+            <span>{t('dashboard.week')}</span>
+          </div>
+          <div class="stat">
+            <strong>{summary.monthCount}</strong>
+            <span>{t('dashboard.month')}</span>
+          </div>
+          <div class="stat">
+            <strong>{Math.round(summary.totalSeconds / 60)}</strong>
+            <span>
+              {t('dashboard.duration')} · {t('common.minutes')}
+            </span>
+          </div>
+          <div class="stat">
+            <strong>
+              {Math.round(
+                toDisplayWeight(summary.totalVolume, preferences.weightUnit),
+              ).toLocaleString(locale)}
+            </strong>
+            <span>
+              {t('dashboard.volume')} · {preferences.weightUnit}
+            </span>
+          </div>
+        </div>
+        <hr class="rule" />
+        <div class="stats-inline">
+          <span class="small muted">
+            {t('dashboard.streak')}: {summary.current} {t('common.days')}
+          </span>
+          <span class="small muted">
+            {t('fitness.longest')}: {summary.longest} {t('common.days')}
+          </span>
+        </div>
+        <p class="footer-note">{t('fitness.volumeHint')}</p>
+      </div>
+      <div class="analytics-grid">
+        <section class="card">
+          <div class="card-heading">
+            <h2>{t('fitness.muscles')}</h2>
+          </div>
+          <nav class="section-tabs">
+            {[7, 30].map((n) => (
+              <a class:list={{ active: period === n }} href={`/fitness?view=analytics&period=${n}`}>
+                {t(n === 7 ? 'fitness.last7' : 'fitness.last30')}
+              </a>
+            ))}
+          </nav>
+          {muscles.length ? (
+            muscles.map((m) => (
+              <div class="bar-row">
+                <header>
+                  <span>{taxonomyLabel(m.muscle, locale)}</span>
+                  <span class="muted">
+                    {m.sets} {t('fitness.set')}
+                  </span>
+                </header>
+                <ProgressBar
+                  value={m.sets}
+                  max={Math.max(...muscles.map((x) => x.sets))}
+                  aria-label={taxonomyLabel(m.muscle, locale)}
+                />
+              </div>
+            ))
+          ) : (
+            <p class="muted small">{t('fitness.noStats')}</p>
+          )}
+        </section>
+        <section class="card">
+          <div class="card-heading">
+            <h2>{t('fitness.pr')}</h2>
+          </div>
+          {records.length ? (
+            records.map((r) => (
+              <div class="recent-row">
+                <div class="recent-info">
+                  <h3>{exerciseName(r, locale)}</h3>
+                  <p class="small muted">
+                    {t('fitness.estimated')}:{' '}
+                    {toDisplayWeight(r.estimated, preferences.weightUnit).toFixed(1)}{' '}
+                    {preferences.weightUnit}
+                  </p>
+                  <p class="small muted">
+                    {dayKey(r.date, preferences.timezone)}
+                    {r.increase > 0
+                      ? ` · +${toDisplayWeight(r.increase, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit}`
+                      : ''}
+                  </p>
+                </div>
+                <strong class="mono">
+                  {toDisplayWeight(r.weight, preferences.weightUnit).toFixed(1)}{' '}
+                  {preferences.weightUnit}
+                </strong>
+              </div>
+            ))
+          ) : (
+            <p class="muted small">{t('fitness.noStats')}</p>
+          )}
+        </section>
+      </div>
+    </>
+  )}
+</Base>

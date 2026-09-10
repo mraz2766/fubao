@@ -1,0 +1,41 @@
+---
+import Base from '../layouts/Base.astro';
+import { translator } from '../lib/i18n';
+import Dashboard from '../features/dashboard/Dashboard.astro';
+import { listWorkouts } from '../server/services/fitness';
+import { getWidgets } from '../server/services/settings';
+import { listTrips } from '../server/services/travel';
+const t = translator(Astro.locals.locale);
+const [workouts, widgets, trips] = await Promise.all([
+  listWorkouts(Astro.locals.user),
+  getWidgets(),
+  listTrips(Astro.locals.user),
+]);
+---
+
+<Base title={t('nav.home')}>
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">
+        {new Intl.DateTimeFormat(Astro.locals.locale, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long',
+          timeZone: Astro.locals.preferences.timezone,
+        }).format(new Date())}
+      </span>
+      <h1>{t('dashboard.title')}</h1>
+      <p>{t('dashboard.subtitle')}</p>
+    </div>
+  </header>
+  <Dashboard
+    workouts={workouts}
+    trips={trips}
+    widgets={widgets}
+    preferences={Astro.locals.preferences}
+    locale={Astro.locals.locale}
+    owner={!!Astro.locals.user}
+  />
+  {!Astro.locals.user && <p class="footer-note">{t('dashboard.publicHint')}</p>}
+</Base>

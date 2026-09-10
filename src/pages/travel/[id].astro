@@ -1,0 +1,56 @@
+---
+import Base from '../../layouts/Base.astro';
+import TravelActions from '../../features/travel/TravelActions';
+import PhotoWall from '../../features/travel/PhotoWall';
+import { listTrips } from '../../server/services/travel';
+import { translator } from '../../lib/i18n';
+import { ArrowLeft, MapPin } from 'lucide-react';
+const { user, locale } = Astro.locals,
+  t = translator(locale),
+  trip = (await listTrips(user, Astro.params.id))[0];
+if (!trip) return Astro.redirect('/404');
+const name = locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name;
+---
+
+<Base title={name} active="travel">
+  <a href="/travel" class="text-link">
+    <ArrowLeft size={15} />
+    {t('travel.timeline')}
+  </a>
+  <header class="detail-header">
+    <div>
+      <span class="eyebrow">
+        {trip.start_date ?? t('common.undated')}
+        {trip.end_date ? ` — ${trip.end_date}` : ''}
+      </span>
+      <h1>{name}</h1>
+      <p class="small muted" style="display:flex;align-items:center;gap:6px;margin-top:12px">
+        <MapPin size={14} />
+        {locale === 'zh-CN'
+          ? trip.location.country_name_zh || trip.location.country_name
+          : trip.location.country_name}
+        {trip.rating ? ` · ${'★'.repeat(trip.rating)}` : ''}
+      </p>
+    </div>
+    {user && <TravelActions locale={locale} trip={trip} client:load />}
+  </header>
+  <PhotoWall
+    locale={locale}
+    photos={trip.photos.map((p) => ({
+      id: p.id,
+      travelId: trip.id,
+      width: p.width,
+      height: p.height,
+      label: name,
+      year: '',
+    }))}
+    detail
+    client:visible
+  />
+  {trip.description && <p class="trip-description">{trip.description}</p>}
+  <div class="trip-tags">
+    {trip.tags.map((tag) => (
+      <span class="badge">{tag}</span>
+    ))}
+  </div>
+</Base>

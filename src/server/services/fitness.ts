@@ -1,0 +1,290 @@
+import { z } from 'zod';
+import { all, db, first, ownerId, statement } from '../db';
+import { HttpError } from '../http';
+import { workoutSchema, templateSchema } from '../../lib/schemas';
+import type {
+  Workout,
+  SessionExercise,
+  FitnessSet,
+  User,
+  Exercise,
+  WorkoutTemplate,
+} from '../../types/domain';
+type WorkoutRow = Omit<Workout, 'body_parts' | 'exercises'> & { body_parts: string };
+type ExerciseRow = Omit<SessionExercise, 'sets'> & { session_id: string };
+type SetRow = Omit<FitnessSet, 'completed'> & { session_exercise_id: string; completed: number };
+export async function listWorkouts(user: User | null, id?: string): Promise<Workout[]> {
+  const owner = user?.id ?? (await ownerId());
+  if (!owner) return [];
+  const scope = `s.user_id=?${user ? '' : " AND s.visibility='public' AND s.status='completed'"}${id ? ' AND s.id=?' : ''}`;
+  const bindings = id ? [owner, id] : [owner];
+  const [sessions, exercises, sets] = await Promise.all([
+    all<WorkoutRow>(
+      `SELECT s.* FROM fitness_sessions s WHERE ${scope} ORDER BY s.start_at DESC`,
+      ...bindings,
+    ),
+    all<ExerciseRow>(
+      `SELECT e.id,e.session_id,e.exercise_id,l.name_en,l.name_zh,l.target FROM fitness_session_exercises e JOIN exercise_library l ON l.id=e.exercise_id JOIN fitness_sessions s ON s.id=e.session_id WHERE ${scope} ORDER BY e.position`,
+      ...bindings,
+    ),
+    all<SetRow>(
+      `SELECT f.* FROM fitness_sets f JOIN fitness_session_exercises e ON e.id=f.session_exercise_id JOIN fitness_sessions s ON s.id=e.session_id WHERE ${scope} ORDER BY f.position`,
+      ...bindings,
+    ),
+  ]);
+  const setMap = new Map<string, FitnessSet[]>();
+  for (const row of sets) {
+    const { session_exercise_id, ...set } = row;
+    const bucket = setMap.get(session_exercise_id) ?? [];
+    bucket.push({ ...set, completed: !!set.completed });
+    setMap.set(session_exercise_id, bucket);
+  }
+  const exerciseMap = new Map<string, SessionExercise[]>();
+  for (const row of exercises) {
+    const { session_id, ...exercise } = row;
+    const bucket = exerciseMap.get(session_id) ?? [];
+    bucket.push({ ...exercise, sets: setMap.get(row.id) ?? [] });
+    exerciseMap.set(session_id, bucket);
+  }
+  return sessions.map((s) => ({
+    ...s,
+    body_parts: JSON.parse(s.body_parts),
+    exercises: exerciseMap.get(s.id) ?? [],
+  }));
+}
+export async function saveWorkout(userId: string, input: unknown) {
+  const w = workoutSchema.parse(input);
+  const existing = await first<{ user_id: string; updated_at: string }>(
+    'SELECT user_id,updated_at FROM fitness_sessions WHERE id=?',
+    w.id,
+  );
+  if (existing && existing.user_id !== userId) throw new HttpError(404, 'NOT_FOUND');
+  if (existing && w.updated_at && existing.updated_at !== w.updated_at)
+    throw new HttpError(409, 'CONFLICT');
+  const statements = [
+    statement(
+      `INSERT INTO fitness_sessions(id,user_id,title,mode,status,body_parts,start_at,end_at,timezone,note,visibility,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,mode=excluded.mode,status=excluded.status,body_parts=excluded.body_parts,start_at=excluded.start_at,end_at=excluded.end_at,timezone=excluded.timezone,note=excluded.note,visibility=excluded.visibility,updated_at=excluded.updated_at`,
+      w.id,
+      userId,
+      w.title,
+      w.mode,
+      w.status,
+      JSON.stringify(w.body_parts),
+      w.start_at,
+      w.end_at,
+      w.timezone,
+      w.note,
+      w.visibility,
+      new Date().toISOString(),
+    ),
+    statement('DELETE FROM fitness_session_exercises WHERE session_id=?', w.id),
+  ];
+  w.exercises.forEach((e, i) => {
+    statements.push(
+      statement(
+        'INSERT INTO fitness_session_exercises(id,session_id,exercise_id,position) VALUES(?,?,?,?)',
+        e.id,
+        w.id,
+        e.exercise_id,
+        i,
+      ),
+    );
+    e.sets.forEach((s, j) =>
+      statements.push(
+        statement(
+          'INSERT INTO fitness_sets(id,session_exercise_id,position,reps,weight,duration,distance,rpe,note,completed) VALUES(?,?,?,?,?,?,?,?,?,?)',
+          s.id,
+          e.id,
+          j,
+          s.reps,
+          s.weight,
+          s.duration,
+          s.distance,
+          s.rpe,
+          s.note,
+          +s.completed,
+        ),
+      ),
+    );
+  });
+  await db().batch(statements);
+  return (await listWorkouts({ id: userId, username: '' }, w.id))[0];
+}
+export async function deleteWorkout(userId: string, id: string) {
+  const result = await statement(
+    'DELETE FROM fitness_sessions WHERE id=? AND user_id=?',
+    id,
+    userId,
+  ).run();
+  if (!result.meta.changes) throw new HttpError(404, 'NOT_FOUND');
+}
+export async function searchExercises(params: URLSearchParams, user: User | null) {
+  const q = (params.get('q') ?? '').trim().slice(0, 100),
+    body = params.get('bodyPart'),
+    target = params.get('target'),
+    equipment = params.get('equipment');
+  const page = Math.max(0, Math.min(10000, Number(params.get('page')) || 0)),
+    limit = Math.max(1, Math.min(50, Number(params.get('limit')) || 20));
+  const mode = params.get('mode') ?? 'all';
+  const bindings: (string | number)[] = [user?.id ?? '', user?.id ?? ''];
+  const clauses = ['l.active=1'];
+  if (q) {
+    clauses.push("(l.name_en LIKE ? ESCAPE '\\' OR l.name_zh LIKE ? ESCAPE '\\')");
+    const escaped = q.replace(/[\\%_]/g, '\\$&');
+    bindings.push(`%${escaped}%`, `%${escaped}%`);
+  }
+  for (const [column, value] of [
+    ['body_part', body],
+    ['target', target],
+    ['equipment', equipment],
+  ])
+    if (value) {
+      clauses.push(`l.${column}=?`);
+      bindings.push(value);
+    }
+  if (mode === 'favorites') clauses.push('f.exercise_id IS NOT NULL');
+  if (mode === 'recent' || mode === 'frequent') clauses.push('u.usage_count>0');
+  const ordering =
+    mode === 'recent'
+      ? 'u.last_used DESC'
+      : mode === 'frequent'
+        ? 'u.usage_count DESC'
+        : 'l.name_en';
+  const rows = await all<Record<string, unknown>>(
+    `SELECT l.*,f.exercise_id IS NOT NULL AS favorite,COALESCE(u.usage_count,0) AS usage_count FROM exercise_library l LEFT JOIN exercise_favorites f ON f.exercise_id=l.id AND f.user_id=? LEFT JOIN (SELECT e.exercise_id,COUNT(*) usage_count,MAX(s.start_at) last_used FROM fitness_session_exercises e JOIN fitness_sessions s ON s.id=e.session_id WHERE s.user_id=? AND s.status='completed' GROUP BY e.exercise_id) u ON u.exercise_id=l.id WHERE ${clauses.join(' AND ')} ORDER BY ${ordering} LIMIT ? OFFSET ?`,
+    ...bindings,
+    limit + 1,
+    page * limit,
+  );
+  const items = rows.slice(0, limit).map(parseExercise);
+  return { items, hasMore: rows.length > limit, page };
+}
+function parseExercise(row: Record<string, unknown>): Exercise {
+  return {
+    id: String(row.id),
+    name_en: String(row.name_en),
+    name_zh: String(row.name_zh),
+    body_part: String(row.body_part),
+    target: String(row.target),
+    equipment: String(row.equipment),
+    secondary_muscles: JSON.parse(String(row.secondary_muscles)),
+    instructions_en: JSON.parse(String(row.instructions_en)),
+    instructions_zh: JSON.parse(String(row.instructions_zh)),
+    image: null,
+    animation: null,
+    favorite: !!row.favorite,
+    usage_count: Number(row.usage_count ?? 0),
+  };
+}
+export async function exerciseFilters() {
+  const rows = await all<{ body_part: string; target: string; equipment: string }>(
+    'SELECT DISTINCT body_part,target,equipment FROM exercise_library WHERE active=1',
+  );
+  return {
+    bodyParts: [...new Set(rows.map((r) => r.body_part))].sort(),
+    targets: [...new Set(rows.map((r) => r.target))].sort(),
+    equipment: [...new Set(rows.map((r) => r.equipment))].sort(),
+  };
+}
+export async function getExercise(id: string) {
+  const row = await first<Record<string, unknown>>('SELECT * FROM exercise_library WHERE id=?', id);
+  if (!row) throw new HttpError(404, 'NOT_FOUND');
+  return parseExercise(row);
+}
+export async function listTemplates(userId: string): Promise<WorkoutTemplate[]> {
+  const [templates, exercises, sets] = await Promise.all([
+    all<{ id: string; name: string }>(
+      'SELECT id,name FROM workout_templates WHERE user_id=? ORDER BY updated_at DESC',
+      userId,
+    ),
+    all<ExerciseRow & { template_id: string }>(
+      'SELECT e.id,e.template_id,e.exercise_id,l.name_en,l.name_zh,l.target FROM workout_template_exercises e JOIN workout_templates t ON t.id=e.template_id JOIN exercise_library l ON l.id=e.exercise_id WHERE t.user_id=? ORDER BY e.position',
+      userId,
+    ),
+    all<SetRow & { template_exercise_id: string }>(
+      'SELECT f.* FROM workout_template_sets f JOIN workout_template_exercises e ON e.id=f.template_exercise_id JOIN workout_templates t ON t.id=e.template_id WHERE t.user_id=? ORDER BY f.position',
+      userId,
+    ),
+  ]);
+  return templates.map((t) => ({
+    ...t,
+    exercises: exercises
+      .filter((e) => e.template_id === t.id)
+      .map((e) => ({
+        id: e.id,
+        exercise_id: e.exercise_id,
+        name_en: e.name_en,
+        name_zh: e.name_zh,
+        target: e.target,
+        sets: sets
+          .filter((s) => s.template_exercise_id === e.id)
+          .map((s) => ({
+            id: s.id,
+            reps: s.reps,
+            weight: s.weight,
+            duration: s.duration,
+            distance: s.distance,
+            rpe: s.rpe,
+            note: s.note,
+            completed: false,
+          })),
+      })),
+  }));
+}
+export async function saveTemplate(userId: string, input: unknown) {
+  const t = templateSchema.parse(input);
+  const existing = await first<{ user_id: string }>(
+    'SELECT user_id FROM workout_templates WHERE id=?',
+    t.id,
+  );
+  if (existing && existing.user_id !== userId) throw new HttpError(404, 'NOT_FOUND');
+  const statements = [
+    statement(
+      'INSERT INTO workout_templates(id,user_id,name,updated_at) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,updated_at=excluded.updated_at',
+      t.id,
+      userId,
+      t.name,
+      new Date().toISOString(),
+    ),
+    statement('DELETE FROM workout_template_exercises WHERE template_id=?', t.id),
+  ];
+  t.exercises.forEach((e, i) => {
+    statements.push(
+      statement(
+        'INSERT INTO workout_template_exercises(id,template_id,exercise_id,position) VALUES(?,?,?,?)',
+        e.id,
+        t.id,
+        e.exercise_id,
+        i,
+      ),
+    );
+    e.sets.forEach((s, j) =>
+      statements.push(
+        statement(
+          'INSERT INTO workout_template_sets(id,template_exercise_id,position,reps,weight,duration,distance,rpe,note) VALUES(?,?,?,?,?,?,?,?,?)',
+          s.id,
+          e.id,
+          j,
+          s.reps,
+          s.weight,
+          s.duration,
+          s.distance,
+          s.rpe,
+          s.note,
+        ),
+      ),
+    );
+  });
+  await db().batch(statements);
+  return { id: t.id };
+}
+export async function toggleFavorite(userId: string, id: string, input: unknown) {
+  const { favorite } = z.object({ favorite: z.boolean() }).parse(input);
+  await statement(
+    favorite
+      ? 'INSERT OR IGNORE INTO exercise_favorites(user_id,exercise_id,created_at) VALUES(?,?,?)'
+      : 'DELETE FROM exercise_favorites WHERE user_id=? AND exercise_id=?',
+    ...(favorite ? [userId, id, new Date().toISOString()] : [userId, id]),
+  ).run();
+  return { favorite };
+}

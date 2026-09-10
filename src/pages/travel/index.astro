@@ -1,0 +1,193 @@
+---
+import Discover from '../../features/travel/Discover';
+import ChinaMap from '../../features/travel/ChinaMap.astro';
+import Base from '../../layouts/Base.astro';
+import TravelActions from '../../features/travel/TravelActions';
+import InteractiveMap from '../../features/travel/InteractiveMap';
+import Wishlist from '../../features/travel/Wishlist';
+import PhotoWall from '../../features/travel/PhotoWall';
+import { mapCountries, mapEntries } from '../../features/travel/map-data';
+import { listTrips, listWishlist } from '../../server/services/travel';
+import { translator } from '../../lib/i18n';
+import { travelDays, dayKey } from '../../lib/analytics';
+import { MapPin, ArrowUpRight } from 'lucide-react';
+const { user, locale, preferences } = Astro.locals,
+  t = translator(locale);
+const [trips, wishes] = await Promise.all([listTrips(user), listWishlist(user)]),
+  view = Astro.url.searchParams.get('view') ?? 'discover';
+const isView = (v: string) => view === v;
+const year = Number(dayKey(new Date(), preferences.timezone).slice(0, 4)),
+  countryCount = new Set(trips.map((t) => t.location.country_code)).size,
+  cityCount = new Set(trips.filter((t) => t.location.kind === 'city').map((t) => t.location_id))
+    .size;
+const page = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0),
+  visible = trips.slice(page * 12, page * 12 + 12),
+  years = [...new Set(visible.map((t) => t.start_date?.slice(0, 4) ?? ''))];
+const name = (trip: (typeof trips)[number]) =>
+  locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name;
+const allPhotos = trips.flatMap((trip) =>
+    trip.photos.map((p) => ({
+      id: p.id,
+      travelId: trip.id,
+      width: p.width,
+      height: p.height,
+      label: name(trip),
+      year: trip.start_date?.slice(0, 4) ?? '',
+    })),
+  ),
+  wall = allPhotos.slice(page * 24, page * 24 + 24);
+---
+
+<Base title={t('nav.travel')} active="travel">
+  <header class="page-header">
+    <div>
+      <span class="eyebrow">TRAVEL / A LITTLE FURTHER</span>
+      <h1>{t('travel.title')}</h1>
+      <p>{t('travel.subtitle')}</p>
+    </div>
+    {user && (
+      <div class="page-actions">
+        <TravelActions locale={locale} client:load />
+      </div>
+    )}
+  </header>
+  <div
+    class:list={['stats travel-statistics', { 'travel-statistics-compact': isView('discover') }]}
+  >
+    <div class="stat">
+      <strong>{countryCount}</strong>
+      <span>{t('travel.countries')}</span>
+    </div>
+    <div class="stat">
+      <strong>{cityCount}</strong>
+      <span>{t('travel.cities')}</span>
+    </div>
+    <div class="stat">
+      <strong>{trips.length}</strong>
+      <span>{t('travel.trips')}</span>
+    </div>
+    <div class="stat">
+      <strong>{travelDays(trips, year)}</strong>
+      <span>{t('travel.days')}</span>
+    </div>
+  </div>
+  <nav class="section-tabs">
+    {(['discover', 'timeline', 'photos', 'wishlist', 'map'] as const).map((v) => (
+      <a
+        class:list={{ active: isView(v) }}
+        href={`/travel?view=${v}`}
+        aria-current={isView(v) ? 'page' : undefined}
+      >
+        {t(`travel.${v}`)}
+      </a>
+    ))}
+  </nav>
+  {isView('discover') && (
+    <Discover
+      locale={locale}
+      owner={!!user}
+      initialWishes={wishes}
+      visitedIds={trips.flatMap((trip) => (trip.spot_id ? [trip.spot_id] : []))}
+      selectedId={Astro.url.searchParams.get('spot') ?? undefined}
+      client:load
+    />
+  )}
+  {isView('map') &&
+    (Astro.url.searchParams.get('scope') === 'world' ? (
+      <>
+        {' '}
+        <section class="card">
+          <InteractiveMap
+            locale={locale}
+            countries={mapCountries}
+            entries={mapEntries(trips, locale)}
+            wishes={wishes.map((w) => w.location.country_code)}
+            mapStyle={preferences.mapStyle}
+            client:visible
+          />
+        </section>
+        <a class="text-link" href="/travel?view=map">
+          {t('travel.chinaMap')} ↗
+        </a>
+      </>
+    ) : (
+      <ChinaMap locale={locale} trips={trips} wishes={wishes} />
+    ))}
+  {isView('timeline') && (
+    <>
+      {years.map((year) => (
+        <section>
+          <h2 class="travel-year">{year || t('common.undated')}</h2>
+          <div class="travel-grid">
+            {visible
+              .filter((trip) => (trip.start_date?.slice(0, 4) ?? '') === year)
+              .map((trip) => (
+                <a class="travel-card" href={`/travel/${trip.id}`}>
+                  <div class="travel-cover">
+                    <img
+                      src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
+                      alt={name(trip)}
+                      width="480"
+                      height="360"
+                      loading="lazy"
+                      decoding="async"
+                      sizes="(max-width:640px) 90vw, 33vw"
+                    />
+                    <span class="photo-count">
+                      {trip.photos.length} {t('travel.photosCount')}
+                    </span>
+                  </div>
+                  <div class="card-heading">
+                    <h3>{name(trip)}</h3>
+                    <ArrowUpRight size={17} />
+                  </div>
+                  <p class="muted">
+                    {locale === 'zh-CN'
+                      ? trip.location.country_name_zh || trip.location.country_name
+                      : trip.location.country_name}{' '}
+                    · {trip.start_date ?? t('common.undated')}
+                  </p>
+                  {user && (
+                    <span class="badge" style="margin-top:8px">
+                      {t(`common.${trip.visibility}`)}
+                    </span>
+                  )}
+                </a>
+              ))}
+          </div>
+        </section>
+      ))}
+      {!visible.length && (
+        <div class="empty">
+          <MapPin size={32} strokeWidth={1} />
+          <p>{t('travel.noTrips')}</p>
+          {user && (
+            <a href="/travel?new=1" class="text-link">
+              {t('travel.add')}
+            </a>
+          )}
+        </div>
+      )}
+    </>
+  )}
+  {isView('photos') && <PhotoWall locale={locale} photos={wall} client:visible />}
+  {isView('wishlist') && (
+    <div class="card">
+      <Wishlist locale={locale} initial={wishes} owner={!!user} client:visible />
+    </div>
+  )}
+  {(isView('timeline') || isView('photos')) && (
+    <div class="form-actions">
+      {page > 0 && (
+        <a class="button button-secondary" href={`/travel?view=${view}&page=${page - 1}`}>
+          {t('common.previous')}
+        </a>
+      )}
+      {(isView('photos') ? allPhotos.length > (page + 1) * 24 : trips.length > (page + 1) * 12) && (
+        <a class="button button-secondary" href={`/travel?view=${view}&page=${page + 1}`}>
+          {t('common.next')}
+        </a>
+      )}
+    </div>
+  )}
+</Base>

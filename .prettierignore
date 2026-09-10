@@ -1,0 +1,12 @@
+node_modules
+dist
+.astro
+.wrangler
+data/cache
+data/generated
+data/exercise-names.zh-CN.json
+data/exercise-name-glossary.json
+src/data/world.json
+pnpm-lock.yaml
+output
+.playwright-cli
