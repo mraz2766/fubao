@@ -8,96 +8,104 @@ const t = translator(Astro.locals.locale);
 
 <Base title={t('about.title')} active="settings">
   <div class="prose">
-    <span class="eyebrow">FUBAO / 0.1.0</span>
+    <p class="small muted">Fubao · 0.1.0</p>
     <h1>{t('about.title')}</h1>
     <p>{t('about.description')}</p>
-    <h2>{t('settings.sources')}</h2>
-    <ul>
-      <li>
-        <a href="https://github.com/yuhonas/free-exercise-db">Free Exercise DB</a> —{' '}
-        <a href="/licenses/free-exercise-db.txt">Unlicense</a> · a859101d633a · Exercise pose images
-      </li>
-      <li>
-        <a href="https://github.com/giavinh79/react-body-highlighter">react-body-highlighter</a> —{' '}
-        <a href="/licenses/react-body-highlighter.txt">MIT · GV79</a> · d03fcd874003 · Body SVG
-      </li>
-      <li>
-        <a href="https://github.com/hasaneyldrm/exercises-dataset">Exercises Dataset</a> — MIT ·{' '}
-        <code>{locks.fitness.commit.slice(0, 12)}</code>
-        <p>{t('about.media')}</p>
-        <a href="https://github.com/hasaneyldrm/exercises-dataset/blob/main/LICENSE">
-          License / Media exception
-        </a>
-      </li>
-      <li>
-        <a href="https://github.com/dr5hn/countries-states-cities-database">
-          Countries States Cities Database
-        </a>{' '}
-        — ODbL 1.0 · <code>{locks.locations.commit.slice(0, 12)}</code>
-        <p>{t('about.location')}</p>
-        <a href="/api/locations/export" download>
-          {Astro.locals.locale === 'zh-CN'
-            ? '下载派生地点数据（ODbL）'
-            : 'Download derived locations (ODbL)'}
-        </a>{' '}
-        ·
-        <a href="https://github.com/mraz2766/fubao/blob/main/scripts/import-locations.ts">
-          Location transformation script
-        </a>{' '}
-        ·{' '}
-        <a href="https://github.com/dr5hn/countries-states-cities-database/blob/master/LICENSE">
-          ODbL License
-        </a>
-      </li>
-      <li>
-        <a href="https://www.naturalearthdata.com/">Natural Earth</a> — Public Domain ·{' '}
-        <code>{locks.map.commit.slice(0, 12)}</code>
-        <p>{t('about.map')}</p>
-      </li>
-      <li>
-        <a href="https://github.com/Snouzy/workout-cool">Workout.cool</a> — MIT · Fitness UX
-        reference
-      </li>
-    </ul>
-    <h2 id="scenery">{t('about.scenery')}</h2>
-    <p>{t('travel.scenicAttribution')}</p>
-    <ul>
-      {spots.map((s) => (
+    <details>
+      <summary>{t('settings.sources')}</summary>
+      <ul>
         <li>
-          <a href={s.image.source}>{Astro.locals.locale === 'zh-CN' ? s.name_zh : s.name_en}</a> —{' '}
-          {s.image.artist} · <a href={s.image.licenseUrl}>{s.image.license}</a> ·{' '}
-          {t('travel.imageAdapted')}
+          <a href="https://github.com/yuhonas/free-exercise-db">Free Exercise DB</a> —{' '}
+          <a href="/licenses/free-exercise-db.txt">Unlicense</a> · a859101d633a · Exercise pose
+          images
         </li>
-      ))}
-    </ul>
-    <h2>{t('about.licenses')}</h2>
-    <p>
-      <a href="https://animata.design/components">Animata</a> ·{' '}
-      <a href="/licenses/animata.txt">MIT · Copyright Animata</a> · de9aabb0eed1 · Slide Arrow /
-      Tilted Cover / Ring Chart / Fluid Tabs
-    </p>
-    <ul>
-      <li>
-        <a href="https://github.com/jnsahaj/tweakcn">tweakcn</a> · Graphite theme ·{' '}
-        <a href="/licenses/tweakcn.txt">Apache-2.0</a>
-      </li>
-      <li>
-        <a href="https://github.com/tremorlabs/tremor">Tremor</a> · ProgressBar ·{' '}
-        <a href="/licenses/tremor.txt">Apache-2.0</a>
-      </li>
-      <li>
-        <a href="https://github.com/BoardUI/boardui">BoardUI</a> · Chip ·{' '}
-        <a href="/licenses/boardui.txt">MIT</a>
-      </li>
-    </ul>
-    <p>
-      Astro · React · Tailwind CSS · shadcn/ui · Radix UI · Lucide · Zod · D3 · exifr · noble-hashes
-    </p>
-    <p>
-      <a href="https://github.com/mraz2766/fubao/blob/main/THIRD_PARTY_NOTICES.md">
-        Third-party notices
-      </a>
-    </p>
+        <li>
+          <a href="https://github.com/giavinh79/react-body-highlighter">react-body-highlighter</a> —{' '}
+          <a href="/licenses/react-body-highlighter.txt">MIT · GV79</a> · d03fcd874003 · Body SVG
+        </li>
+        <li>
+          <a href="https://github.com/hasaneyldrm/exercises-dataset">Exercises Dataset</a> — MIT ·{' '}
+          <code>{locks.fitness.commit.slice(0, 12)}</code>
+          <p>{t('about.media')}</p>
+          <a href="https://github.com/hasaneyldrm/exercises-dataset/blob/main/LICENSE">
+            License / Media exception
+          </a>
+        </li>
+        <li>
+          <a href="https://github.com/dr5hn/countries-states-cities-database">
+            Countries States Cities Database
+          </a>{' '}
+          — ODbL 1.0 · <code>{locks.locations.commit.slice(0, 12)}</code>
+          <p>{t('about.location')}</p>
+          <a href="/api/locations/export" download>
+            {Astro.locals.locale === 'zh-CN'
+              ? '下载派生地点数据（ODbL）'
+              : 'Download derived locations (ODbL)'}
+          </a>{' '}
+          ·
+          <a href="https://github.com/mraz2766/fubao/blob/main/scripts/import-locations.ts">
+            Location transformation script
+          </a>{' '}
+          ·{' '}
+          <a href="https://github.com/dr5hn/countries-states-cities-database/blob/master/LICENSE">
+            ODbL License
+          </a>
+        </li>
+        <li>
+          <a href="https://www.naturalearthdata.com/">Natural Earth</a> — Public Domain ·{' '}
+          <code>{locks.map.commit.slice(0, 12)}</code>
+          <p>{t('about.map')}</p>
+        </li>
+        <li>
+          <a href="https://github.com/Snouzy/workout-cool">Workout.cool</a> — MIT · Fitness UX
+          reference
+        </li>
+      </ul>
+    </details>
+    <details id="scenery">
+      <summary>{t('about.scenery')}</summary>
+      <p>{t('travel.scenicAttribution')}</p>
+      <ul>
+        {spots.map((s) => (
+          <li>
+            <a href={s.image.source}>{Astro.locals.locale === 'zh-CN' ? s.name_zh : s.name_en}</a> —{' '}
+            {s.image.artist} · <a href={s.image.licenseUrl}>{s.image.license}</a> ·{' '}
+            {t('travel.imageAdapted')}
+          </li>
+        ))}
+      </ul>
+    </details>
+    <details>
+      <summary>{t('about.licenses')}</summary>
+      <p>
+        <a href="https://animata.design/components">Animata</a> ·{' '}
+        <a href="/licenses/animata.txt">MIT · Copyright Animata</a> · de9aabb0eed1 · Fluid Tabs ·
+        interaction patterns
+      </p>
+      <ul>
+        <li>
+          <a href="https://github.com/jnsahaj/tweakcn">tweakcn</a> · Adapted neutral theme ·{' '}
+          <a href="/licenses/tweakcn.txt">Apache-2.0</a>
+        </li>
+        <li>
+          <a href="https://github.com/tremorlabs/tremor">Tremor</a> · ProgressBar ·{' '}
+          <a href="/licenses/tremor.txt">Apache-2.0</a>
+        </li>
+        <li>
+          <a href="https://github.com/BoardUI/boardui">BoardUI</a> · Chip ·{' '}
+          <a href="/licenses/boardui.txt">MIT</a>
+        </li>
+      </ul>
+      <p>
+        Astro · React · Tailwind CSS · shadcn/ui · Radix UI · Lucide · Zod · D3 · exifr ·
+        noble-hashes
+      </p>
+      <p>
+        <a href="https://github.com/mraz2766/fubao/blob/main/THIRD_PARTY_NOTICES.md">
+          Third-party notices
+        </a>
+      </p>
+    </details>
     <a href="/settings" class="text-link">
       {t('about.back')}
     </a>

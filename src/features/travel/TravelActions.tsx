@@ -28,15 +28,20 @@ export default function TravelActions({ locale, trip }: { locale: Locale; trip?:
     <>
       <div className="form-actions" style={{ padding: 0 }}>
         {trip && (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t('common.delete')}
-            disabled={pending}
-            onClick={remove}
-          >
-            <Trash2 size={17} />
-          </Button>
+          <details className="view-menu action-menu">
+            <summary aria-label={t('simple.more')}>···</summary>
+            <div className="action-menu-content">
+              <Button
+                variant="ghost"
+
+                aria-label={t('common.delete')}
+                disabled={pending}
+                onClick={remove}
+              >
+                <Trash2 size={17} /> {t('common.delete')}
+              </Button>
+            </div>
+          </details>
         )}
         <Button onClick={() => setOpen(true)}>
           {trip ? <Pencil size={15} /> : <Plus size={16} />}{' '}

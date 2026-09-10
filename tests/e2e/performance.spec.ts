@@ -49,6 +49,8 @@ test('mobile app shell JavaScript budget and controlled loading metrics', async 
   await writeFile('output/playwright/performance.json', JSON.stringify(result, null, 2));
   expect(javascriptGzipBytes).toBeLessThan(150 * 1024);
   expect(metrics.cls).toBeLessThanOrEqual(0.1);
+  expect(metrics.lcp).toBeGreaterThan(0);
+  expect(metrics.lcp).toBeLessThanOrEqual(2500);
 });
 
 test('deferred map and thumbnail-only discovery avoid unnecessary first-screen downloads', async ({
@@ -59,12 +61,9 @@ test('deferred map and thumbnail-only discovery avoid unnecessary first-screen d
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   expect(urls.some((url) => url.includes('/maps/'))).toBe(false);
-  await page.locator('.dashboard-map summary').click();
-  await expect.poll(() => urls.some((url) => url.includes('/maps/'))).toBe(true);
-  const unloaded = await page.locator('use[data-map-href]').count();
-  expect(unloaded).toBe(0);
+  await expect(page.locator('.dashboard-map')).toHaveCount(0);
   urls.length = 0;
-  await page.goto('/travel');
+  await page.goto('/travel?view=discover');
   await page.waitForLoadState('networkidle');
   const photos = urls.filter((url) => url.includes('/scenery/'));
   expect(photos.length).toBeGreaterThan(0);

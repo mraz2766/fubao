@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, Heart, Plus, Dumbbell, HeartPulse, Info, Check, ArrowLeft } from 'lucide-react';
+import { Search, Heart, Plus, Dumbbell, Info, Check, ArrowLeft } from 'lucide-react';
 import type { Exercise, Locale, Workout, Preferences } from '../../types/domain';
 import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
@@ -97,6 +97,7 @@ export default function ExerciseSearch({
   }
   const t = translator(locale),
     [query, setQuery] = useState(''),
+    [filterOpen, setFilterOpen] = useState(false),
     [body, setBody] = useState(''),
     [target, setTarget] = useState(''),
     [equipment, setEquipment] = useState(''),
@@ -114,10 +115,13 @@ export default function ExerciseSearch({
   }>({ bodyParts: [], targets: [], equipment: [] });
   useEffect(() => {
     setReady(true);
+  }, []);
+  useEffect(() => {
+    if (!filterOpen || filters.bodyParts.length) return;
     api<typeof filters>('/api/fitness/exercises/filters')
       .then(setFilters)
       .catch((e) => setError(errorText(e, locale)));
-  }, [locale]);
+  }, [filterOpen, locale]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -182,59 +186,34 @@ export default function ExerciseSearch({
             }}
           />
         </label>
-        <div className="muscle-shortcuts">
-          {['', 'back', 'chest', 'upper legs', 'shoulders', 'cardio'].map((part) => (
-            <button
-              type="button"
-              key={part}
-              aria-pressed={body === part}
-              className={body === part ? 'active' : ''}
-              onClick={() => selectFilter(setBody, part)}
-            >
-              {part && part !== 'cardio' ? (
-                <MuscleFigure
-                  target={
-                    (
-                      {
-                        back: 'lats',
-                        chest: 'pectorals',
-                        'upper legs': 'quads',
-                        shoulders: 'delts',
-                      } as Record<string, string>
-                    )[part]!
-                  }
-                  locale={locale}
-                />
-              ) : part === 'cardio' ? (
-                <HeartPulse size={22} />
-              ) : (
-                <Dumbbell size={22} />
-              )}
-              <span>{part ? taxonomyLabel(part, locale) : t('common.all')}</span>
-            </button>
-          ))}
-        </div>
-        <div className="filter-row">
-          {(
-            [
-              [t('fitness.bodyPart'), body, setBody, filters.bodyParts],
-              [t('fitness.target'), target, setTarget, filters.targets],
-              [t('fitness.equipment'), equipment, setEquipment, filters.equipment],
-            ] as const
-          ).map(([label, value, setter, options]) => (
-            <label key={label} className="field">
-              <span className="small muted">{label}</span>
-              <select value={value} onChange={(e) => selectFilter(setter, e.target.value)}>
-                <option value="">{t('common.all')}</option>
-                {options.map((v) => (
-                  <option key={v} value={v}>
-                    {taxonomyLabel(v, locale)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
+        <details className="filter-panel" onToggle={(e) => setFilterOpen(e.currentTarget.open)}>
+          <summary>
+            {t('quiet.filters')}
+            {[body, target, equipment].filter(Boolean).length > 0 &&
+              ' · ' + [body, target, equipment].filter(Boolean).length}
+          </summary>
+          <div className="filter-row">
+            {(
+              [
+                [t('fitness.bodyPart'), body, setBody, filters.bodyParts],
+                [t('fitness.target'), target, setTarget, filters.targets],
+                [t('fitness.equipment'), equipment, setEquipment, filters.equipment],
+              ] as const
+            ).map(([label, value, setter, options]) => (
+              <label key={label} className="field">
+                <span className="small muted">{label}</span>
+                <select value={value} onChange={(e) => selectFilter(setter, e.target.value)}>
+                  <option value="">{t('common.all')}</option>
+                  {options.map((v) => (
+                    <option key={v} value={v}>
+                      {taxonomyLabel(v, locale)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        </details>
         {owner && (
           <div className="section-tabs">
             {(['all', 'recent', 'frequent', 'favorites'] as const).map((value) => (

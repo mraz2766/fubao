@@ -22,3 +22,10 @@ export function taxonomyLabel(value: string, locale: Locale) {
     ? ((taxonomy as Record<string, string>)[value.toLowerCase()] ?? value)
     : value;
 }
+
+import regions from '../locales/regions.zh-CN.json';
+export function locationRegion(location: { country_code: string; region: string }, locale: Locale) {
+  if (locale !== 'zh-CN' || location.country_code !== 'CN') return location.region;
+  const name = location.region.replace(/ (Province|Autonomous Region|Municipality)$/i, '');
+  return (regions as Record<string, string>)[name] ?? location.region;
+}

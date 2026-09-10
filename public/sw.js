@@ -1,4 +1,4 @@
-const CACHE='fubao-shell-v3';
+const CACHE='fubao-shell-v4';
 const SHELL=['/offline.html','/icon.svg','/icon-192.png','/icon-512.png','/manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL))));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('fubao-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

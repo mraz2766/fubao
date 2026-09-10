@@ -701,7 +701,7 @@ export default function WorkoutEditor({
                         </div>
                         <div className="record-set-inputs">
                           {fields.map((key) => (
-                            <label className="field" key={key}>
+                            <label className="field preset-field" key={key}>
                               <span>
                                 {t(`fitness.${key}`)}
                                 {key === 'weight'
@@ -858,47 +858,49 @@ export default function WorkoutEditor({
                       {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
                     </Button>
                     {!exercise.sets.some((s) => s.completed) && (
-                      <div className="record-presets">
-                        <span className="small muted">{t('simple.addSets')}</span>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            key={n}
-                            onClick={() =>
-                              patch(
-                                {
-                                  exercises: workout.exercises.map((e) =>
-                                    e.id === exercise.id
-                                      ? {
-                                          ...e,
-                                          sets: [
-                                            ...e.sets.filter(
-                                              (s) =>
-                                                s.weight !== null ||
-                                                s.reps !== null ||
-                                                s.duration !== null ||
-                                                s.distance !== null ||
-                                                s.rpe !== null ||
-                                                !!s.note,
-                                            ),
-                                            ...Array.from({ length: n }, () => ({
-                                              ...blankSet(),
-                                              completed: true,
-                                            })),
-                                          ],
-                                        }
-                                      : e,
-                                  ),
-                                },
-                                true,
-                              )
-                            }
-                          >
-                            {n} {t('fitness.set')}
-                          </Button>
-                        ))}
-                      </div>
+                      <details className="record-more">
+                        <summary>{t('simple.addSets')}</summary>
+                        <div className="record-presets">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              key={n}
+                              onClick={() =>
+                                patch(
+                                  {
+                                    exercises: workout.exercises.map((e) =>
+                                      e.id === exercise.id
+                                        ? {
+                                            ...e,
+                                            sets: [
+                                              ...e.sets.filter(
+                                                (s) =>
+                                                  s.weight !== null ||
+                                                  s.reps !== null ||
+                                                  s.duration !== null ||
+                                                  s.distance !== null ||
+                                                  s.rpe !== null ||
+                                                  !!s.note,
+                                              ),
+                                              ...Array.from({ length: n }, () => ({
+                                                ...blankSet(),
+                                                completed: true,
+                                              })),
+                                            ],
+                                          }
+                                        : e,
+                                    ),
+                                  },
+                                  true,
+                                )
+                              }
+                            >
+                              {n} {t('fitness.set')}
+                            </Button>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </section>
                 );

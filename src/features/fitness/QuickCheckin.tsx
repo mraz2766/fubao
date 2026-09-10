@@ -25,6 +25,7 @@ export default function QuickCheckin({
 }) {
   const t = translator(locale);
   const [date, setDate] = useState(today),
+    [allParts, setAllParts] = useState(false),
     [customDate, setCustomDate] = useState(false),
     [saved, setSaved] = useState<Workout | null>(null),
     [busy, setBusy] = useState(false),
@@ -85,12 +86,11 @@ export default function QuickCheckin({
               w.workout_date >= weekStart &&
               w.workout_date < shiftDay(weekStart, 7),
           ).length}{' '}
-        / {preferences.weeklyGoal}
+        {t('common.times')} · {t('quiet.goal')} {preferences.weeklyGoal} {t('common.times')}
       </p>
       <div className="card-heading">
         <div>
           <h2>{t(saved ? 'simple.checkedIn' : 'simple.checkinTitle')}</h2>
-          <p className="muted small">{t(saved ? 'simple.optionalLater' : 'simple.checkinHint')}</p>
         </div>
       </div>
       {!saved ? (
@@ -132,7 +132,7 @@ export default function QuickCheckin({
             )}
           </div>
           <div className="checkin-options">
-            {order.map((part) => (
+            {(allParts ? order : order.slice(0, 4)).map((part) => (
               <button
                 type="button"
                 key={part}
@@ -147,6 +147,11 @@ export default function QuickCheckin({
               </button>
             ))}
           </div>
+          {order.length > 4 && (
+            <Button variant="ghost" aria-expanded={allParts} onClick={() => setAllParts(!allParts)}>
+              {t(allParts ? 'quiet.back' : 'quiet.allParts')}
+            </Button>
+          )}
         </>
       ) : (
         <div className="checkin-result" role="status">

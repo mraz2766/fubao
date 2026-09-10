@@ -93,15 +93,20 @@ export default function WorkoutActions({
       <div className="form-actions" style={{ padding: 0 }}>
         {workout ? (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={t('common.delete')}
-              onClick={() => void remove()}
-              disabled={pending || !ready}
-            >
-              <Trash2 size={17} />
-            </Button>
+            <details className="view-menu action-menu">
+              <summary aria-label={t('simple.more')}>···</summary>
+              <div className="action-menu-content">
+                <Button
+                  variant="ghost"
+
+                  aria-label={t('common.delete')}
+                  onClick={() => void remove()}
+                  disabled={pending || !ready}
+                >
+                  <Trash2 size={17} /> {t('common.delete')}
+                </Button>
+              </div>
+            </details>
             <Button disabled={!ready} onClick={() => setOpen(true)}>
               <Pencil size={15} />
               {t('simple.supplement')}

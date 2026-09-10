@@ -40,12 +40,20 @@ export async function listTrips(user: User | null, id?: string): Promise<Trip[]>
     photos: photoMap.get(t.id) ?? [],
   }));
 }
+export async function visitedSpotIds(user: User | null): Promise<string[]> {
+  const rows = await all<{ spot_id: string }>(
+    'SELECT DISTINCT spot_id FROM travel_entries WHERE user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND deleted_at IS NULL AND spot_id IS NOT NULL' +
+      (user ? '' : " AND visibility='public'"),
+    user?.id ?? null,
+  );
+  return rows.map((r) => r.spot_id);
+}
 export async function listWishlist(user: User | null): Promise<Wish[]> {
   const id = user?.id ?? null;
   const rows = await all<
     Location & { wish_id: string; location_id: string; visibility: Wish['visibility'] }
   >(
-    `SELECT l.*,w.id wish_id,w.location_id,w.visibility,w.spot_id,COALESCE(p.name_zh,l.name_zh) name_zh,COALESCE(p.name_en,l.name) name FROM travel_wishlist w JOIN locations l ON l.id=w.location_id LEFT JOIN scenic_spots p ON p.id=w.spot_id WHERE w.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND w.visibility='public'"} ORDER BY w.created_at DESC`,
+    `SELECT l.*,w.id wish_id,w.location_id,w.visibility,w.spot_id,COALESCE(p.name_zh,l.name_zh) name_zh,COALESCE(p.name_en,l.name) name,COALESCE(p.latitude,l.latitude) latitude,COALESCE(p.longitude,l.longitude) longitude FROM travel_wishlist w JOIN locations l ON l.id=w.location_id LEFT JOIN scenic_spots p ON p.id=w.spot_id WHERE w.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND w.visibility='public'"} ORDER BY w.created_at DESC`,
     id,
   );
   return rows.map((r) => ({

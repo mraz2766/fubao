@@ -9,15 +9,13 @@ const t = translator(Astro.locals.locale);
 <Base title={t('nav.settings')} active="settings">
   <header class="page-header">
     <div>
-      <span class="eyebrow">PREFERENCES</span>
       <h1>{t('settings.title')}</h1>
-      <p>{t('settings.subtitle')}</p>
     </div>
   </header>
   <SettingsPanel
     locale={Astro.locals.locale}
-    initial={Astro.locals.preferences}
-    initialWidgets={await getWidgets()}
+    initial={{ ...Astro.locals.preferences, language: Astro.locals.locale }}
+    initialWidgets={await getWidgets(Astro.locals.user?.id)}
     owner={!!Astro.locals.user}
     client:load
   />

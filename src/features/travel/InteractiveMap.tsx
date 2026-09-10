@@ -27,13 +27,11 @@ export default function InteractiveMap({
   countries,
   entries,
   wishes,
-  mapStyle,
 }: {
   locale: Locale;
   countries: Country[];
   entries: MapEntry[];
   wishes: string[];
-  mapStyle: 'countries' | 'places';
 }) {
   const t = translator(locale),
     ref = useRef<SVGSVGElement>(null),
@@ -88,25 +86,24 @@ export default function InteractiveMap({
               <path
                 key={c.code + c.name}
                 d={c.path}
-                className={`map-country ${visited.has(c.code) && mapStyle === 'countries' ? 'visited' : ''} ${wishes.includes(c.code) ? 'wish' : ''}`}
+                className={`map-country ${visited.has(c.code) ? 'visited' : ''} ${wishes.includes(c.code) ? 'wish' : ''}`}
                 onClick={() => setCountry(c)}
               >
                 <title>{locale === 'zh-CN' ? c.name_zh || c.name : c.name}</title>
               </path>
             ))}
-            {mapStyle === 'places' &&
-              entries
-                .filter((e) => e.x !== null && e.y !== null)
-                .map((e) => (
-                  <circle
-                    key={e.id}
-                    cx={e.x!}
-                    cy={e.y!}
-                    r="3"
-                    className="map-point"
-                    onClick={() => setCountry(countries.find((c) => c.code === e.code) ?? null)}
-                  />
-                ))}
+            {entries
+              .filter((e) => e.x !== null && e.y !== null)
+              .map((e) => (
+                <circle
+                  key={e.id}
+                  cx={e.x!}
+                  cy={e.y!}
+                  r="3"
+                  className="map-point"
+                  onClick={() => setCountry(countries.find((c) => c.code === e.code) ?? null)}
+                />
+              ))}
           </g>
         </svg>
         <div className="map-controls">

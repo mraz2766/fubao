@@ -24,12 +24,15 @@ export async function searchLocations(params: URLSearchParams) {
     .toLowerCase()
     .slice(0, 100);
   if (!q) return { items: [] };
+  const preferCountry = (params.get('preferCountry') ?? '').toUpperCase();
+  if (preferCountry && !/^[A-Z]{2}$/.test(preferCountry)) throw new HttpError(400, 'INVALID_INPUT');
   const limit = Math.max(1, Math.min(50, Number(params.get('limit')) || 20));
   const escaped = q.replace(/[\\%_]/g, '\\$&');
   const items = await all<Location>(
-    `SELECT DISTINCT l.id,l.kind,l.country_code,l.country_name,l.country_name_zh,l.region,l.city,l.name,l.name_zh,l.latitude,l.longitude FROM location_aliases a JOIN locations l ON l.id=a.location_id WHERE a.alias LIKE ? ESCAPE '\\' ORDER BY CASE WHEN a.alias=? THEN 0 ELSE 1 END,CASE l.kind WHEN 'city' THEN 0 WHEN 'region' THEN 1 ELSE 2 END,l.name LIMIT ?`,
+    `SELECT DISTINCT l.id,l.kind,l.country_code,l.country_name,l.country_name_zh,l.region,l.city,l.name,l.name_zh,l.latitude,l.longitude FROM location_aliases a JOIN locations l ON l.id=a.location_id WHERE a.alias LIKE ? ESCAPE '\\' ORDER BY CASE WHEN a.alias=? THEN 0 ELSE 1 END,CASE WHEN l.country_code=? THEN 0 ELSE 1 END,CASE l.kind WHEN 'city' THEN 0 WHEN 'region' THEN 1 ELSE 2 END,l.name LIMIT ?`,
     escaped + '%',
     q,
+    preferCountry,
     limit,
   );
   const spots = await all<Location>(

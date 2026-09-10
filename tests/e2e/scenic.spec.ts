@@ -16,7 +16,7 @@ test('domestic scenery, wishlist and visit prefill keep catalog photos separate'
   ).toBe(true);
   let wishId: string | undefined;
   try {
-    await page.goto('/travel');
+    await page.goto('/travel?view=discover');
     await page.getByRole('button', { name: '漓江·阳朔', exact: true }).first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: '添加心愿', exact: true }).click();

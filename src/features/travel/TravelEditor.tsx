@@ -180,18 +180,6 @@ export default function TravelEditor({
             mark();
           }}
         />
-        <label className="field">
-          <span>{t('travel.customPlace')}</span>
-          <input
-            value={placeName}
-            maxLength={120}
-            placeholder={t('travel.customPlaceHint')}
-            onChange={(e) => {
-              setPlaceName(e.target.value);
-              mark();
-            }}
-          />
-        </label>
         <div>
           <h3>{t('travel.photoLabel')}</h3>
           <label
@@ -334,60 +322,75 @@ export default function TravelEditor({
             />
           </label>
         </div>
-        <label className="field">
-          <span>{t('travel.description')}</span>
-          <textarea
-            value={description}
-            maxLength={10000}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              mark();
-            }}
-          />
-        </label>
-        <label className="field">
-          <span>{t('travel.tags')}</span>
-          <input
-            value={tags}
-            maxLength={800}
-            onChange={(e) => {
-              setTags(e.target.value);
-              mark();
-            }}
-          />
-        </label>
-        <div className="form-row">
+        <details className="form-details">
+          <summary>{t('quiet.details')}</summary>
           <label className="field">
-            <span>{t('travel.rating')}</span>
-            <select
-              value={rating}
+            <span>{t('travel.customPlace')}</span>
+            <input
+              value={placeName}
+              maxLength={120}
+              placeholder={t('travel.customPlaceHint')}
               onChange={(e) => {
-                setRating(Number(e.target.value));
+                setPlaceName(e.target.value);
                 mark();
               }}
-            >
-              <option value={0}>{t('common.optional')}</option>
-              {[1, 2, 3, 4, 5].map((v) => (
-                <option value={v} key={v}>
-                  {'★'.repeat(v)}
-                </option>
-              ))}
-            </select>
+            />
           </label>
           <label className="field">
-            <span>{t('common.visibility')}</span>
-            <select
-              value={visibility}
+            <span>{t('travel.description')}</span>
+            <textarea
+              value={description}
+              maxLength={10000}
               onChange={(e) => {
-                setVisibility(e.target.value as Trip['visibility']);
+                setDescription(e.target.value);
                 mark();
               }}
-            >
-              <option value="private">{t('common.private')}</option>
-              <option value="public">{t('common.public')}</option>
-            </select>
+            />
           </label>
-        </div>
+          <label className="field">
+            <span>{t('travel.tags')}</span>
+            <input
+              value={tags}
+              maxLength={800}
+              onChange={(e) => {
+                setTags(e.target.value);
+                mark();
+              }}
+            />
+          </label>
+          <div className="form-row">
+            <label className="field">
+              <span>{t('travel.rating')}</span>
+              <select
+                value={rating}
+                onChange={(e) => {
+                  setRating(Number(e.target.value));
+                  mark();
+                }}
+              >
+                <option value={0}>{t('common.optional')}</option>
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <option value={v} key={v}>
+                    {'★'.repeat(v)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t('common.visibility')}</span>
+              <select
+                value={visibility}
+                onChange={(e) => {
+                  setVisibility(e.target.value as Trip['visibility']);
+                  mark();
+                }}
+              >
+                <option value="private">{t('common.private')}</option>
+                <option value="public">{t('common.public')}</option>
+              </select>
+            </label>
+          </div>
+        </details>
         {error && (
           <p className="form-message error" role="alert">
             {error}

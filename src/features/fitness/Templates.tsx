@@ -220,139 +220,144 @@ export default function Templates({
                     <Trash2 size={16} />
                   </Button>
                 </div>
-                <label className="field">
-                  <span>{t('record.recordingType')}</span>
-                  <select
-                    value={recordingType(e)}
-                    onChange={(event) => {
-                      setEditing({
-                        ...editing,
-                        exercises: editing.exercises.map((x) =>
-                          x.id === e.id
-                            ? { ...x, recording_type: event.target.value as RecordingType }
-                            : x,
-                        ),
-                      });
-                      setDirty(true);
-                    }}
-                  >
-                    {(['weight', 'reps', 'duration', 'cardio'] as const).map((v) => (
-                      <option value={v} key={v}>
-                        {t(`record.type.${v}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {e.sets.map((set, index) => (
-                  <div
-                    key={set.id}
-                    className="form-grid"
-                    style={{ padding: '12px 0', borderTop: '1px solid var(--line)' }}
-                  >
-                    <span className="small muted">
-                      {t('fitness.set')} {index + 1}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`${t('common.delete')} ${t('fitness.set')} ${index + 1}`}
-                      onClick={() =>
-                        changeSets(
-                          e.id,
-                          e.sets.filter((s) => s.id !== set.id),
-                        )
-                      }
+                <details className="form-details">
+                  <summary>
+                    {t('quiet.details')} · {e.sets.length} {t('fitness.set')}
+                  </summary>
+                  <label className="field">
+                    <span>{t('record.recordingType')}</span>
+                    <select
+                      value={recordingType(e)}
+                      onChange={(event) => {
+                        setEditing({
+                          ...editing,
+                          exercises: editing.exercises.map((x) =>
+                            x.id === e.id
+                              ? { ...x, recording_type: event.target.value as RecordingType }
+                              : x,
+                          ),
+                        });
+                        setDirty(true);
+                      }}
                     >
-                      <Trash2 size={14} />
-                    </Button>
-                    {(['reps', 'weight', 'duration', 'distance', 'rpe'] as const).map((key) => {
-                      const raw = set[key];
-                      const display =
-                        raw === null
-                          ? ''
-                          : key === 'weight'
-                            ? +toDisplayWeight(raw, preferences.weightUnit).toFixed(2)
-                            : key === 'distance'
-                              ? +toDisplayDistance(raw, preferences.distanceUnit).toFixed(3)
-                              : raw;
-                      return (
-                        <label className="field" key={key}>
-                          <span>
-                            {t(`fitness.${key}`)}{' '}
-                            {key === 'weight'
-                              ? preferences.weightUnit
-                              : key === 'distance'
-                                ? preferences.distanceUnit
-                                : ''}
-                          </span>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            min={key === 'weight' ? 0 : 1}
-                            step={key === 'reps' ? 1 : 'any'}
-                            value={display}
-                            onChange={(event) => {
-                              const value =
-                                event.target.value === '' ? null : Number(event.target.value);
-                              const converted =
-                                value === null
-                                  ? null
-                                  : key === 'weight'
-                                    ? toKg(value, preferences.weightUnit)
-                                    : key === 'distance'
-                                      ? toMeters(value, preferences.distanceUnit)
-                                      : value;
-                              changeSets(
-                                e.id,
-                                e.sets.map((s) =>
-                                  s.id === set.id ? { ...s, [key]: converted } : s,
-                                ),
-                              );
-                            }}
-                          />
-                        </label>
-                      );
-                    })}
-                    <label className="field">
-                      <span>{t('common.note')}</span>
-                      <input
-                        value={set.note}
-                        maxLength={1000}
-                        onChange={(event) =>
+                      {(['weight', 'reps', 'duration', 'cardio'] as const).map((v) => (
+                        <option value={v} key={v}>
+                          {t(`record.type.${v}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {e.sets.map((set, index) => (
+                    <div
+                      key={set.id}
+                      className="form-grid"
+                      style={{ padding: '12px 0', borderTop: '1px solid var(--line)' }}
+                    >
+                      <span className="small muted">
+                        {t('fitness.set')} {index + 1}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${t('common.delete')} ${t('fitness.set')} ${index + 1}`}
+                        onClick={() =>
                           changeSets(
                             e.id,
-                            e.sets.map((s) =>
-                              s.id === set.id ? { ...s, note: event.target.value } : s,
-                            ),
+                            e.sets.filter((s) => s.id !== set.id),
                           )
                         }
-                      />
-                    </label>
-                  </div>
-                ))}
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    changeSets(e.id, [
-                      ...e.sets,
-                      {
-                        ...(e.sets.at(-1) ?? {
-                          reps: null,
-                          weight: null,
-                          duration: null,
-                          distance: null,
-                          rpe: null,
-                          note: '',
-                          completed: false,
-                        }),
-                        id: crypto.randomUUID(),
-                      },
-                    ])
-                  }
-                >
-                  <Plus size={14} />
-                  {t('fitness.addSet')}
-                </Button>
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                      {(['reps', 'weight', 'duration', 'distance', 'rpe'] as const).map((key) => {
+                        const raw = set[key];
+                        const display =
+                          raw === null
+                            ? ''
+                            : key === 'weight'
+                              ? +toDisplayWeight(raw, preferences.weightUnit).toFixed(2)
+                              : key === 'distance'
+                                ? +toDisplayDistance(raw, preferences.distanceUnit).toFixed(3)
+                                : raw;
+                        return (
+                          <label className="field" key={key}>
+                            <span>
+                              {t(`fitness.${key}`)}{' '}
+                              {key === 'weight'
+                                ? preferences.weightUnit
+                                : key === 'distance'
+                                  ? preferences.distanceUnit
+                                  : ''}
+                            </span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min={key === 'weight' ? 0 : 1}
+                              step={key === 'reps' ? 1 : 'any'}
+                              value={display}
+                              onChange={(event) => {
+                                const value =
+                                  event.target.value === '' ? null : Number(event.target.value);
+                                const converted =
+                                  value === null
+                                    ? null
+                                    : key === 'weight'
+                                      ? toKg(value, preferences.weightUnit)
+                                      : key === 'distance'
+                                        ? toMeters(value, preferences.distanceUnit)
+                                        : value;
+                                changeSets(
+                                  e.id,
+                                  e.sets.map((s) =>
+                                    s.id === set.id ? { ...s, [key]: converted } : s,
+                                  ),
+                                );
+                              }}
+                            />
+                          </label>
+                        );
+                      })}
+                      <label className="field">
+                        <span>{t('common.note')}</span>
+                        <input
+                          value={set.note}
+                          maxLength={1000}
+                          onChange={(event) =>
+                            changeSets(
+                              e.id,
+                              e.sets.map((s) =>
+                                s.id === set.id ? { ...s, note: event.target.value } : s,
+                              ),
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    onClick={() =>
+                      changeSets(e.id, [
+                        ...e.sets,
+                        {
+                          ...(e.sets.at(-1) ?? {
+                            reps: null,
+                            weight: null,
+                            duration: null,
+                            distance: null,
+                            rpe: null,
+                            note: '',
+                            completed: false,
+                          }),
+                          id: crypto.randomUUID(),
+                        },
+                      ])
+                    }
+                  >
+                    <Plus size={14} />
+                    {t('fitness.addSet')}
+                  </Button>
+                </details>
               </section>
             ))}
             <Button variant="secondary" onClick={() => setSearch(true)}>

@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import type { Locale, Location } from '../../types/domain';
-import { translator } from '../../lib/i18n';
+import { translator, locationRegion } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
 export const locationName = (location: Location, locale: Locale) =>
   locale === 'zh-CN' ? location.name_zh || location.name : location.name;
@@ -28,7 +28,7 @@ export default function LocationSearch({
     const controller = new AbortController();
     setLoading(true);
     const timeout = setTimeout(() => {
-      api<{ items: Location[] }>(`/api/locations?q=${encodeURIComponent(query)}`, {
+      api<{ items: Location[] }>(`/api/locations?preferCountry=CN&q=${encodeURIComponent(query)}`, {
         signal: controller.signal,
       })
         .then((result) => {
@@ -97,7 +97,9 @@ export default function LocationSearch({
                 <span>
                   <strong>{locationName(item, locale)}</strong>
                   <small>
-                    {item.region && item.kind === 'city' ? `${item.region} · ` : ''}
+                    {item.region && item.kind === 'city'
+                      ? `${locationRegion(item, locale)} · `
+                      : ''}
                     {locale === 'zh-CN'
                       ? item.country_name_zh || item.country_name
                       : item.country_name}

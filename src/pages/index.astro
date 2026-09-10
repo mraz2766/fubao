@@ -1,5 +1,4 @@
 ---
-import SlideArrow from '../components/animata/SlideArrow.astro';
 import Base from '../layouts/Base.astro';
 import { translator } from '../lib/i18n';
 import Dashboard from '../features/dashboard/Dashboard.astro';
@@ -27,12 +26,10 @@ const [workouts, widgets, trips] = await Promise.all([
         }).format(new Date())}
       </span>
       <h1>{t('dashboard.title')}</h1>
-      <p>{t('dashboard.subtitle')}</p>
     </div>
-    <SlideArrow
-      href={Astro.locals.user ? '/fitness' : '/login'}
-      label={t(Astro.locals.user ? 'fitness.quick' : 'auth.login')}
-    />
+    <a class="button button-primary" href={Astro.locals.user ? '/fitness' : '/login'}>
+      {t(Astro.locals.user ? 'fitness.quick' : 'auth.login')}
+    </a>
   </header>
   {Astro.locals.user && workouts.filter((w) => w.status !== 'completed').length > 0 && (
     <section class="resume-list" aria-label={t('record.resume')}>

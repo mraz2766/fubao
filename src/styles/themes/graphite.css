@@ -1,48 +1,48 @@
 /* Adapted from tweakcn's Graphite preset (Apache-2.0).
- * Neutral surfaces retained; violet action tokens and contrast refined for Fubao.
+ * Neutral ink and paper tokens, refined for Fubao.
  * https://github.com/jnsahaj/tweakcn/blob/main/utils/theme-presets.ts */
 :root {
   color-scheme: light;
-  --background: #eeedef;
-  --foreground: #29272e;
-  --card: #f8f7f9;
-  --secondary: #e7e5e9;
-  --muted-foreground: #69646f;
-  --primary: #70569a;
+  --background: #f6f7f8;
+  --foreground: #202124;
+  --card: #ffffff;
+  --secondary: #edeff1;
+  --muted-foreground: #656a73;
+  --primary: #202124;
   --primary-foreground: #ffffff;
-  --border: #dcd9e0;
-  --sidebar: #e6e4e9;
+  --border: #e5e7eb;
+  --sidebar: #f0f1f3;
   --radius: 0.625rem;
   --bg: var(--background);
   --text: var(--foreground);
   --surface: var(--card);
   --surface-soft: var(--secondary);
-  --map-land: #b7aec3;
+  --map-land: #afb5bd;
   --muted: var(--muted-foreground);
   --line: var(--border);
   --accent: var(--primary);
-  --accent-soft: #e6dff0;
+  --accent-soft: #e9ebee;
   --danger: #aa3838;
   --shadow: 0 8px 24px #27232f0b;
   --motion-fast: 150ms;
   --motion-moderate: 180ms;
-  --motion-slow: 260ms;
+  --motion-slow: 200ms;
   --motion-exit: 120ms;
   --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
 }
 [data-theme='dark'] {
   color-scheme: dark;
-  --background: #1a191d;
-  --foreground: #e9e6ed;
-  --card: #232127;
-  --secondary: #2e2b33;
-  --muted-foreground: #aaa4b3;
-  --primary: #c0a4e8;
-  --primary-foreground: #221a2d;
-  --border: #3a353f;
-  --sidebar: #201e24;
-  --map-land: #776887;
-  --accent-soft: #3c304d;
+  --background: #151618;
+  --foreground: #f1f3f5;
+  --card: #1f2124;
+  --secondary: #292c31;
+  --muted-foreground: #a6abb3;
+  --primary: #f1f3f5;
+  --primary-foreground: #151618;
+  --border: #32363c;
+  --sidebar: #191b1e;
+  --map-land: #69717d;
+  --accent-soft: #2c3036;
   --danger: #ffaaa5;
   --shadow: 0 8px 24px #0002;
 }

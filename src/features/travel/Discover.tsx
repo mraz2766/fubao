@@ -73,22 +73,8 @@ export default function Discover({
     <section className="discovery">
       <div className="discovery-heading">
         <div>
-          <span className="eyebrow">{t('travel.domestic')}</span>
           <h2>{t('travel.discoverTitle')}</h2>
         </div>
-        <p className="muted small">{t('travel.discoveryHint')}</p>
-      </div>
-      <div className="discovery-toolbar">
-        <div className="segmented" aria-label={t('travel.collection')}>
-          {(['all', 'wanted', 'visited'] as const).map((value) => (
-            <button key={value} aria-pressed={status === value} onClick={() => setStatus(value)}>
-              {t(`travel.collection.${value}`)}
-            </button>
-          ))}
-        </div>
-        <span className="small muted" aria-live="polite">
-          {items.length} {t('travel.destinations')}
-        </span>
       </div>
       <div className="discovery-filters">
         <label className="search-field">
@@ -100,6 +86,21 @@ export default function Discover({
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
+      </div>
+      <details className="filter-panel">
+        <summary>{t('quiet.filters')}</summary>
+        <div className="discovery-toolbar">
+          <div className="segmented" aria-label={t('travel.collection')}>
+            {(['all', 'wanted', 'visited'] as const).map((value) => (
+              <button key={value} aria-pressed={status === value} onClick={() => setStatus(value)}>
+                {t(`travel.collection.${value}`)}
+              </button>
+            ))}
+          </div>
+          <span className="small muted" aria-live="polite">
+            {items.length} {t('travel.destinations')}
+          </span>
+        </div>
         <label className="field">
           <span className="sr-only">{t('travel.region')}</span>
           <select value={region} onChange={(e) => setRegion(e.target.value)}>
@@ -111,19 +112,19 @@ export default function Discover({
             ))}
           </select>
         </label>
-      </div>
-      <div className="part-options scenic-filters">
-        {['all', 'landscape', 'mountains', 'lakes', 'heritage'].map((c) => (
-          <button
-            key={c}
-            className={`chip ${category === c ? 'active' : ''}`}
-            aria-pressed={category === c}
-            onClick={() => setCategory(c)}
-          >
-            {t(`travel.category.${c}` as TranslationKey)}
-          </button>
-        ))}
-      </div>
+        <div className="part-options scenic-filters">
+          {['all', 'landscape', 'mountains', 'lakes', 'heritage'].map((c) => (
+            <button
+              key={c}
+              className={`chip ${category === c ? 'active' : ''}`}
+              aria-pressed={category === c}
+              onClick={() => setCategory(c)}
+            >
+              {t(`travel.category.${c}` as TranslationKey)}
+            </button>
+          ))}
+        </div>
+      </details>
       {items.length ? (
         <div className="destination-grid">
           {items.map((d, i) => (

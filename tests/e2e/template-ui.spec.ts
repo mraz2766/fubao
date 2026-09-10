@@ -21,6 +21,7 @@ test('mobile template form copies previous weight and opens an active workout', 
       .getByRole('button', { name: /^添加 / })
       .first()
       .click();
+    await page.locator('.exercise-log > details > summary').click();
     await page.getByLabel('次数', { exact: true }).fill('8');
     await page.getByLabel('重量 kg', { exact: true }).fill('100');
     await page.getByRole('button', { name: '下一组', exact: true }).click();

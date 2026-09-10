@@ -6,26 +6,33 @@ import TravelActions from '../../features/travel/TravelActions';
 import InteractiveMap from '../../features/travel/InteractiveMap';
 import Wishlist from '../../features/travel/Wishlist';
 import PhotoWall from '../../features/travel/PhotoWall';
-import { mapCountries, mapEntries } from '../../features/travel/map-data';
-import { listTrips, listWishlist } from '../../server/services/travel';
-import { translator } from '../../lib/i18n';
-import { travelDays, dayKey } from '../../lib/analytics';
+
+import { listTrips, listWishlist, visitedSpotIds } from '../../server/services/travel';
+import { translator, locationRegion } from '../../lib/i18n';
+
 import { MapPin, ArrowUpRight } from 'lucide-react';
-const { user, locale, preferences } = Astro.locals,
+const { user, locale } = Astro.locals,
   t = translator(locale);
-const [trips, wishes] = await Promise.all([listTrips(user), listWishlist(user)]),
-  view = Astro.url.searchParams.get('view') ?? 'discover';
+const view = Astro.url.searchParams.get('view') ?? 'timeline';
+const [trips, wishes, visitedIds] = await Promise.all([
+  ['timeline', 'photos', 'map'].includes(view) ? listTrips(user) : Promise.resolve([]),
+  ['map', 'wishlist', 'discover'].includes(view) ? listWishlist(user) : Promise.resolve([]),
+  view === 'discover' ? visitedSpotIds(user) : Promise.resolve([]),
+]);
+const world =
+  view === 'map' && Astro.url.searchParams.get('scope') === 'world'
+    ? await import('../../features/travel/map-data')
+    : null;
 const isView = (v: string) => view === v;
-const year = Number(dayKey(new Date(), preferences.timezone).slice(0, 4)),
-  countryCount = new Set(trips.map((t) => t.location.country_code)).size,
-  cityCount = new Set(trips.filter((t) => t.location.kind === 'city').map((t) => t.location_id))
-    .size;
+const placeCount = new Set(
+  trips.map((t) => t.spot_id ?? t.location_id + ':' + (t.place_name ?? '')),
+).size;
 const page = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0),
   visible = trips.slice(page * 12, page * 12 + 12),
   years = [...new Set(visible.map((t) => t.start_date?.slice(0, 4) ?? ''))];
 const name = (trip: (typeof trips)[number]) =>
   locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name;
-const allPhotos = trips.flatMap((trip) =>
+const allPhotos = (view === 'photos' ? trips : []).flatMap((trip) =>
     trip.photos.map((p) => ({
       id: p.id,
       travelId: trip.id,
@@ -41,9 +48,7 @@ const allPhotos = trips.flatMap((trip) =>
 <Base title={t('nav.travel')} active="travel">
   <header class="page-header">
     <div>
-      <span class="eyebrow">TRAVEL / A LITTLE FURTHER</span>
       <h1>{t('travel.title')}</h1>
-      <p>{t('travel.subtitle')}</p>
     </div>
     {user && (
       <div class="page-actions">
@@ -51,43 +56,40 @@ const allPhotos = trips.flatMap((trip) =>
       </div>
     )}
   </header>
-  <div
-    class:list={['stats travel-statistics', { 'travel-statistics-compact': isView('discover') }]}
-  >
-    <div class="stat">
-      <strong>{countryCount}</strong>
-      <span>{t('travel.countries')}</span>
-    </div>
-    <div class="stat">
-      <strong>{cityCount}</strong>
-      <span>{t('travel.cities')}</span>
-    </div>
-    <div class="stat">
-      <strong>{trips.length}</strong>
-      <span>{t('travel.trips')}</span>
-    </div>
-    <div class="stat">
-      <strong>{travelDays(trips, year)}</strong>
-      <span>{t('travel.days')}</span>
-    </div>
+  <div class="view-toolbar">
+    <nav class="section-tabs" aria-label={t('travel.title')}>
+      {(['timeline', 'photos'] as const).map((v) => (
+        <a
+          href={'/travel?view=' + v}
+          class:list={{ active: isView(v) }}
+          aria-current={isView(v) ? 'page' : undefined}
+        >
+          {t(('travel.' + v) as 'travel.timeline')}
+        </a>
+      ))}
+    </nav>
+    <details class="view-menu">
+      <summary>{t('quiet.moreTravel')}</summary>
+      <nav aria-label={t('quiet.moreTravel')}>
+        {(['map', 'wishlist', 'discover'] as const).map((v) => (
+          <a href={'/travel?view=' + v} aria-current={isView(v) ? 'page' : undefined}>
+            {t(('travel.' + v) as 'travel.map')}
+          </a>
+        ))}
+      </nav>
+    </details>
   </div>
-  <nav class="section-tabs">
-    {(['discover', 'timeline', 'photos', 'wishlist', 'map'] as const).map((v) => (
-      <a
-        class:list={{ active: isView(v) }}
-        href={`/travel?view=${v}`}
-        aria-current={isView(v) ? 'page' : undefined}
-      >
-        {t(`travel.${v}`)}
-      </a>
-    ))}
-  </nav>
+  {(isView('timeline') || isView('photos')) && trips.length > 0 && (
+    <p class="travel-summary small muted">
+      {placeCount} {t('quiet.places')} · {trips.length} {t('travel.trips')}
+    </p>
+  )}
   {isView('discover') && (
     <Discover
       locale={locale}
       owner={!!user}
       initialWishes={wishes}
-      visitedIds={trips.flatMap((trip) => (trip.spot_id ? [trip.spot_id] : []))}
+      visitedIds={visitedIds}
       selectedId={Astro.url.searchParams.get('spot') ?? undefined}
       client:load
     />
@@ -99,10 +101,9 @@ const allPhotos = trips.flatMap((trip) =>
         <section class="card">
           <InteractiveMap
             locale={locale}
-            countries={mapCountries}
-            entries={mapEntries(trips, locale)}
+            countries={world!.mapCountries}
+            entries={world!.mapEntries(trips, locale)}
             wishes={wishes.map((w) => w.location.country_code)}
-            mapStyle={preferences.mapStyle}
             client:visible
           />
         </section>
@@ -142,10 +143,12 @@ const allPhotos = trips.flatMap((trip) =>
                     <ArrowUpRight size={17} />
                   </div>
                   <p class="muted">
-                    {locale === 'zh-CN'
-                      ? trip.location.country_name_zh || trip.location.country_name
-                      : trip.location.country_name}{' '}
-                    · {trip.start_date ?? t('common.undated')}
+                    {trip.location.country_code === 'CN'
+                      ? locationRegion(trip.location, locale)
+                      : locale === 'zh-CN'
+                        ? trip.location.country_name_zh || trip.location.country_name
+                        : trip.location.country_name}{' '}
+                    {trip.start_date && '· ' + trip.start_date}
                   </p>
                   {user && (
                     <span class="badge" style="margin-top:8px">

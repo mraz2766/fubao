@@ -1,11 +1,12 @@
-import { useEffect, useState, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { ArrowUp, ArrowDown, Download, Upload, LogOut, Check } from 'lucide-react';
 import type { Locale, Preferences, Widget } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
-import { preferencesSchema, widgetsSchema } from '../../lib/schemas';
+import { preferencesSchema } from '../../lib/schemas';
 import { Button } from '../../components/ui/button';
 import { useUnsaved } from '../../lib/use-unsaved';
+import { SettingsSaveQueue, type SettingsPatch } from '../../lib/settings-patch';
 interface BackupFile {
   fitness: {
     sessions: Record<string, unknown>[];
@@ -23,14 +24,23 @@ interface Preview {
   favorites: number;
 }
 function applyLocal(p: Preferences) {
-  localStorage.setItem('fubao.preferences', JSON.stringify(p));
+  try {
+    localStorage.setItem('fubao.preferences', JSON.stringify(p));
+  } catch {}
   document.cookie = `fubao.locale=${p.language}; Path=/; Max-Age=31536000; SameSite=Lax`;
   document.cookie = `fubao.display=${encodeURIComponent(JSON.stringify({ theme: p.theme, weightUnit: p.weightUnit, distanceUnit: p.distanceUnit, weekStart: p.weekStart, mapStyle: p.mapStyle }))}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  document.documentElement.dataset.preferredTheme = p.theme;
   document.documentElement.dataset.theme =
     p.theme === 'dark' ||
     (p.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
       ? 'dark'
       : 'light';
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute(
+      'content',
+      document.documentElement.dataset.theme === 'dark' ? '#151618' : '#f6f7f8',
+    );
 }
 export default function SettingsPanel({
   locale,
@@ -50,6 +60,9 @@ export default function SettingsPanel({
     [message, setMessage] = useState(''),
     [error, setError] = useState(''),
     [dirty, setDirty] = useState(false),
+    [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle'),
+    [saveError, setSaveError] = useState(''),
+    [timezoneInput, setTimezoneInput] = useState(initial.timezone),
     [dragging, setDragging] = useState<string | null>(null);
   const [backup, setBackup] = useState<BackupFile | null>(null),
     [preview, setPreview] = useState<Preview | null>(null),
@@ -64,48 +77,70 @@ export default function SettingsPanel({
           ...initial,
           ...JSON.parse(localStorage.getItem('fubao.preferences') ?? '{}'),
         });
-        if (parsed.success) setPreferences(parsed.data);
+        if (parsed.success) {
+          setPreferences(parsed.data);
+          latest.current = parsed.data;
+        }
       } catch {}
     }
   }, [owner]);
-  const update = (patch: Partial<Preferences>) => {
-    const next = { ...preferences, ...patch };
+  const latest = useRef(preferences);
+  const queue = useRef<SettingsSaveQueue | null>(null);
+  if (!queue.current)
+    queue.current = new SettingsSaveQueue(
+      async (patch) => {
+        await api('/api/settings', { method: 'PATCH', body: patch });
+      },
+      (state, failure) => {
+        setSaveState(state);
+        setSaveError(failure ? errorText(failure, locale) : '');
+        setDirty(state !== 'saved');
+      },
+      () => {
+        applyLocal(latest.current);
+        if (latest.current.language !== locale) {
+          allowNavigation();
+          location.reload();
+        }
+      },
+    );
+  function persist(patch: SettingsPatch) {
+    if (owner) {
+      setDirty(true);
+      queue.current!.enqueue(patch);
+    } else {
+      applyLocal(latest.current);
+      setSaveState('saved');
+      if (latest.current.language !== locale) {
+        allowNavigation();
+        location.reload();
+      }
+    }
+  }
+  const update = (patch: SettingsPatch['preferences']) => {
+    if (
+      Object.entries(patch ?? {}).every(
+        ([key, value]) => latest.current[key as keyof Preferences] === value,
+      )
+    )
+      return;
+    const next = { ...latest.current, ...patch };
+    if (!preferencesSchema.safeParse(next).success) return;
+    latest.current = next;
     setPreferences(next);
-    setDirty(true);
-    setMessage('');
-    if (patch.theme)
+    if (patch?.theme) {
+      document.documentElement.dataset.preferredTheme = patch.theme;
       document.documentElement.dataset.theme =
         patch.theme === 'dark' ||
         (patch.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
           ? 'dark'
           : 'light';
+    }
+    persist({ preferences: patch });
   };
-  async function save(e: SubmitEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError('');
-    setMessage('');
-    if (
-      !preferencesSchema.safeParse(preferences).success ||
-      !widgetsSchema.safeParse(widgets).success
-    ) {
-      setError(t('error.INVALID_INPUT'));
-      return;
-    }
-    setPending(true);
-    try {
-      if (owner) await api('/api/settings', { method: 'PUT', body: { preferences, widgets } });
-      applyLocal(preferences);
-      setDirty(false);
-      setMessage(t('common.saved'));
-      if (preferences.language !== locale) {
-        allowNavigation();
-        location.reload();
-      }
-    } catch (e) {
-      setError(errorText(e, locale));
-    } finally {
-      setPending(false);
-    }
+  function changeWidget(key: Widget['key'], patch: Partial<Pick<Widget, 'visible' | 'size'>>) {
+    setWidgets((previous) => previous.map((w) => (w.key === key ? { ...w, ...patch } : w)));
+    persist({ widgets: [{ key, ...patch }] });
   }
   function reorder(from: number, to: number) {
     if (to < 0 || to >= widgets.length) return;
@@ -113,7 +148,7 @@ export default function SettingsPanel({
       item = next.splice(from, 1)[0];
     next.splice(to, 0, item);
     setWidgets(next.map((w, i) => ({ ...w, order: i })));
-    setDirty(true);
+    persist({ order: next.map((w) => w.key) });
   }
   async function logout() {
     setPending(true);
@@ -195,7 +230,9 @@ export default function SettingsPanel({
     if (restoreSettings) {
       try {
         await api('/api/settings', { method: 'PUT', body: backup.settings });
+        latest.current = backup.settings.preferences;
         setPreferences(backup.settings.preferences);
+        setTimezoneInput(backup.settings.preferences.timezone);
         setWidgets(backup.settings.widgets);
         applyLocal(backup.settings.preferences);
       } catch (e) {
@@ -213,9 +250,26 @@ export default function SettingsPanel({
           {t('settings.localHint')}
         </p>
       )}
-      <form onSubmit={save}>
-        <section className="settings-section">
-          <h2>{t('settings.appearance')}</h2>
+      <div className="settings-save-status" aria-live="polite" role="status">
+        {saveState === 'saving' && t('common.saving')}
+        {saveState === 'saved' && (
+          <>
+            <Check size={14} />
+            {t('common.saved')}
+          </>
+        )}
+        {saveState === 'error' && (
+          <span className="error">
+            {saveError}{' '}
+            <Button variant="ghost" onClick={() => void queue.current!.flush()}>
+              {t('common.retry')}
+            </Button>
+          </span>
+        )}
+      </div>
+      <section className="settings-section settings-primary">
+        <div className="setting-row">
+          <span>{t('settings.appearance')}</span>
           <div className="segmented">
             {(['light', 'dark', 'system'] as const).map((v) => (
               <button
@@ -225,94 +279,121 @@ export default function SettingsPanel({
                 className={preferences.theme === v ? 'active' : ''}
                 onClick={() => update({ theme: v })}
               >
-                {t(`settings.${v}`)}
+                {t(('settings.' + v) as 'settings.light')}
               </button>
             ))}
           </div>
-        </section>
-        <section className="settings-section">
-          <div className="form-row">
+        </div>
+        <label className="setting-row">
+          <span>{t('settings.language')}</span>
+          <select
+            aria-label={t('settings.language')}
+            value={preferences.language}
+            onChange={(e) => update({ language: e.target.value as Locale })}
+          >
+            <option value="zh-CN">简体中文</option>
+            <option value="en-US">English</option>
+          </select>
+        </label>
+      </section>
+      <details className="settings-group">
+        <summary>
+          <span>{t('quiet.general')}</span>
+          <small>
+            {preferences.weightUnit} · {preferences.distanceUnit} ·{' '}
+            {t(preferences.weekStart ? 'settings.monday' : 'settings.sunday')}
+          </small>
+        </summary>
+        <div className="settings-section">
+          <label className="setting-row">
+            <span>{t('fitness.weight')}</span>
+            <select
+              aria-label={t('fitness.weight')}
+              value={preferences.weightUnit}
+              onChange={(e) => update({ weightUnit: e.target.value as 'kg' | 'lb' })}
+            >
+              <option value="kg">kg</option>
+              <option value="lb">lb</option>
+            </select>
+          </label>
+          <label className="setting-row">
+            <span>{t('fitness.distance')}</span>
+            <select
+              aria-label={t('fitness.distance')}
+              value={preferences.distanceUnit}
+              onChange={(e) => update({ distanceUnit: e.target.value as 'km' | 'mile' })}
+            >
+              <option value="km">km</option>
+              <option value="mile">mile</option>
+            </select>
+          </label>
+          <label className="setting-row">
+            <span>{t('settings.weekStart')}</span>
+            <select
+              aria-label={t('settings.weekStart')}
+              value={preferences.weekStart}
+              onChange={(e) => update({ weekStart: Number(e.target.value) as 0 | 1 })}
+            >
+              <option value={1}>{t('settings.monday')}</option>
+              <option value={0}>{t('settings.sunday')}</option>
+            </select>
+          </label>
+          {owner && (
             <label className="field">
-              <span>{t('settings.language')}</span>
-              <select
-                value={preferences.language}
-                onChange={(e) => update({ language: e.target.value as Locale })}
-              >
-                <option value="zh-CN">简体中文</option>
-                <option value="en-US">English</option>
-              </select>
+              <span>{t('settings.timezone')}</span>
+              <input
+                value={timezoneInput}
+                list="timezones"
+                onChange={(e) => {
+                  setTimezoneInput(e.target.value);
+                  if (preferencesSchema.shape.timezone.safeParse(e.target.value).success)
+                    update({ timezone: e.target.value });
+                }}
+                onBlur={() => setTimezoneInput(latest.current.timezone)}
+              />
+              <datalist id="timezones">
+                {['UTC', ...Intl.supportedValuesOf('timeZone')].map((zone) => (
+                  <option value={zone} key={zone} />
+                ))}
+              </datalist>
             </label>
-            <label className="field">
-              <span>{t('settings.weekStart')}</span>
-              <select
-                value={preferences.weekStart}
-                onChange={(e) => update({ weekStart: Number(e.target.value) as 0 | 1 })}
-              >
-                <option value={1}>{t('settings.monday')}</option>
-                <option value={0}>{t('settings.sunday')}</option>
-              </select>
-            </label>
-          </div>
-        </section>
-        <section className="settings-section">
-          <h2>{t('settings.units')}</h2>
-          <div className="form-row">
-            <label className="field">
-              <span>{t('fitness.weight')}</span>
-              <select
-                value={preferences.weightUnit}
-                onChange={(e) => update({ weightUnit: e.target.value as 'kg' | 'lb' })}
-              >
-                <option value="kg">kg</option>
-                <option value="lb">lb</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>{t('fitness.distance')}</span>
-              <select
-                value={preferences.distanceUnit}
-                onChange={(e) => update({ distanceUnit: e.target.value as 'km' | 'mile' })}
-              >
-                <option value="km">km</option>
-                <option value="mile">mile</option>
-              </select>
-            </label>
-          </div>
-        </section>
-        {owner && (
-          <>
-            <section className="settings-section">
-              <div className="form-row">
-                <label className="field">
-                  <span>{t('settings.goal')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={21}
-                    value={preferences.weeklyGoal}
-                    onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t('settings.timezone')}</span>
-                  <input
-                    value={preferences.timezone}
-                    onChange={(e) => update({ timezone: e.target.value })}
-                    list="timezones"
-                  />
-                  <datalist id="timezones">
-                    {Intl.supportedValuesOf('timeZone').map((zone) => (
-                      <option value={zone} key={zone} />
-                    ))}
-                  </datalist>
-                </label>
-              </div>
-            </section>
-            <section className="settings-section">
-              <h2>{t('settings.dashboard')}</h2>
-              <p className="small muted" style={{ marginBottom: 16 }}>
-                {t('settings.widgetsHint')}
-              </p>
+          )}
+        </div>
+      </details>
+      {owner && (
+        <>
+          <details className="settings-group">
+            <summary>
+              <span>{t('settings.goal')}</span>
+              <small>
+                {preferences.weeklyGoal} {t('common.times')}
+              </small>
+            </summary>
+            <div className="settings-section">
+              <label className="setting-row">
+                <span>{t('settings.goal')}</span>
+                <select
+                  aria-label={t('settings.goal')}
+                  value={preferences.weeklyGoal}
+                  onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}
+                >
+                  {Array.from({ length: 21 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      {n} {t('common.times')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </details>
+          <details className="settings-group">
+            <summary>
+              <span>{t('settings.dashboard')}</span>
+              <small>
+                {widgets.filter((w) => w.visible).length} / {widgets.length}
+              </small>
+            </summary>
+            <div className="settings-section">
               {widgets.map((w, i) => (
                 <div
                   key={w.key}
@@ -330,33 +411,23 @@ export default function SettingsPanel({
                     <input
                       type="checkbox"
                       checked={w.visible}
-                      onChange={(e) => {
-                        setWidgets(
-                          widgets.map((x) =>
-                            x.key === w.key ? { ...x, visible: e.target.checked } : x,
-                          ),
-                        );
-                        setDirty(true);
-                      }}
+                      onChange={(e) => changeWidget(w.key, { visible: e.target.checked })}
                     />
-                    {t(`dashboard.${w.key}`)}
+                    {t(('dashboard.' + w.key) as 'dashboard.fitness')}
                   </label>
                   <div className="widget-controls">
                     <select
-                      aria-label={`${t(`dashboard.${w.key}`)} ${t('settings.size')}`}
+                      aria-label={
+                        t(('dashboard.' + w.key) as 'dashboard.fitness') + ' ' + t('settings.size')
+                      }
                       value={w.size}
-                      onChange={(e) => {
-                        setWidgets(
-                          widgets.map((x) =>
-                            x.key === w.key ? { ...x, size: e.target.value as Widget['size'] } : x,
-                          ),
-                        );
-                        setDirty(true);
-                      }}
+                      onChange={(e) =>
+                        changeWidget(w.key, { size: e.target.value as Widget['size'] })
+                      }
                     >
                       {(['small', 'medium', 'large'] as const).map((v) => (
                         <option key={v} value={v}>
-                          {t(`settings.${v}`)}
+                          {t(('settings.' + v) as 'settings.small')}
                         </option>
                       ))}
                     </select>
@@ -365,7 +436,9 @@ export default function SettingsPanel({
                       variant="ghost"
                       size="icon"
                       disabled={i === 0}
-                      aria-label={t('common.up')}
+                      aria-label={
+                        t('common.up') + ' ' + t(('dashboard.' + w.key) as 'dashboard.fitness')
+                      }
                       onClick={() => reorder(i, i - 1)}
                     >
                       <ArrowUp size={16} />
@@ -375,7 +448,9 @@ export default function SettingsPanel({
                       variant="ghost"
                       size="icon"
                       disabled={i === widgets.length - 1}
-                      aria-label={t('common.down')}
+                      aria-label={
+                        t('common.down') + ' ' + t(('dashboard.' + w.key) as 'dashboard.fitness')
+                      }
                       onClick={() => reorder(i, i + 1)}
                     >
                       <ArrowDown size={16} />
@@ -383,28 +458,10 @@ export default function SettingsPanel({
                   </div>
                 </div>
               ))}
-            </section>
-          </>
-        )}
-        <section className="settings-section">
-          <h2>{t('settings.travel')}</h2>
-          <label className="field">
-            <span>{t('settings.travel')}</span>
-            <select
-              value={preferences.mapStyle}
-              onChange={(e) => update({ mapStyle: e.target.value as Preferences['mapStyle'] })}
-            >
-              <option value="countries">{t('settings.mapCountries')}</option>
-              <option value="places">{t('settings.mapPlaces')}</option>
-            </select>
-          </label>
-        </section>
-        <div className="form-actions">
-          <Button type="submit" disabled={pending}>
-            {pending ? t('common.saving') : t('common.save')}
-          </Button>
-        </div>
-      </form>
+            </div>
+          </details>
+        </>
+      )}
       <div aria-live="polite">
         {message && (
           <p className="form-message">
@@ -419,120 +476,129 @@ export default function SettingsPanel({
       </div>
       {owner && (
         <>
-          <section className="settings-section">
-            <h2>{t('settings.data')}</h2>
-            <p className="small muted">{t('settings.backupHint')}</p>
-            <div className="data-actions">
-              <a className="button button-secondary" href="/api/data/export" download>
-                <Download size={16} />
-                {t('settings.export')}
-              </a>
-              <label className="button button-secondary import-button">
-                <Upload size={16} />
-                {t('settings.import')}
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  disabled={pending}
-                  onChange={(e) => {
-                    if (e.target.files?.[0]) previewFile(e.target.files[0]);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
-            </div>
-            {preview && (
-              <div className="import-preview">
-                <h3>{t('settings.preview')}</h3>
-                <p className="small muted">{t('settings.importHint')}</p>
-                <dl className="import-counts">
-                  {(
-                    [
-                      ['sessions', 'fitness.history'],
-                      ['templates', 'fitness.templates'],
-                      ['trips', 'travel.timeline'],
-                      ['wishlist', 'travel.wishlist'],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <div key={key}>
-                      <dt>{t(label)}</dt>
-                      <dd>
-                        +{preview[key].new} / {locale === 'zh-CN' ? '跳过' : 'skip'}{' '}
-                        {preview[key].skip}
-                      </dd>
-                    </div>
+          <details className="settings-group">
+            <summary>{t('settings.data')}</summary>
+            <section className="settings-section">
+              <p className="small muted">{t('settings.backupHint')}</p>
+              <div className="data-actions">
+                <a className="button button-secondary" href="/api/data/export" download>
+                  <Download size={16} />
+                  {t('settings.export')}
+                </a>
+                <label className="button button-secondary import-button">
+                  <Upload size={16} />
+                  {t('settings.import')}
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    disabled={pending || dirty}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) previewFile(e.target.files[0]);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+              {preview && (
+                <div className="import-preview">
+                  <h3>{t('settings.preview')}</h3>
+                  <p className="small muted">{t('settings.importHint')}</p>
+                  <dl className="import-counts">
+                    {(
+                      [
+                        ['sessions', 'fitness.history'],
+                        ['templates', 'fitness.templates'],
+                        ['trips', 'travel.timeline'],
+                        ['wishlist', 'travel.wishlist'],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{t(label)}</dt>
+                        <dd>
+                          +{preview[key].new} / {locale === 'zh-CN' ? '跳过' : 'skip'}{' '}
+                          {preview[key].skip}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={restoreSettings}
+                      onChange={(e) => setRestoreSettings(e.target.checked)}
+                    />
+                    {t('settings.restoreSettings')}
+                  </label>
+                  <Button disabled={pending || dirty} onClick={runImport}>
+                    {pending ? progress || t('common.loading') : t('settings.importConfirm')}
+                  </Button>
+                </div>
+              )}
+              {results.length > 0 && (
+                <details className="import-results">
+                  <summary>
+                    {t('settings.importResult')} ({results.length})
+                  </summary>
+                  {results.map((r, i) => (
+                    <p className="small" key={i}>
+                      {r.id}:{' '}
+                      {r.status === 'imported'
+                        ? t('common.saved')
+                        : r.status === 'skipped'
+                          ? locale === 'zh-CN'
+                            ? '已跳过'
+                            : 'Skipped'
+                          : r.status}
+                    </p>
                   ))}
-                </dl>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={restoreSettings}
-                    onChange={(e) => setRestoreSettings(e.target.checked)}
-                  />
-                  {t('settings.restoreSettings')}
-                </label>
-                <Button disabled={pending} onClick={runImport}>
-                  {pending ? progress || t('common.loading') : t('settings.importConfirm')}
-                </Button>
-              </div>
-            )}
-            {results.length > 0 && (
-              <details className="import-results">
-                <summary>
-                  {t('settings.importResult')} ({results.length})
-                </summary>
-                {results.map((r, i) => (
-                  <p className="small" key={i}>
-                    {r.id}:{' '}
-                    {r.status === 'imported'
-                      ? t('common.saved')
-                      : r.status === 'skipped'
-                        ? locale === 'zh-CN'
-                          ? '已跳过'
-                          : 'Skipped'
-                        : r.status}
-                  </p>
-                ))}
-              </details>
-            )}
-          </section>
-          <section className="settings-section">
-            <h2>{t('settings.account')}</h2>
-            <form className="form" onSubmit={password}>
-              <div className="form-row">
-                <label className="field">
-                  <span>{t('settings.currentPassword')}</span>
-                  <input
-                    type="password"
-                    name="currentPassword"
-                    autoComplete="current-password"
-                    required
-                    maxLength={256}
-                  />
-                </label>
-                <label className="field">
-                  <span>{t('settings.newPassword')}</span>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    autoComplete="new-password"
-                    required
-                    minLength={5}
-                    maxLength={256}
-                  />
-                </label>
-              </div>
-              <div className="form-actions">
-                <Button type="button" variant="ghost" onClick={logout} disabled={pending}>
-                  <LogOut size={15} />
-                  {t('auth.logout')}
-                </Button>
-                <Button type="submit" variant="secondary" disabled={pending}>
-                  {t('settings.password')}
-                </Button>
-              </div>
-            </form>
-          </section>
+                </details>
+              )}
+            </section>
+          </details>
+          <details className="settings-group">
+            <summary>{t('settings.account')}</summary>
+            <section className="settings-section">
+              <form className="form" onSubmit={password}>
+                <div className="form-row">
+                  <label className="field">
+                    <span>{t('settings.currentPassword')}</span>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      autoComplete="current-password"
+                      required
+                      maxLength={256}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>{t('settings.newPassword')}</span>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      autoComplete="new-password"
+                      required
+                      minLength={5}
+                      maxLength={256}
+                    />
+                  </label>
+                </div>
+                <div className="form-actions">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={logout}
+                    disabled={pending || dirty}
+                  >
+                    <LogOut size={15} />
+                    {t('auth.logout')}
+                  </Button>
+                  <Button type="submit" variant="secondary" disabled={pending || dirty}>
+                    {t('settings.password')}
+                  </Button>
+                </div>
+              </form>
+            </section>
+          </details>
         </>
       )}
       <section className="settings-section">

@@ -25,3 +25,22 @@ await writeFile(
   JSON.stringify({ asset: `/maps/world-${hash}.svg`, countries }),
 );
 console.log(`World geometry: ${Buffer.byteLength(svg)} bytes; ${countries.length} countries`);
+
+// The China overview uses the same licensed source, projected once during explicit data sync.
+const { geoMercator } = await import('d3-geo');
+const chinaFeature = world.features.find((f) => f.properties.code === 'CN')!;
+const chinaProjection = geoMercator().fitExtent(
+  [
+    [35, 25],
+    [745, 495],
+  ],
+  chinaFeature as unknown as GeoPermissibleObjects,
+);
+await writeFile(
+  'src/data/china-map.json',
+  JSON.stringify({
+    path: geoPath(chinaProjection).digits(1)(chinaFeature as unknown as GeoPermissibleObjects),
+    scale: chinaProjection.scale(),
+    translate: chinaProjection.translate(),
+  }),
+);
