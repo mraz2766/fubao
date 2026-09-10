@@ -54,6 +54,7 @@ export default function WorkoutEditor({
     dirty,
   } = useWorkoutSave(initial, automatic);
   const [search, setSearch] = useState(false),
+    [ready, setReady] = useState(false),
     [review, setReview] = useState(false),
     [error, setError] = useState(''),
     [finishing, setFinishing] = useState(false),
@@ -61,6 +62,7 @@ export default function WorkoutEditor({
   const [setErrors, setSetErrors] = useState<Record<string, string>>({});
   const allowNavigation = useUnsaved(dirty),
     focusId = useRef<string | null>(null);
+  useEffect(() => setReady(true), []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const backfill = initial.status === 'draft' || initial.status === 'completed';
   useEffect(() => {
@@ -250,7 +252,7 @@ export default function WorkoutEditor({
             variant="ghost"
             size="icon"
             aria-label={t('record.discard')}
-            disabled={finishing}
+            disabled={finishing || !ready}
             onClick={() => void discard()}
           >
             <Trash2 size={16} />
@@ -306,7 +308,7 @@ export default function WorkoutEditor({
       >
         <fieldset
           className="record-fields"
-          disabled={finishing}
+          disabled={finishing || !ready}
           onKeyDown={(event) => {
             if (
               event.key !== 'Enter' ||
@@ -749,7 +751,7 @@ export default function WorkoutEditor({
                 {t('fitness.addExercise')}
               </Button>
             )}
-            <Button type="submit" disabled={finishing}>
+            <Button type="submit" disabled={finishing || !ready}>
               {initial.status === 'completed' ? t('common.save') : t('fitness.finish')}
             </Button>
           </div>
@@ -809,7 +811,11 @@ export default function WorkoutEditor({
             <Button type="button" variant="ghost" onClick={() => setReview(false)}>
               {t('record.returnEdit')}
             </Button>
-            <Button type="button" disabled={finishing} onClick={() => void finish(incomplete > 0)}>
+            <Button
+              type="button"
+              disabled={finishing || !ready}
+              onClick={() => void finish(incomplete > 0)}
+            >
               {finishing
                 ? t('common.saving')
                 : t(incomplete > 0 ? 'record.removeAndFinish' : 'record.confirmSave')}

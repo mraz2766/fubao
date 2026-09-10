@@ -26,6 +26,7 @@ export default function ExerciseSearch({
   preferences?: Preferences;
 }) {
   const [selected, setSelected] = useState<Exercise[]>([]),
+    [ready, setReady] = useState(false),
     [targets, setTargets] = useState<Workout[] | null>(null),
     [joining, setJoining] = useState<Exercise | null>(null),
     [pending, setPending] = useState(false);
@@ -112,6 +113,7 @@ export default function ExerciseSearch({
     equipment: string[];
   }>({ bodyParts: [], targets: [], equipment: [] });
   useEffect(() => {
+    setReady(true);
     api<typeof filters>('/api/fitness/exercises/filters')
       .then(setFilters)
       .catch((e) => setError(errorText(e, locale)));
@@ -170,6 +172,7 @@ export default function ExerciseSearch({
         <label className="search-field">
           <Search size={17} />
           <input
+            disabled={!ready}
             aria-label={t('common.search')}
             placeholder={t('common.search')}
             value={query}

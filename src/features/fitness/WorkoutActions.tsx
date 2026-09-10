@@ -19,6 +19,7 @@ export default function WorkoutActions({
 }) {
   const t = translator(locale),
     [open, setOpen] = useState(false),
+    [ready, setReady] = useState(false),
     [dirty, setDirty] = useState(false),
     [intent, setIntent] = useState<'live' | 'backfill' | 'quick'>('live'),
     [pending, setPending] = useState(false),
@@ -30,6 +31,7 @@ export default function WorkoutActions({
     ),
     [end, setEnd] = useState(() => zonedInput(new Date().toISOString(), preferences.timezone));
   useEffect(() => {
+    setReady(true);
     if (new URLSearchParams(location.search).get('new') === '1') setOpen(true);
   }, []);
   const allowNavigation = useUnsaved(dirty && open && !workout);
@@ -100,24 +102,24 @@ export default function WorkoutActions({
               size="icon"
               aria-label={t('common.delete')}
               onClick={remove}
-              disabled={pending}
+              disabled={pending || !ready}
             >
               <Trash2 size={17} />
             </Button>
-            <Button onClick={() => setOpen(true)}>
+            <Button disabled={!ready} onClick={() => setOpen(true)}>
               <Pencil size={15} />
               {t('common.edit')}
             </Button>
           </>
         ) : (
           <>
-            <Button variant="ghost" onClick={() => void launch('quick')}>
+            <Button disabled={!ready} variant="ghost" onClick={() => void launch('quick')}>
               {t('fitness.quick')}
             </Button>
-            <Button variant="secondary" onClick={() => void launch('backfill')}>
+            <Button disabled={!ready} variant="secondary" onClick={() => void launch('backfill')}>
               {t('record.backfill')}
             </Button>
-            <Button onClick={() => void launch('live')}>
+            <Button disabled={!ready} onClick={() => void launch('live')}>
               <Plus size={16} />
               {t('fitness.start')}
             </Button>
@@ -223,7 +225,7 @@ export default function WorkoutActions({
                 {error}
               </p>
             )}
-            <Button type="submit" disabled={pending}>
+            <Button type="submit" disabled={pending || !ready}>
               {pending
                 ? t('common.saving')
                 : t(
