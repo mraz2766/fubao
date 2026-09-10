@@ -2,7 +2,8 @@ import { all, db, first, statement } from '../db';
 import { HttpError } from '../http';
 import { storage } from '../storage';
 import { tripSchema, idSchema } from '../../lib/schemas';
-import { webpDimensions } from '../../lib/image-validation';
+import { optimizedImage } from '../../lib/image-validation';
+import { photoLimits } from '../../lib/photo-policy';
 import type { User, Trip, TravelPhoto, Location, Wish } from '../../types/domain';
 type TripRow = Omit<Trip, 'photos' | 'location' | 'tags'> & { tags: string };
 export async function listTrips(user: User | null, id?: string): Promise<Trip[]> {
@@ -70,9 +71,9 @@ interface UploadRow extends TravelPhoto {
   attached: number;
 }
 export async function uploadPhoto(userId: string, request: Request) {
-  const max = 4 * 1024 * 1024 + 300 * 1024 + 16384;
+  const max = photoLimits.largeBytes + photoLimits.thumbnailBytes + 16384;
   if (Number(request.headers.get('content-length') ?? 0) > max)
-    throw new HttpError(413, 'INVALID_FILE');
+    throw new HttpError(413, 'PHOTO_UPLOAD_SIZE');
   // Bound multipart decoding even when Content-Length is absent.
   const reader = request.body?.getReader();
   if (!reader) throw new HttpError(400, 'INVALID_FILE');
@@ -84,7 +85,7 @@ export async function uploadPhoto(userId: string, request: Request) {
     length += value.length;
     if (length > max) {
       await reader.cancel();
-      throw new HttpError(413, 'INVALID_FILE');
+      throw new HttpError(413, 'PHOTO_UPLOAD_SIZE');
     }
     chunks.push(value);
   }
@@ -94,9 +95,15 @@ export async function uploadPhoto(userId: string, request: Request) {
     bytes.set(chunk, offset);
     offset += chunk.length;
   }
-  const form = await new Response(bytes, {
-    headers: { 'Content-Type': request.headers.get('content-type') ?? '' },
-  }).formData();
+  let form: FormData;
+  try {
+    form = await new Response(bytes, {
+      headers: { 'Content-Type': request.headers.get('content-type') ?? '' },
+    }).formData();
+  } catch {
+    throw new HttpError(400, 'PHOTO_UPLOAD_FORMAT');
+  }
+
   const id = idSchema.parse(form.get('id')),
     travelId = idSchema.parse(form.get('travelId'));
   const existing = await first<UploadRow>('SELECT * FROM media_uploads WHERE id=?', id);
@@ -118,29 +125,34 @@ export async function uploadPhoto(userId: string, request: Request) {
     typeof large === 'string' ||
     !thumbnail ||
     typeof thumbnail === 'string' ||
-    large.type !== 'image/webp' ||
-    thumbnail.type !== 'image/webp' ||
-    large.size > 4 * 1024 * 1024 ||
-    thumbnail.size > 300 * 1024
+    !['image/webp', 'image/jpeg'].includes(large.type) ||
+    !['image/webp', 'image/jpeg'].includes(thumbnail.type)
   )
-    throw new HttpError(400, 'INVALID_FILE');
+    throw new HttpError(400, 'PHOTO_UPLOAD_FORMAT');
+  if (large.size > photoLimits.largeBytes || thumbnail.size > photoLimits.thumbnailBytes)
+    throw new HttpError(413, 'PHOTO_UPLOAD_SIZE');
   const largeBytes = new Uint8Array(await large.arrayBuffer()),
     thumbBytes = new Uint8Array(await thumbnail.arrayBuffer()),
-    dimensions = webpDimensions(largeBytes),
-    thumbDimensions = webpDimensions(thumbBytes);
+    dimensions = optimizedImage(largeBytes),
+    thumbDimensions = optimizedImage(thumbBytes);
   if (
     !dimensions ||
     !thumbDimensions ||
-    Math.max(dimensions.width, dimensions.height) > 1920 ||
-    Math.max(thumbDimensions.width, thumbDimensions.height) > 480
+    dimensions.type !== large.type ||
+    thumbDimensions.type !== thumbnail.type
   )
-    throw new HttpError(400, 'INVALID_FILE');
+    throw new HttpError(400, 'PHOTO_UPLOAD_FORMAT');
+  if (
+    Math.max(dimensions.width, dimensions.height) > photoLimits.largeEdge ||
+    Math.max(thumbDimensions.width, thumbDimensions.height) > photoLimits.thumbnailEdge
+  )
+    throw new HttpError(400, 'PHOTO_UPLOAD_DIMENSIONS');
   const prefix = `travel/${userId}/${travelId}/${id}`,
-    largeKey = `${prefix}/large.webp`,
-    thumbnailKey = `${prefix}/thumbnail.webp`;
+    largeKey = `${prefix}/large.${dimensions.extension}`,
+    thumbnailKey = `${prefix}/thumbnail.${thumbDimensions.extension}`;
   try {
-    await storage.put(largeKey, largeBytes, 'image/webp');
-    await storage.put(thumbnailKey, thumbBytes, 'image/webp');
+    await storage.put(largeKey, largeBytes, dimensions.type);
+    await storage.put(thumbnailKey, thumbBytes, thumbDimensions.type);
     const result = await statement(
       'INSERT INTO media_uploads(id,user_id,travel_id,large_key,thumbnail_key,width,height,size,created_at) SELECT ?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM media_uploads WHERE user_id=? AND travel_id=? AND attached=0)<12',
       id,
@@ -285,11 +297,12 @@ export async function readPhoto(user: User | null, id: string, variant: string) 
   );
   if (!photo || photo.deleted_at || (photo.visibility !== 'public' && photo.user_id !== user?.id))
     throw new HttpError(404, 'NOT_FOUND');
-  const object = await storage.get(variant === 'large' ? photo.large_key : photo.thumbnail_key);
+  const key = variant === 'large' ? photo.large_key : photo.thumbnail_key;
+  const object = await storage.get(key);
   if (!object) throw new HttpError(404, 'NOT_FOUND');
   return new Response(object.body, {
     headers: {
-      'Content-Type': 'image/webp',
+      'Content-Type': key.endsWith('.jpg') ? 'image/jpeg' : 'image/webp',
       'Content-Length': String(object.size),
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',

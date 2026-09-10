@@ -95,7 +95,7 @@ pnpm exec astro preview stop
 
 **同步或代理超时**：可重新运行，已完成的 upsert 不会重复创建记录。Node 24 可使用 `NODE_USE_ENV_PROXY=1 pnpm data:sync:locations` 跟随已有代理。
 
-**照片不受支持**：支持 JPEG、PNG、WebP，原文件每张最多 30MB；无法在浏览器解码的 HEIC 等格式需先转换。
+**照片上传**：支持 JPEG、PNG、WebP、HEIC/HEIF，以及浏览器可解码的 AVIF、GIF、BMP；原图每张最多 80MB、1 亿像素。照片自动缩小并去除元数据，WebP 编码不可用时自动使用 JPEG。每张失败照片会显示原因，可单独重试；RAW/TIFF 需先导出 JPEG。每条旅行仍为 1–6 张，GIF 只保存静态画面。
 
 **R2 删除延迟**：记录访问立即失效，对象进入持久化清理队列，每日执行并自动重试。本人可调用 `POST /api/travel/cleanup` 手动清理一批。
 

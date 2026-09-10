@@ -1,3 +1,4 @@
+import { validPhotoObjectKey } from '../../lib/photo-policy';
 import { z } from 'zod';
 import { all, db, first, statement } from '../db';
 import { listWorkouts, listTemplates, saveWorkout, saveTemplate } from './fitness';
@@ -180,7 +181,10 @@ export async function importItem(user: User, input: unknown) {
     const t = item.value;
     for (const p of t.photos) {
       const prefix = `travel/${user.id}/${t.id}/${p.id}/`;
-      if (p.large_key !== prefix + 'large.webp' || p.thumbnail_key !== prefix + 'thumbnail.webp')
+      if (
+        !validPhotoObjectKey(p.large_key, prefix, 'large') ||
+        !validPhotoObjectKey(p.thumbnail_key, prefix, 'thumbnail')
+      )
         throw new HttpError(400, 'MISSING_PHOTOS');
       if (!(await storage.exists(p.large_key)) || !(await storage.exists(p.thumbnail_key)))
         throw new HttpError(400, 'MISSING_PHOTOS');

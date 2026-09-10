@@ -47,3 +47,11 @@ Photographs from Wikimedia Commons are included under their individual CC BY, CC
 
 - `react-body-highlighter` (GV79), commit `d03fcd8740033721a51f5a2682de02ec31df92ba`, MIT. Anterior/posterior SVG polygon data adapted into `body-polygons.ts`. License retained at `public/licenses/react-body-highlighter.txt`.
 - `yuhonas/free-exercise-db`, commit `a859101d633a01c4a1a920d6a8ce41dabba0705f`, Unlicense. Explicitly mapped pose images resized and converted to WebP. Source IDs, source SHA-256 values and attribution recorded in the media manifest. License retained at `public/licenses/free-exercise-db.txt`. Gymvisual media from the primary metadata dataset is not included.
+
+## HEIC/HEIF photo decoding
+
+- heic-to 1.5.2 by Hopper Gee, LGPL-3.0-or-later; pinned source f37af866f9aa6212ddc84b67a279c9f2386aba4f: https://github.com/hoppergee/heic-to/tree/f37af866f9aa6212ddc84b67a279c9f2386aba4f . License retained at `public/licenses/heic-to.txt`.
+- The unmodified upstream browser decoder uses libheif 1.22.2 (https://github.com/strukturag/libheif/tree/v1.22.2) and libde265 1.0.16 (https://github.com/strukturag/libde265/tree/v1.0.16); these retain their LGPL licenses. Corresponding source and build instructions are linked from the pinned heic-to README. No media is sent to these services.
+- Decoder loading is isolated to a replaceable Worker asset and only occurs after native HEIC decoding fails. The integration source is `src/features/travel/heic.worker.ts`; rebuilding with the lockfile installs the exact library version. Library modification and reverse engineering for debugging those modifications are permitted under its license.
+- Photo conversion fixtures under `tests/fixtures` are synthetic test images created for this project; no personal photographs are included.
+- LGPL's incorporated GNU GPL v3 terms are provided at `public/licenses/gpl-3.0.txt`.
