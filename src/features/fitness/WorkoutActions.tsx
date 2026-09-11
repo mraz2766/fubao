@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import type { Locale, Preferences, Workout } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { api, errorText } from '../../lib/api';
-const WorkoutEditor = lazy(() => import('./WorkoutEditor'));
 export default function WorkoutActions({
   locale,
   preferences,
@@ -18,7 +17,6 @@ export default function WorkoutActions({
   const t = translator(locale),
     [open, setOpen] = useState(false),
     [ready, setReady] = useState(false),
-    [dirty, setDirty] = useState(false),
     [pending, setPending] = useState(false),
     [error, setError] = useState(''),
     [active, setActive] = useState<Workout[]>([]);
@@ -68,10 +66,8 @@ export default function WorkoutActions({
     try {
       const result = await api<{ items: Workout[] }>('/api/fitness/sessions?status=active');
       setActive(result.items);
-      if (result.items.length) {
-        setOpen(true);
-        setPending(false);
-      } else await create();
+      setOpen(true);
+      setPending(false);
     } catch (e) {
       setError(errorText(e, locale));
       setPending(false);
@@ -107,7 +103,10 @@ export default function WorkoutActions({
                 </Button>
               </div>
             </details>
-            <Button disabled={!ready} onClick={() => setOpen(true)}>
+            <Button
+              disabled={!ready}
+              onClick={() => location.assign(`/fitness/${workout.id}?edit=1`)}
+            >
               <Pencil size={15} />
               {t('simple.supplement')}
             </Button>
@@ -131,35 +130,23 @@ export default function WorkoutActions({
           locale={locale}
           wide={!!workout}
           onOpenChange={(v) => {
-            if (v || !dirty || confirm(t('common.unsaved'))) setOpen(v);
+            setOpen(v);
           }}
         >
-          {workout ? (
-            <Suspense fallback={<p>{t('common.loading')}</p>}>
-              <WorkoutEditor
-                initial={workout}
-                locale={locale}
-                preferences={preferences}
-                onDirtyChange={setDirty}
-                onClose={() => {
-                  setOpen(false);
-                  location.reload();
-                }}
-              />
-            </Suspense>
-          ) : (
-            <div className="form">
-              <p>{t('record.existing')}</p>
-              {active.map((w) => (
-                <a className="button button-secondary" key={w.id} href={`/fitness/${w.id}`}>
-                  {t('record.resume')} · {w.title}
-                </a>
-              ))}
-              <Button variant="ghost" disabled={pending} onClick={() => void create()}>
-                {t('record.startAnother')}
-              </Button>
-            </div>
-          )}
+          <div className="form">
+            {active.length > 0 && <p>{t('record.existing')}</p>}
+            {active.map((w) => (
+              <a className="button button-secondary" key={w.id} href={`/fitness/${w.id}`}>
+                {t('record.resume')} · {w.title}
+              </a>
+            ))}
+            <Button variant="ghost" disabled={pending} onClick={() => void create()}>
+              {t(active.length ? 'record.startAnother' : 'fitness.start')}
+            </Button>
+            <a className="button button-secondary" href="/fitness?view=templates">
+              {t('flow.templateChoice')}
+            </a>
+          </div>
         </Dialog>
       )}
     </>

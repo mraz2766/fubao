@@ -14,17 +14,34 @@ import { first, statement } from './db';
 export async function travelRoute(context: APIContext, parts: string[]) {
   const [resource, id] = parts,
     method = context.request.method;
+  if (resource === 'recent-locations' && method === 'GET') {
+    const user = requireUser(context);
+    const trips = await listTrips(user, undefined, { limit: 12 });
+    return json({
+      items: [
+        ...new Map(trips.map((trip) => [trip.spot_id ?? trip.location_id, trip.location])).values(),
+      ].slice(0, 6),
+    });
+  }
   if (resource === 'entries') {
     if (method === 'GET') {
-      const items = await listTrips(context.locals.user, id);
+      const items = await listTrips(
+        context.locals.user,
+        id,
+        id
+          ? undefined
+          : {
+              limit: 13,
+              offset: Math.max(0, Number(context.url.searchParams.get('page')) || 0) * 12,
+            },
+      );
       if (id) {
         if (!items[0]) throw new HttpError(404, 'NOT_FOUND');
         return json(items[0]);
       }
-      const page = Math.max(0, Number(context.url.searchParams.get('page')) || 0);
       return json({
-        items: items.slice(page * 12, page * 12 + 12),
-        hasMore: items.length > (page + 1) * 12,
+        items: items.slice(0, 12),
+        hasMore: items.length > 12,
       });
     }
     const user = requireUser(context);

@@ -30,6 +30,10 @@ test('owner quick check-in remains private until published', async ({ page, requ
   await page.getByRole('button', { name: '进入 Fubao' }).click();
   await expect(page).toHaveURL('/');
   await page.goto('/fitness');
+  if (await page.locator('.quick-checkin .checkin-more > summary').isVisible()) {
+    await page.locator('.quick-checkin .checkin-more > summary').click();
+    await page.getByRole('button', { name: '再记一次', exact: true }).click();
+  }
   const receipt = page.waitForResponse(
     (r) => r.url().endsWith('/api/fitness/checkin') && r.request().method() === 'POST',
   );
@@ -41,10 +45,14 @@ test('owner quick check-in remains private until published', async ({ page, requ
     expect(saved.end_at).toBeNull();
     expect(saved.duration_seconds).toBeNull();
     expect((await request.get(`/api/fitness/sessions/${id}`)).status()).toBe(404);
-    await page.getByRole('button', { name: '补充记录', exact: true }).click();
+    await page.getByRole('link', { name: '添加动作', exact: true }).click();
+    await page.getByRole('button', { name: '返回记录', exact: true }).click();
     await page.locator('summary').filter({ hasText: '可见范围' }).click();
     await page.getByLabel('可见范围').selectOption('public');
-    await page.locator('.record-footer').getByRole('button', { name: '保存', exact: true }).click();
+    await page
+      .locator('.record-footer')
+      .getByRole('button', { name: '完成编辑', exact: true })
+      .click();
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
     expect((await request.get(`/api/fitness/sessions/${id}`)).status()).toBe(200);
   } finally {
@@ -76,11 +84,14 @@ test('photo upload creates a private trip and protects direct photo URLs', async
     ctx.fillRect(0, 0, 900, 600);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await page.locator('input[type=file]').setInputFiles({
-    name: 'test-memory.png',
-    mimeType: 'image/png',
-    buffer: Buffer.from(png, 'base64'),
-  });
+  await page
+    .getByRole('dialog')
+    .locator('input[type=file]')
+    .setInputFiles({
+      name: 'test-memory.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(png, 'base64'),
+    });
   await expect(page.getByRole('button', { name: '保存', exact: true })).toBeEnabled({
     timeout: 30000,
   });

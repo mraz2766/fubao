@@ -20,12 +20,9 @@ test('live workout: multi-select, partial autosave, more sets, recovery and comp
   try {
     await page.goto('/fitness');
     await page.getByRole('button', { name: '开始训练', exact: true }).click();
-    await Promise.race([
-      page.waitForURL(/\/fitness\/[\w-]+$/),
-      page.getByRole('button', { name: '开始另一场训练', exact: true }).waitFor(),
-    ]);
-    if (await page.getByRole('button', { name: '开始另一场训练', exact: true }).isVisible())
-      await page.getByRole('button', { name: '开始另一场训练', exact: true }).click();
+    const launch = page.getByRole('dialog');
+    await expect(launch).toBeVisible();
+    await launch.getByRole('button', { name: /^(开始训练|开始另一场训练)$/ }).click();
     await expect(page).toHaveURL(/\/fitness\/[\w-]+$/);
     id = new URL(page.url()).pathname.split('/').at(-1)!;
     await page.getByRole('button', { name: '添加动作', exact: true }).first().click();
@@ -47,15 +44,10 @@ test('live workout: multi-select, partial autosave, more sets, recovery and comp
     await expect(page.getByRole('status')).toHaveText('已保存');
     await section.getByRole('combobox', { name: '记录方式', exact: true }).selectOption('weight');
     await expect(section.getByLabel('重量 (kg)', { exact: true })).toHaveValue('100');
-    await expect(section.getByRole('button', { name: '记一组' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    await expect(section.locator('.set-receipt.done')).toHaveCount(1);
     await section.locator('.card-heading > details > summary').click();
-
-    await section.getByRole('button', { name: '沿用上一组', exact: true }).click();
-    await expect(section.getByLabel('重量 (kg)', { exact: true }).nth(1)).toHaveValue('100');
-    await expect(section.getByRole('button', { name: '记一组' }).nth(1)).toHaveAttribute(
+    await expect(section.getByLabel('重量 (kg)', { exact: true })).toHaveValue('100');
+    await expect(section.getByRole('button', { name: '记一组' })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -69,13 +61,13 @@ test('live workout: multi-select, partial autosave, more sets, recovery and comp
     await page.route('**/api/fitness/sessions/**', (route) =>
       route.request().method() === 'PUT' ? route.abort() : route.continue(),
     );
-    await section.getByLabel('重量 (kg)', { exact: true }).nth(1).fill('110');
+    await section.getByLabel('重量 (kg)', { exact: true }).fill('110');
     await expect(page.getByRole('status')).toContainText('保存失败');
-    await expect(section.getByLabel('重量 (kg)', { exact: true }).nth(1)).toHaveValue('110');
+    await expect(section.getByLabel('重量 (kg)', { exact: true })).toHaveValue('110');
     await page.unroute('**/api/fitness/sessions/**');
     await page.getByRole('button', { name: '重试保存' }).click();
     await expect(page.getByRole('status')).toHaveText('已保存');
-    await section.getByRole('button', { name: '记一组' }).nth(1).click();
+    await section.getByRole('button', { name: '记一组' }).click();
     await expect(page.getByRole('status')).toHaveText('已保存');
     expect((await request.get(`/api/fitness/sessions/${id}`)).status()).toBe(404);
     for (const width of [320, 390, 768, 1440]) {
@@ -98,7 +90,8 @@ test('live workout: multi-select, partial autosave, more sets, recovery and comp
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
     const saved = await (await page.request.get(`/api/fitness/sessions/${id}`)).json();
     expect(saved.status).toBe('completed');
-    expect(saved.exercises[0].sets).toHaveLength(2);
+    expect(saved.exercises[0].sets).toHaveLength(3);
+    expect(saved.exercises[0].sets[2].completed).toBe(false);
     expect(saved.exercises[0].sets[1].weight).toBe(110);
     expect(Date.parse(saved.end_at)).toBeGreaterThanOrEqual(Date.parse(saved.start_at));
   } finally {
@@ -118,7 +111,9 @@ test('backfill crosses midnight and quick records can gain detailed exercises', 
     );
     await page.getByRole('button', { name: '背部', exact: true }).click();
     id = (await (await receipt).json()).id;
-    await page.getByRole('button', { name: '补充记录', exact: true }).click();
+    await page.getByRole('link', { name: '添加动作', exact: true }).click();
+    await expect(page).not.toHaveURL(/add=1/);
+    await page.getByRole('button', { name: '返回记录', exact: true }).click();
     await page.locator('summary').filter({ hasText: '补充记录' }).click();
     await page.locator('summary').filter({ hasText: '精确时间' }).click();
     await page.getByLabel('开始时间', { exact: true }).fill('2026-09-08T23:30');
@@ -131,7 +126,10 @@ test('backfill crosses midnight and quick records can gain detailed exercises', 
     await page.getByLabel('重量 (kg)', { exact: true }).fill('120');
     await page.getByLabel('次数', { exact: true }).fill('5');
     await page.getByRole('button', { name: '记一组', exact: true }).click();
-    await page.locator('.record-footer').getByRole('button', { name: '保存', exact: true }).click();
+    await page
+      .locator('.record-footer')
+      .getByRole('button', { name: '完成编辑', exact: true })
+      .click();
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
     const saved = await (await page.request.get(`/api/fitness/sessions/${id}`)).json();
     expect(saved.mode).toBe('detailed');

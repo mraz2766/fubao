@@ -4,14 +4,14 @@ import { translator } from '../lib/i18n';
 import Dashboard from '../features/dashboard/Dashboard.astro';
 import { greetingAt } from '../features/dashboard/presentation';
 import { Sunrise, Sun, Moon, Plus } from 'lucide-react';
-import { listWorkouts } from '../server/services/fitness';
+import { fitnessOverview } from '../server/services/fitness-overview';
 import { getWidgets } from '../server/services/settings';
 import { listTrips } from '../server/services/travel';
 const t = translator(Astro.locals.locale);
-const [workouts, widgets, trips] = await Promise.all([
-  listWorkouts(Astro.locals.user),
+const [overview, widgets, trips] = await Promise.all([
+  fitnessOverview(Astro.locals.user, Astro.locals.preferences, 7),
   getWidgets(),
-  listTrips(Astro.locals.user),
+  listTrips(Astro.locals.user, undefined, { limit: 2 }),
 ]);
 const now = new Date();
 const greeting = greetingAt(now, Astro.locals.preferences.timezone);
@@ -40,13 +40,13 @@ const GreetingIcon = greeting === 'evening' ? Moon : greeting === 'morning' ? Su
         {t(`dashboard.${greeting}`)}
       </h1>
     </div>
-    <a class="button button-primary" href={Astro.locals.user ? '/fitness' : '/login'}>
+    <a class="button button-primary" href={Astro.locals.user ? '/fitness#checkin' : '/login'}>
       {Astro.locals.user && <Plus size={17} aria-hidden="true" />}
       {t(Astro.locals.user ? 'fitness.quick' : 'auth.login')}
     </a>
   </header>
   <Dashboard
-    workouts={workouts}
+    workouts={overview.workouts}
     trips={trips}
     widgets={widgets}
     preferences={Astro.locals.preferences}

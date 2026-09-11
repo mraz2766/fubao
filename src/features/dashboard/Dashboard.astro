@@ -4,11 +4,11 @@ import {
   ArrowRight,
   Dumbbell,
   MapPin,
-  Check,
   CalendarDays,
   Clock3,
   Play,
 } from 'lucide-react';
+import { tripName as displayTripName } from '../../lib/travel-presentation';
 import { translator } from '../../lib/i18n';
 import { fitnessSummary, workoutDay } from '../../lib/analytics';
 import { dashboardLayout } from './presentation';
@@ -45,9 +45,7 @@ const nextTrip = trips.find((trip) => !hasTravel || trip.id !== recentTrip?.id);
 const { visible, editorial } = dashboardLayout(
   widgets.filter((w) => w.key !== 'recent' || nextWorkout || nextTrip),
 );
-const tripName = (trip: Trip) =>
-  trip.place_name ||
-  (locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name);
+const tripName = (trip: Trip) => displayTripName(trip, locale);
 const isDefaultTitle = (workout: Workout) =>
   (['zh-CN', 'en-US'] as const).some(
     (language) => workout.title === translator(language)('record.defaultTitle'),
@@ -185,26 +183,42 @@ const calendarText = (
               {t('dashboard.weekly')}
             </h2>
           </div>
-          <a
-            class="weekly-dots dashboard-interactive"
-            href={`/fitness?view=history&day=${summary.today}`}
-            aria-label={t('dashboard.weekly') + ' · ' + t('fitness.history')}
-          >
-            {summary.days.map(({ day, trained }) => (
-              <span
-                class:list={['week-day', { today: day === summary.today }]}
-                aria-current={day === summary.today ? 'date' : undefined}
-              >
-                <span>{calendarText(day, { weekday: 'narrow' })}</span>
-                <span class:list={['day-dot', { trained }]} aria-hidden="true">
-                  {trained ? <Check size={13} /> : Number(day.slice(8))}
-                </span>
-                <span class="sr-only">
-                  {day} · {t(trained ? 'dashboard.trained' : 'dashboard.rest')}
-                </span>
-              </span>
-            ))}
-          </a>
+          <div class="weekly-dots weekly-chart" aria-label={t('dashboard.weekly')}>
+            {summary.days.map(({ day }) => {
+              const count = workouts.filter(
+                (w) => w.status === 'completed' && workoutDay(w, preferences.timezone) === day,
+              ).length;
+              const max = Math.max(
+                1,
+                ...summary.days.map(
+                  (d) =>
+                    workouts.filter(
+                      (w) =>
+                        w.status === 'completed' && workoutDay(w, preferences.timezone) === d.day,
+                    ).length,
+                ),
+              );
+              return (
+                <a
+                  class:list={['week-day', { today: day === summary.today }]}
+                  href={`/fitness?day=${day}`}
+                  aria-current={day === summary.today ? 'date' : undefined}
+                  aria-label={`${calendarText(day)} · ${count} ${t(count === 1 ? 'common.sessionSingular' : 'common.times')}`}
+                >
+                  <span class="week-count" aria-hidden="true">
+                    {count || '·'}
+                  </span>
+                  <span class="week-track" aria-hidden="true">
+                    <span
+                      class:list={['week-bar', { trained: count > 0 }]}
+                      style={`--bar-height:${count ? Math.max(16, (count / max) * 100) : 5}%`}
+                    />
+                  </span>
+                  <span aria-hidden="true">{calendarText(day, { weekday: 'narrow' })}</span>
+                </a>
+              );
+            })}
+          </div>
         </>
       )}
       {widget.key === 'recent' && (

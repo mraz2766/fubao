@@ -54,41 +54,44 @@ test('mixed batch accepts HEIC, AVIF, unknown MIME and >30MB originals; failed p
     await openForm(page);
     await page.waitForLoadState('networkidle');
     expect(requests.some((url) => /heic[.-](worker|decoder)/.test(url))).toBe(false);
-    await page.locator('input[type=file]').setInputFiles([
-      {
-        name: 'broken-camera.jpg',
-        mimeType: 'image/jpeg',
-        buffer: Buffer.from('not a photograph'),
-      },
-      {
-        name: 'camera-export.bin',
-        mimeType: 'application/octet-stream',
-        buffer: await sharp('tests/fixtures/photo.jpg').resize(8000, 6000).jpeg().toBuffer(),
-      },
-      {
-        name: 'large-original.jpg',
-        mimeType: 'image/jpg',
-        buffer: Buffer.concat([
-          await readFile('tests/fixtures/photo.jpg'),
-          Buffer.alloc(31 * 1024 * 1024),
-        ]),
-      },
-      {
-        name: 'phone.heic',
-        mimeType: 'image/heic',
-        buffer: await readFile('tests/fixtures/photo.heic'),
-      },
-      {
-        name: 'image.avif',
-        mimeType: 'image/avif',
-        buffer: await readFile('tests/fixtures/photo.avif'),
-      },
-      {
-        name: 'rotated.jpg',
-        mimeType: 'image/jpeg',
-        buffer: await readFile('tests/fixtures/rotated-exif.jpg'),
-      },
-    ]);
+    await page
+      .getByRole('dialog')
+      .locator('input[type=file]')
+      .setInputFiles([
+        {
+          name: 'broken-camera.jpg',
+          mimeType: 'image/jpeg',
+          buffer: Buffer.from('not a photograph'),
+        },
+        {
+          name: 'camera-export.bin',
+          mimeType: 'application/octet-stream',
+          buffer: await sharp('tests/fixtures/photo.jpg').resize(8000, 6000).jpeg().toBuffer(),
+        },
+        {
+          name: 'large-original.jpg',
+          mimeType: 'image/jpg',
+          buffer: Buffer.concat([
+            await readFile('tests/fixtures/photo.jpg'),
+            Buffer.alloc(31 * 1024 * 1024),
+          ]),
+        },
+        {
+          name: 'phone.heic',
+          mimeType: 'image/heic',
+          buffer: await readFile('tests/fixtures/photo.heic'),
+        },
+        {
+          name: 'image.avif',
+          mimeType: 'image/avif',
+          buffer: await readFile('tests/fixtures/photo.avif'),
+        },
+        {
+          name: 'rotated.jpg',
+          mimeType: 'image/jpeg',
+          buffer: await readFile('tests/fixtures/rotated-exif.jpg'),
+        },
+      ]);
     await expect.poll(() => uploads.length, { timeout: 90000 }).toBe(5);
     const failed = page.locator('.upload-photo').filter({ hasText: 'broken-camera.jpg' });
     await expect(failed.getByRole('alert')).toContainText('暂不支持此文件格式');
@@ -115,6 +118,8 @@ test('mixed batch accepts HEIC, AVIF, unknown MIME and >30MB originals; failed p
       fullPage: true,
       animations: 'disabled',
     });
+    await page.getByRole('button', { name: '整理照片', exact: true }).click();
+    page.once('dialog', (d) => d.accept());
     await failed.getByRole('button', { name: '删除照片' }).click();
     id = await saveTrip(page);
     const trip = await (await page.request.get('/api/travel/entries/' + id)).json();
@@ -154,7 +159,10 @@ test('JPEG fallback and image-element decoding work; network retry keeps optimiz
       }
       return route.continue();
     });
-    await page.locator('input[type=file]').setInputFiles('tests/fixtures/photo.png');
+    await page
+      .getByRole('dialog')
+      .locator('input[type=file]')
+      .setInputFiles('tests/fixtures/photo.png');
     await expect(page.locator('.upload-photo').getByRole('alert')).toBeVisible();
     const receipt = page.waitForResponse((r) => r.url().endsWith('/api/travel/photos') && r.ok());
     await page.getByRole('button', { name: '重试', exact: true }).click();

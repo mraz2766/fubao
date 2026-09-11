@@ -39,3 +39,13 @@ describe('fitness recording', () => {
     expect(muscleMapping.pectorals).toEqual(['chest']);
   });
 });
+
+describe('calendar query boundaries', () => {
+  it('uses the first valid instant when a timezone skips midnight', async () => {
+    const { zonedDayStart } = await import('../src/lib/fitness-recording');
+    expect(zonedDayStart('2026-09-11', 'Asia/Shanghai')).toBe('2026-09-10T16:00:00.000Z');
+    expect(zonedDayStart('2018-11-04', 'America/Sao_Paulo')).toBe('2018-11-04T03:00:00.000Z');
+    expect(zonedDayStart('2026-03-08', 'America/New_York')).toBe('2026-03-08T05:00:00.000Z');
+    expect(zonedDayStart('2026-03-09', 'America/New_York')).toBe('2026-03-09T04:00:00.000Z');
+  });
+});

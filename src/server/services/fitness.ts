@@ -20,10 +20,20 @@ import type {
 type WorkoutRow = Omit<Workout, 'body_parts' | 'exercises'> & { body_parts: string };
 type ExerciseRow = Omit<SessionExercise, 'sets'> & { session_id: string };
 type SetRow = Omit<FitnessSet, 'completed'> & { session_exercise_id: string; completed: number };
-export async function listWorkouts(user: User | null, id?: string): Promise<Workout[]> {
+export async function listWorkouts(
+  user: User | null,
+  id?: string,
+  page?: { limit: number; offset: number; status?: string },
+): Promise<Workout[]> {
   const owner = user?.id ?? null;
-  const scope = `s.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND s.visibility='public' AND s.status='completed'"}${id ? ' AND s.id=?' : ''}`;
-  const bindings = id ? [owner, id] : [owner];
+  let scope = `s.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1))${user ? '' : " AND s.visibility='public' AND s.status='completed'"}${id ? ' AND s.id=?' : ''}`;
+  const bindings: (string | number | null)[] = id ? [owner, id] : [owner];
+  if (page && !id) {
+    const status = page.status ? ' AND s.status=?' : '';
+    scope = `s.id IN (SELECT s.id FROM fitness_sessions s WHERE ${scope}${status} ORDER BY s.start_at DESC,s.id DESC LIMIT ? OFFSET ?)`;
+    if (page.status) bindings.push(page.status);
+    bindings.push(page.limit, page.offset);
+  }
   const results = await db().batch([
     statement(
       `SELECT s.* FROM fitness_sessions s WHERE ${scope} ORDER BY s.start_at DESC`,

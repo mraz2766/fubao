@@ -7,42 +7,46 @@ import InteractiveMap from '../../features/travel/InteractiveMap';
 import Wishlist from '../../features/travel/Wishlist';
 import PhotoWall from '../../features/travel/PhotoWall';
 
-import { listTrips, listWishlist, visitedSpotIds } from '../../server/services/travel';
+import {
+  listTrips,
+  listWishlist,
+  visitedSpotIds,
+  travelCounts,
+  photoPage,
+} from '../../server/services/travel';
+import { tripName } from '../../lib/travel-presentation';
 import { translator, locationRegion } from '../../lib/i18n';
 
 import { MapPin, ArrowUpRight } from 'lucide-react';
 const { user, locale } = Astro.locals,
   t = translator(locale);
 const view = Astro.url.searchParams.get('view') ?? 'timeline';
-const [trips, wishes, visitedIds] = await Promise.all([
-  ['timeline', 'photos', 'map'].includes(view) ? listTrips(user) : Promise.resolve([]),
+const page = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0);
+const [trips, wishes, visitedIds, counts, photos] = await Promise.all([
+  view === 'map'
+    ? listTrips(user)
+    : view === 'timeline'
+      ? listTrips(user, undefined, { limit: 13, offset: page * 12 })
+      : Promise.resolve([]),
   ['map', 'wishlist', 'discover'].includes(view) ? listWishlist(user) : Promise.resolve([]),
   view === 'discover' ? visitedSpotIds(user) : Promise.resolve([]),
+  ['timeline', 'photos'].includes(view)
+    ? travelCounts(user)
+    : Promise.resolve({ trips: 0, places: 0 }),
+  view === 'photos'
+    ? photoPage(user, locale, page * 24)
+    : Promise.resolve({ items: [], hasMore: false }),
 ]);
 const world =
   view === 'map' && Astro.url.searchParams.get('scope') === 'world'
     ? await import('../../features/travel/map-data')
     : null;
 const isView = (v: string) => view === v;
-const placeCount = new Set(
-  trips.map((t) => t.spot_id ?? t.location_id + ':' + (t.place_name ?? '')),
-).size;
-const page = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0),
-  visible = trips.slice(page * 12, page * 12 + 12),
+const placeCount = counts.places;
+const visible = trips.slice(0, 12),
   years = [...new Set(visible.map((t) => t.start_date?.slice(0, 4) ?? ''))];
-const name = (trip: (typeof trips)[number]) =>
-  locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name;
-const allPhotos = (view === 'photos' ? trips : []).flatMap((trip) =>
-    trip.photos.map((p) => ({
-      id: p.id,
-      travelId: trip.id,
-      width: p.width,
-      height: p.height,
-      label: name(trip),
-      year: trip.start_date?.slice(0, 4) ?? '',
-    })),
-  ),
-  wall = allPhotos.slice(page * 24, page * 24 + 24);
+const name = (trip: (typeof trips)[number]) => tripName(trip, locale);
+const wall = photos.items;
 ---
 
 <Base title={t('nav.travel')} active="travel">
@@ -79,9 +83,9 @@ const allPhotos = (view === 'photos' ? trips : []).flatMap((trip) =>
       </nav>
     </details>
   </div>
-  {(isView('timeline') || isView('photos')) && trips.length > 0 && (
+  {(isView('timeline') || isView('photos')) && counts.trips > 0 && (
     <p class="travel-summary small muted">
-      {placeCount} {t('quiet.places')} · {trips.length} {t('travel.trips')}
+      {placeCount} {t('quiet.places')} · {counts.trips} {t('travel.trips')}
     </p>
   )}
   {isView('discover') && (
@@ -186,7 +190,7 @@ const allPhotos = (view === 'photos' ? trips : []).flatMap((trip) =>
           {t('common.previous')}
         </a>
       )}
-      {(isView('photos') ? allPhotos.length > (page + 1) * 24 : trips.length > (page + 1) * 12) && (
+      {(isView('photos') ? photos.hasMore : trips.length > 12) && (
         <a class="button button-secondary" href={`/travel?view=${view}&page=${page + 1}`}>
           {t('common.next')}
         </a>

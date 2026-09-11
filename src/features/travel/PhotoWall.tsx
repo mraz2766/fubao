@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, lazy, Suspense } from 'react';
 import { ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-react';
 import type { Locale } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { Button } from '../../components/ui/button';
-import { Dialog } from '../../components/ui/dialog';
+const Dialog = lazy(() =>
+  import('../../components/ui/dialog').then((module) => ({ default: module.Dialog })),
+);
 export interface WallPhoto {
   id: string;
   travelId: string;
@@ -24,6 +26,11 @@ export default function PhotoWall({
   const t = translator(locale),
     [index, setIndex] = useState<number | null>(null),
     photo = index === null ? null : photos[index];
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const close = () => {
+    setIndex(null);
+    requestAnimationFrame(() => trigger.current?.focus());
+  };
   const years = [...new Set(photos.map((p) => p.year))];
   const move = (direction: number) =>
     setIndex((i) => (i === null ? null : (i + direction + photos.length) % photos.length));
@@ -56,7 +63,10 @@ export default function PhotoWall({
                   key={p.id}
                   type="button"
                   className="wall-photo"
-                  onClick={() => setIndex(photos.findIndex((x) => x.id === p.id))}
+                  onClick={(event) => {
+                    trigger.current = event.currentTarget;
+                    setIndex(photos.findIndex((x) => x.id === p.id));
+                  }}
                   aria-label={p.label}
                 >
                   <img
@@ -78,51 +88,57 @@ export default function PhotoWall({
           </div>
         </section>
       ))}
-      <Dialog
-        open={!!photo}
-        onOpenChange={(open) => !open && setIndex(null)}
-        title={photo?.label ?? ''}
-        locale={locale}
-        wide
-      >
-        {photo && (
-          <div className="lightbox">
-            <img
-              src={`/api/media/${photo.id}/large`}
-              alt={photo.label}
-              width={photo.width}
-              height={photo.height}
-            />
-            <div className="lightbox-controls">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('travel.photoPrevious')}
-                onClick={() => move(-1)}
-                disabled={photos.length < 2}
-              >
-                <ChevronLeft size={22} />
-              </Button>
-              <span className="muted small">
-                {index! + 1} / {photos.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t('travel.photoNext')}
-                onClick={() => move(1)}
-                disabled={photos.length < 2}
-              >
-                <ChevronRight size={22} />
-              </Button>
-              <a className="text-link" href={`/travel/${photo.travelId}`}>
-                {t('travel.viewTrip')}
-                <ArrowUpRight size={15} />
-              </a>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      {photo && (
+        <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
+          <Dialog
+            open={!!photo}
+            onOpenChange={(open) => !open && close()}
+            title={photo?.label ?? ''}
+            locale={locale}
+            wide
+          >
+            {photo && (
+              <div className="lightbox">
+                <img
+                  src={`/api/media/${photo.id}/large`}
+                  alt={photo.label}
+                  width={photo.width}
+                  height={photo.height}
+                />
+                <div className="lightbox-controls">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('travel.photoPrevious')}
+                    onClick={() => move(-1)}
+                    disabled={photos.length < 2}
+                  >
+                    <ChevronLeft size={22} />
+                  </Button>
+                  <span className="muted small">
+                    {index! + 1} / {photos.length}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('travel.photoNext')}
+                    onClick={() => move(1)}
+                    disabled={photos.length < 2}
+                  >
+                    <ChevronRight size={22} />
+                  </Button>
+                  {!detail && (
+                    <a className="text-link" href={`/travel/${photo.travelId}`}>
+                      {t('travel.viewTrip')}
+                      <ArrowUpRight size={15} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </Dialog>
+        </Suspense>
+      )}
     </>
   );
 }

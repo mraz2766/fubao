@@ -1,4 +1,5 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, useRef } from 'react';
+import { Button } from '../../components/ui/button';
 import { MapPin, Search } from 'lucide-react';
 import type { Locale, Location } from '../../types/domain';
 import { translator, locationRegion } from '../../lib/i18n';
@@ -9,9 +10,11 @@ export default function LocationSearch({
   locale,
   selected,
   onSelect,
+  recent = false,
 }: {
   locale: Locale;
   selected: Location | null;
+  recent?: boolean;
   onSelect: (location: Location) => void;
 }) {
   const t = translator(locale),
@@ -20,6 +23,25 @@ export default function LocationSearch({
     [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
     id = useId();
+  const [editing, setEditing] = useState(false),
+    [recentItems, setRecentItems] = useState<Location[]>([]);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (recent)
+      void api<{ items: Location[] }>('/api/travel/recent-locations')
+        .then((r) => setRecentItems(r.items))
+        .catch(() => {});
+  }, [recent]);
+  const choose = (item: Location) => {
+    onSelect(item);
+    setEditing(false);
+    setQuery('');
+    setItems([]);
+  };
+  const expanded = !selected || editing;
+  useEffect(() => {
+    if (editing) input.current?.focus();
+  }, [editing]);
   useEffect(() => {
     if (!query.trim()) {
       setItems([]);
@@ -49,7 +71,7 @@ export default function LocationSearch({
   }, [query, locale]);
   return (
     <div>
-      <label className="field" htmlFor={id}>
+      <label className="field" htmlFor={expanded ? id : undefined}>
         <span>{t('travel.location')}</span>
       </label>
       {selected && (
@@ -57,28 +79,55 @@ export default function LocationSearch({
           <MapPin size={16} />
           <strong>{locationName(selected, locale)}</strong>
           <span className="muted small">
-            {locale === 'zh-CN'
-              ? selected.country_name_zh || selected.country_name
-              : selected.country_name}
+            {selected.country_code === 'CN'
+              ? locationRegion(selected, locale) === locationName(selected, locale)
+                ? ''
+                : locationRegion(selected, locale)
+              : locale === 'zh-CN'
+                ? selected.country_name_zh || selected.country_name
+                : selected.country_name}
           </span>
+          <Button type="button" variant="ghost" onClick={() => setEditing(!editing)}>
+            {t(editing ? 'common.cancel' : 'flow.changePlace')}
+          </Button>
         </div>
       )}
-      <label className="search-field">
-        <Search size={17} />
-        <input
-          id={id}
-          placeholder={t('travel.searchLocation')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-        />
-      </label>
+      {expanded && (
+        <label className="search-field">
+          <Search size={17} />
+          <input
+            ref={input}
+            id={id}
+            placeholder={t('travel.searchLocation')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      )}
+      {expanded && !query && recentItems.length > 0 && (
+        <div className="recent-places">
+          <p className="small muted">{t('flow.recentPlaces')}</p>
+          <div className="part-options">
+            {recentItems.map((item) => (
+              <Button
+                type="button"
+                variant="secondary"
+                key={item.spot_id ?? item.id}
+                onClick={() => choose(item)}
+              >
+                {locationName(item, locale)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       {error && (
         <p role="alert" className="form-message error">
           {error}
         </p>
       )}
-      {query && (
+      {expanded && query && (
         <div className="location-results" aria-live="polite">
           {loading ? (
             <p className="small muted">{t('common.loading')}</p>
@@ -88,9 +137,7 @@ export default function LocationSearch({
                 type="button"
                 key={item.spot_id ?? item.id}
                 onClick={() => {
-                  onSelect(item);
-                  setQuery('');
-                  setItems([]);
+                  choose(item);
                 }}
               >
                 <MapPin size={16} />

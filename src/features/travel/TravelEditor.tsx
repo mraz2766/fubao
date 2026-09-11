@@ -26,9 +26,11 @@ export default function TravelEditor({
   locale,
   initial,
   onClose,
+  initialFiles = [],
 }: {
   locale: Locale;
   initial?: Trip;
+  initialFiles?: File[];
   onClose: () => void;
 }) {
   const t = translator(locale),
@@ -62,10 +64,28 @@ export default function TravelEditor({
     const spot = new URLSearchParams(location.search).get('spot');
     if (!initial && spot)
       api<{ items: Location[] }>(`/api/locations?spot=${encodeURIComponent(spot)}`)
-        .then((r) => setPlace(r.items[0]))
+        .then((r) => {
+          if (!locationTouched.current && r.items[0]) {
+            setPlace(r.items[0]);
+            locationTouched.current = true;
+          }
+        })
         .catch((e) => setError(errorText(e, locale)));
   }, []);
   const previews = useRef<string[]>([]);
+  const locationTouched = useRef(!!initial),
+    dateTouched = useRef(!!initial);
+  const suggestionSource = useRef<{ date?: string; location?: string }>({});
+  const [organizing, setOrganizing] = useState(false),
+    [dateOpen, setDateOpen] = useState(!!initial?.start_date),
+    [endOpen, setEndOpen] = useState(!!initial?.end_date);
+  const picked = useRef(false);
+  useEffect(() => {
+    if (!picked.current && initialFiles.length) {
+      picked.current = true;
+      void addFiles(initialFiles);
+    }
+  }, []);
   const processingLock = useRef(false);
   useEffect(() => () => previews.current.forEach(URL.revokeObjectURL), []);
   const allowNavigation = useUnsaved(dirty);
@@ -103,22 +123,25 @@ export default function TravelEditor({
       }
       if (!prepared) return;
       const metadata = prepared.metadata;
-      if (metadata.date || metadata.latitude !== undefined) {
-        // Suggestions never postpone uploading. Resolve independently of the file queue.
-        setSuggestion(metadata);
-        if (metadata.latitude !== undefined && metadata.longitude !== undefined) {
-          void api<{ items: Location[] }>(
-            `/api/locations/nearby?lat=${metadata.latitude}&lng=${metadata.longitude}`,
-          )
-            .then((r) =>
-              setSuggestion((current) =>
-                current?.latitude === metadata.latitude && current?.longitude === metadata.longitude
-                  ? { ...current, location: r.items[0] }
-                  : current,
-              ),
-            )
-            .catch(() => {});
-        }
+      if (metadata.date && !dateTouched.current && !suggestionSource.current.date) {
+        suggestionSource.current.date = photo.id;
+        setSuggestion((current) => ({ ...current, date: metadata.date }));
+      }
+      if (
+        metadata.latitude !== undefined &&
+        metadata.longitude !== undefined &&
+        !locationTouched.current &&
+        !suggestionSource.current.location
+      ) {
+        suggestionSource.current.location = photo.id;
+        void api<{ items: Location[] }>(
+          `/api/locations/nearby?lat=${metadata.latitude}&lng=${metadata.longitude}`,
+        )
+          .then((r) => {
+            if (!locationTouched.current && suggestionSource.current.location === photo.id)
+              setSuggestion((current) => ({ ...current, location: r.items[0] }));
+          })
+          .catch(() => {});
       }
       await upload(prepared);
     } catch (e) {
@@ -193,6 +216,7 @@ export default function TravelEditor({
       setError(t('error.INVALID_INPUT'));
       return;
     }
+    if (pending || processing) return;
     setPending(true);
     setError('');
     try {
@@ -215,19 +239,25 @@ export default function TravelEditor({
       locale={locale}
       wide
     >
-      <form className="form" onSubmit={save}>
-        <LocationSearch
-          locale={locale}
-          selected={place}
-          onSelect={(p) => {
-            setPlace(p);
-            mark();
-          }}
-        />
+      <form className="form travel-composer" onSubmit={save}>
         <div>
-          <h3>{t('travel.photoLabel')}</h3>
+          <div className="card-heading">
+            <h3>
+              {t('travel.photoLabel')} <span className="muted small">{photos.length}/6</span>
+            </h3>
+            {photos.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                aria-pressed={organizing}
+                onClick={() => setOrganizing(!organizing)}
+              >
+                {t(organizing ? 'flow.doneOrganizing' : 'flow.organizePhotos')}
+              </Button>
+            )}
+          </div>
           <label
-            className="photo-drop"
+            className={`photo-drop ${photos.length ? 'photo-drop-compact' : ''}`}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -235,7 +265,13 @@ export default function TravelEditor({
             }}
           >
             <ImagePlus size={26} strokeWidth={1.3} />
-            <span>{processing ? t('travel.processing') : t('travel.photoHint')}</span>
+            <span>
+              {processing
+                ? t('travel.processing')
+                : photos.length
+                  ? t('flow.selectPhotos')
+                  : t('travel.photoHint')}
+            </span>
             <input
               type="file"
               multiple
@@ -262,51 +298,54 @@ export default function TravelEditor({
                     <ImagePlus size={24} />
                   </div>
                 )}
-                {p.name && (
+                {(organizing || p.error) && p.name && (
                   <p className="upload-filename small" title={p.name}>
                     {p.name}
                   </p>
                 )}
-                <div className="upload-controls">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t('common.up')}
-                    disabled={pending || processing || i === 0}
-                    onClick={() => move(i, -1)}
-                  >
-                    <ArrowLeft size={15} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t('common.down')}
-                    disabled={pending || processing || i === photos.length - 1}
-                    onClick={() => move(i, 1)}
-                  >
-                    <ArrowRight size={15} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t('travel.photoRemove')}
-                    disabled={pending || processing}
-                    onClick={() => {
-                      if (p.preview.startsWith('blob:')) {
-                        URL.revokeObjectURL(p.preview);
-                        previews.current = previews.current.filter((url) => url !== p.preview);
-                      }
-                      setPhotos((items) => items.filter((x) => x.id !== p.id));
-                      setError('');
-                      mark();
-                    }}
-                  >
-                    <Trash2 size={15} />
-                  </Button>
-                </div>
+                {organizing && (
+                  <div className="upload-controls">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t('common.up')}
+                      disabled={pending || processing || i === 0}
+                      onClick={() => move(i, -1)}
+                    >
+                      <ArrowLeft size={15} />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t('common.down')}
+                      disabled={pending || processing || i === photos.length - 1}
+                      onClick={() => move(i, 1)}
+                    >
+                      <ArrowRight size={15} />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t('travel.photoRemove')}
+                      disabled={pending || processing}
+                      onClick={() => {
+                        if (!confirm(t('common.confirmDelete'))) return;
+                        if (p.preview.startsWith('blob:')) {
+                          URL.revokeObjectURL(p.preview);
+                          previews.current = previews.current.filter((url) => url !== p.preview);
+                        }
+                        setPhotos((items) => items.filter((x) => x.id !== p.id));
+                        setError('');
+                        mark();
+                      }}
+                    >
+                      <Trash2 size={15} />
+                    </Button>
+                  </div>
+                )}
                 {!p.uploaded && !p.error && (
                   <p className="small muted" role="status">
                     {p.stage === 'queued'
@@ -335,52 +374,95 @@ export default function TravelEditor({
             ))}
           </div>
         </div>
-        {suggestion && (suggestion.date || suggestion.location) && (
-          <div className="suggestion">
-            <h3>{t('travel.suggestion')}</h3>
-            <p className="small muted">
-              {suggestion.location ? locationName(suggestion.location, locale) : ''}{' '}
-              {suggestion.date}
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                if (suggestion.location) setPlace(suggestion.location);
-                if (suggestion.date) setStart(suggestion.date);
-                setSuggestion(null);
-                mark();
-              }}
-            >
-              {t('travel.applySuggestion')}
-            </Button>
+        <LocationSearch
+          locale={locale}
+          recent
+          selected={place}
+          onSelect={(p) => {
+            locationTouched.current = true;
+            setPlace(p);
+            mark();
+          }}
+        />
+        {suggestion &&
+          ((!dateTouched.current && suggestion.date) ||
+            (!locationTouched.current && suggestion.location)) && (
+            <div className="suggestion">
+              <h3>{t('travel.suggestion')}</h3>
+              <p className="small muted">
+                {!locationTouched.current && suggestion.location
+                  ? locationName(suggestion.location, locale)
+                  : ''}{' '}
+                {!dateTouched.current && suggestion.date}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  if (suggestion.location && !locationTouched.current) {
+                    setPlace(suggestion.location);
+                    locationTouched.current = true;
+                  }
+                  if (suggestion.date && !dateTouched.current) {
+                    setStart(suggestion.date);
+                    dateTouched.current = true;
+                    setDateOpen(true);
+                  }
+                  setSuggestion(null);
+                  mark();
+                }}
+              >
+                {t('travel.applySuggestion')}
+              </Button>
+            </div>
+          )}
+        <details
+          className="form-details travel-dates"
+          open={dateOpen}
+          onToggle={(e) => setDateOpen(e.currentTarget.open)}
+        >
+          <summary>
+            {start || t('flow.addDate')}
+            {end ? ` — ${end}` : ''}
+          </summary>
+          <div className="form-row">
+            <label className="field">
+              <span>{t('travel.start')}</span>
+              <input
+                type="date"
+                value={start}
+                onChange={(e) => {
+                  dateTouched.current = true;
+                  setStart(e.target.value);
+                  if (!e.target.value) {
+                    setEnd('');
+                    setEndOpen(false);
+                  }
+                  mark();
+                }}
+              />
+            </label>
+            {endOpen && (
+              <label className="field">
+                <span>{t('travel.end')}</span>
+                <input
+                  type="date"
+                  value={end}
+                  min={start}
+                  onChange={(e) => {
+                    setEnd(e.target.value);
+                    mark();
+                  }}
+                />
+              </label>
+            )}
+            {start && !endOpen && (
+              <Button type="button" variant="ghost" onClick={() => setEndOpen(true)}>
+                {t('flow.addEndDate')}
+              </Button>
+            )}
           </div>
-        )}
-        <div className="form-row">
-          <label className="field">
-            <span>{t('travel.start')}</span>
-            <input
-              type="date"
-              value={start}
-              onChange={(e) => {
-                setStart(e.target.value);
-                mark();
-              }}
-            />
-          </label>
-          <label className="field">
-            <span>{t('travel.end')}</span>
-            <input
-              type="date"
-              value={end}
-              min={start}
-              onChange={(e) => {
-                setEnd(e.target.value);
-                mark();
-              }}
-            />
-          </label>
-        </div>
+        </details>
         <details className="form-details">
           <summary>{t('quiet.details')}</summary>
           <label className="field">
@@ -453,6 +535,19 @@ export default function TravelEditor({
         {error && (
           <p className="form-message error" role="alert">
             {error}
+          </p>
+        )}
+        {(!place || processing || !photos.length || photos.some((p) => !p.uploaded)) && (
+          <p className="small muted" role="status">
+            {processing
+              ? t('travel.processing')
+              : photos.some((p) => p.error)
+                ? t('flow.failedPhotos')
+                : !photos.length
+                  ? t('flow.addPhoto')
+                  : !place
+                    ? t('flow.selectPlace')
+                    : t('travel.uploading')}
           </p>
         )}
         <div className="form-actions">

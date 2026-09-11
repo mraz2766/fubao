@@ -115,12 +115,9 @@ test('populated Bento keeps the first screen compact, honors widgets and records
     ).toBe(true);
     await page.goto('/fitness');
     await page.getByRole('button', { name: '开始训练', exact: true }).click();
-    await Promise.race([
-      page.waitForURL(/\/fitness\/[\w-]+$/),
-      page.getByRole('button', { name: '开始另一场训练', exact: true }).waitFor(),
-    ]);
-    if (await page.getByRole('button', { name: '开始另一场训练', exact: true }).isVisible())
-      await page.getByRole('button', { name: '开始另一场训练', exact: true }).click();
+    const launch = page.getByRole('dialog');
+    await expect(launch).toBeVisible();
+    await launch.getByRole('button', { name: /^(开始训练|开始另一场训练)$/ }).click();
     await expect(page).toHaveURL(/\/fitness\/[\w-]+$/);
     ids.push(new URL(page.url()).pathname.split('/').at(-1)!);
     await page.goto('/travel?new=1');
@@ -130,7 +127,10 @@ test('populated Bento keeps the first screen compact, honors widgets and records
       .filter({ has: page.getByText('桂林', { exact: true }) })
       .first()
       .click();
-    await page.locator('input[type=file]').setInputFiles('public/scenery/li-river-small.webp');
+    await page
+      .getByRole('dialog')
+      .locator('input[type=file]')
+      .setInputFiles('public/scenery/li-river-small.webp');
     await expect(page.getByRole('button', { name: '保存', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await expect(page).toHaveURL(/\/travel\/[a-f0-9-]+$/);

@@ -43,11 +43,11 @@ Animata 的轻量交互参考继续保留 MIT 署名，固定来源 commit 为 d
 
 首轮全站降噪的同机本地 Workers 生产预览、空数据首页、Chromium 390×844、4× CPU、150ms 延迟、200KB/s 下载：
 
-| 指标 | 本次改造前 | 本次改造后 |
-| --- | ---: | ---: |
-| LCP | 852ms | 680ms |
-| CLS | 0 | 0 |
-| 初始 JavaScript gzip | 503B | 625B |
+| 指标                 | 本次改造前 | 本次改造后 |
+| -------------------- | ---------: | ---------: |
+| LCP                  |      852ms |      680ms |
+| CLS                  |          0 |          0 |
+| 初始 JavaScript gzip |       503B |       625B |
 
 新增的菜单键盘操作和主题色同步保持在 1KB 以内；性能测试强制校验 LCP ≤2.5s、CLS ≤0.1、初始 JS gzip ≤150KB。以上为单次受控本地结果，不是现场 INP、真机结果或全球网络延迟保证。带照片首页另通过首屏位置和响应式检查。本次训练交互与配色修订的同条件复测 LCP 为 708ms、CLS 为 0、首页初始 JS 仍为 625B gzip。截图与测量在忽略目录 output/playwright/。
 
@@ -71,11 +71,11 @@ Animata 的轻量交互参考继续保留 MIT 署名，固定来源 commit 为 d
 
 同机本地 Workers 预览、空数据首页、Chromium 390×844、4× CPU、150ms 延迟、200KB/s 下载：
 
-| 指标 | 本次改造前 | 本次改造后 |
-| --- | ---: | ---: |
-| LCP | 696ms | 732ms |
-| CLS | 0 | 0 |
-| 初始 JavaScript gzip | 625B | 1495B |
+| 指标                 | 本次改造前 | 本次改造后 |
+| -------------------- | ---------: | ---------: |
+| LCP                  |      696ms |      732ms |
+| CLS                  |          0 |          0 |
+| 初始 JavaScript gzip |       625B |      1495B |
 
 以上为单次受控测量，轻微 LCP 波动不表示现场速度变化。新增 JS 870B；未引入动画运行库。录屏 `output/playwright/bento-entry-mobile.webm`、`bento-entry-desktop.webm` 及截图保存在忽略目录；带照片截图使用本地 QA 记录，不代表线上真实个人旅行。发布仍由 GitHub main 推送触发 Cloudflare Workers Builds。
 
@@ -88,3 +88,13 @@ Animata 的轻量交互参考继续保留 MIT 署名，固定来源 commit 为 d
 问候依据设置时区使用日出／太阳／月亮图标，搭配小面积低饱和底色；图标入场仅轻转 240ms。周历用小圆点和 aria-current=date 标注今天。沿用卡片入场、后退恢复和 Reduced Motion 行为，不新增客户端库、数据迁移或部署资源。
 
 本轮验证：62 项 Vitest、11 项相关 Playwright 流程通过；最终日期文案调整后，4 项首页与性能检查再次通过。覆盖模块显隐/排序、旧尺寸忽略、无额外记录时收起模块、单个可见品牌入口、问候、双语明暗主题、320/390/768/1440px、axe、后退与 Reduced Motion。类型检查和构建通过。受控移动首页 LCP 732ms、CLS 0、初始 JS gzip 1495B；该测量为本地预览，不代表真实用户网络。
+
+## 2026-09-11 · Direct recording and photo-first travel
+
+Persistent check-in selections now recover by calendar date, patch one session with revision protection and update recent receipts. Detailed recording uses an independent workspace with compact completed sets. Travel begins with the native photo picker; selected locations, optional dates and photo organization use progressive disclosure. The Lightbox loads on demand and returns keyboard focus to its photo. See [DIRECT-RECORDING.md](DIRECT-RECORDING.md) for API and state behavior.
+
+The homepage adds seven SSR bars for actual daily training counts, preserving the existing greeting, photo hierarchy and entrance sequence. Below 390px the chart wraps to keep touch targets comfortable. Home/Today header reads and SQL pagination reduce history data loading without changing stored records or backup formats.
+
+Controlled comparison: Chromium, 390×844, 4× CPU throttle, 150ms latency and 200KB/s download, local Workers preview with an anonymous empty-data view. Before: LCP 732ms, CLS 0, initial JS gzip 1495B. After: LCP 732ms, CLS 0, initial JS gzip 1495B (an earlier sample was 740ms). The chart adds no client JavaScript. These are controlled measurements, not production field INP or physical-device results.
+
+Validation: strict type check and build pass; 63 domain tests, including a midnight DST gap. All 31 browser cases passed across the regression runs; the final workspace/map changes were rechecked with 11 passing cases. Browser coverage includes D1 partial-write idempotency/ownership, lost-response retries, tab conflicts, date restore, optional measurements, contextual exercise selection, templates, photo-first creation, HEIC/AVIF/large-photo and WebKit upload, old JSON restore, settings autosave, four responsive widths, both languages/themes, axe and reduced motion. No migration or new external service is required.

@@ -19,35 +19,45 @@ const { locale, preferences, user } = Astro.locals,
   t = translator(locale),
   workout = (await listWorkouts(user, Astro.params.id))[0];
 if (!workout) return Astro.redirect('/404');
+const editing =
+  !!user && (workout.status !== 'completed' || Astro.url.searchParams.get('edit') === '1');
 ---
 
 <Base title={workout.title} active="fitness">
-  {(!user || workout.status === 'completed') && (
+  {!editing && (!user || workout.status === 'completed') && (
     <a class="text-link" href="/fitness?view=history">
       <ArrowLeft size={15} />
       {t('fitness.history')}
     </a>
   )}
-  <div class="detail-header">
-    <div>
-      <h1>{workout.title}</h1>
-      <p class="muted small" style="margin-top:10px">
-        {workout.time_precision === 'date'
-          ? workoutDay(workout, preferences.timezone)
-          : new Intl.DateTimeFormat(locale, {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-              timeZone: preferences.timezone,
-            }).format(new Date(workout.start_at))}{' '}
-        · {t(`fitness.${workout.status}`)}
-      </p>
+  {!editing && (
+    <div class="detail-header">
+      <div>
+        <h1>{workout.title}</h1>
+        <p class="muted small" style="margin-top:10px">
+          {workout.time_precision === 'date'
+            ? workoutDay(workout, preferences.timezone)
+            : new Intl.DateTimeFormat(locale, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+                timeZone: preferences.timezone,
+              }).format(new Date(workout.start_at))}{' '}
+          · {t(`fitness.${workout.status}`)}
+        </p>
+      </div>
+      {user && workout.status === 'completed' && (
+        <WorkoutActions locale={locale} preferences={preferences} workout={workout} client:load />
+      )}
     </div>
-    {user && workout.status === 'completed' && (
-      <WorkoutActions locale={locale} preferences={preferences} workout={workout} client:load />
-    )}
-  </div>
-  {user && workout.status !== 'completed' ? (
-    <WorkoutEditor initial={workout} locale={locale} preferences={preferences} client:load />
+  )}
+  {editing ? (
+    <WorkoutEditor
+      initial={workout}
+      locale={locale}
+      preferences={preferences}
+      openSearch={Astro.url.searchParams.get('add') === '1'}
+      client:load
+    />
   ) : (
     <div class="detail-body">
       <div class="card">

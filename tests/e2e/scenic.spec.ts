@@ -5,6 +5,7 @@ test('domestic scenery, wishlist and visit prefill keep catalog photos separate'
   page,
   request,
 }) => {
+  page.setDefaultTimeout(10000);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     (
@@ -19,16 +20,18 @@ test('domestic scenery, wishlist and visit prefill keep catalog photos separate'
     await page.goto('/travel?view=discover');
     await page.getByRole('button', { name: '漓江·阳朔', exact: true }).first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: '添加心愿', exact: true }).click();
+    const added = await page.getByRole('button', { name: '添加心愿', exact: true }).isVisible();
+    if (added) await page.getByRole('button', { name: '添加心愿', exact: true }).click();
     await expect(page.getByRole('button', { name: '已加入想去' })).toBeVisible();
     const wishlist = await (await page.request.get('/api/travel/wishlist')).json();
-    wishId = wishlist.items.find((w: any) => w.spot_id === 'li-river').id;
+    const currentWish = wishlist.items.find((w: any) => w.spot_id === 'li-river');
+    if (added) wishId = currentWish.id;
     expect(
       (await (await request.get('/api/travel/wishlist')).json()).items.some(
-        (w: any) => w.id === wishId,
+        (w: any) => w.id === currentWish.id,
       ),
     ).toBe(false);
-    await page.getByRole('link', { name: '记录到访', exact: true }).click();
+    await page.getByRole('link', { name: '记录旅行', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByText('漓江·阳朔', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled();

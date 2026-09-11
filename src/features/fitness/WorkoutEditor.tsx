@@ -40,10 +40,12 @@ export default function WorkoutEditor({
   initial,
   onClose,
   onDirtyChange,
+  openSearch = false,
 }: {
   locale: Locale;
   preferences: Preferences;
   initial: Workout;
+  openSearch?: boolean;
   onClose?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
@@ -57,7 +59,7 @@ export default function WorkoutEditor({
     error: saveError,
     dirty,
   } = useWorkoutSave(initial, automatic);
-  const [search, setSearch] = useState(false),
+  const [search, setSearch] = useState(openSearch),
     [ready, setReady] = useState(false),
     [error, setError] = useState(''),
     [finishing, setFinishing] = useState(false),
@@ -76,13 +78,22 @@ export default function WorkoutEditor({
     }
     return () => controller.abort();
   }, [workout.exercises.map((e) => e.exercise_id).join(',')]);
+  const [editingSet, setEditingSet] = useState<string | null>(null);
   const [setErrors, setSetErrors] = useState<Record<string, string>>({});
   const allowNavigation = useUnsaved(dirty),
     focusId = useRef<string | null>(null),
     addButton = useRef<HTMLButtonElement | null>(null),
     pickerHeading = useRef<HTMLHeadingElement | null>(null),
     pickerRoot = useRef<HTMLDivElement | null>(null);
-  useEffect(() => setReady(true), []);
+  useEffect(() => {
+    setReady(true);
+    // The add link is a one-time entry point; refreshing restores the workspace.
+    if (openSearch) {
+      const url = new URL(location.href);
+      url.searchParams.delete('add');
+      history.replaceState(history.state, '', url);
+    }
+  }, []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   useEffect(() => {
@@ -188,6 +199,54 @@ export default function WorkoutEditor({
     );
     focusId.current = additions[0]?.id ?? null;
     setSearch(false);
+  }
+  function recordSet(exerciseId: string, set: FitnessSet) {
+    if (set.completed) {
+      setEditingSet(null);
+      return;
+    }
+    const exercise = workout.exercises.find((e) => e.id === exerciseId)!;
+    if (!validCompletedSet(set, recordingType(exercise))) {
+      setSetErrors((x) => ({ ...x, [set.id]: t('record.invalidSet') }));
+      return;
+    }
+    let nextId = '';
+    patch(
+      {
+        exercises: workout.exercises.map((e) => {
+          if (e.id !== exerciseId) return e;
+          const sets = e.sets.map((s) => (s.id === set.id ? { ...s, completed: true } : s));
+          let next = sets.find((s) => !s.completed);
+          if (!next) {
+            next = { ...blankSet(), weight: set.weight, reps: set.reps };
+            sets.push(next);
+          }
+          nextId = next.id;
+          return { ...e, sets };
+        }),
+      },
+      true,
+    );
+    setEditingSet(nextId);
+    requestAnimationFrame(() =>
+      document.getElementById(`set-${nextId}`)?.querySelector('input')?.focus(),
+    );
+  }
+  function setText(set: FitnessSet) {
+    return (
+      [
+        set.weight !== null
+          ? `${Number(toDisplayWeight(set.weight, preferences.weightUnit).toFixed(2))} ${preferences.weightUnit}`
+          : '',
+        set.reps !== null ? `${set.reps} ${t('fitness.reps')}` : '',
+        set.duration !== null ? `${set.duration} ${t('fitness.unitSeconds')}` : '',
+        set.distance !== null
+          ? `${Number(toDisplayDistance(set.distance, preferences.distanceUnit).toFixed(2))} ${preferences.distanceUnit}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') || t(set.completed ? 'fitness.completed' : 'simple.notRecorded')
+    );
   }
   function addSet(id: string, source?: FitnessSet) {
     patch(
@@ -417,7 +476,10 @@ export default function WorkoutEditor({
             const next = inputs[inputs.indexOf(event.target) + 1];
             if (next) next.focus();
             else {
-              addSet(section.id);
+              const exercise = workout.exercises.find((e) => e.id === section.id);
+              const pending = exercise?.sets.find((s) => !s.completed);
+              if (pending) recordSet(section.id, pending);
+              else addSet(section.id);
               requestAnimationFrame(() =>
                 Array.from(section.querySelectorAll<HTMLElement>('.record-set-inputs'))
                   .at(-1)
@@ -697,218 +759,236 @@ export default function WorkoutEditor({
                           : ''}
                       </Button>
                     )}
-                    {exercise.sets.map((set, i) => (
-                      <div className={`set-row ${set.completed ? 'done' : ''}`} key={set.id}>
-                        <div className="set-label">
+                    {exercise.sets.map((set, i) =>
+                      editingSet !== set.id &&
+                      (set.completed || exercise.sets.find((s) => !s.completed)?.id !== set.id) ? (
+                        <button
+                          type="button"
+                          className={`set-receipt ${set.completed ? 'done' : ''}`}
+                          key={set.id}
+                          aria-label={`${t('flow.editSet')} ${i + 1}: ${setText(set)}`}
+                          onClick={() => setEditingSet(set.id)}
+                        >
                           <span>
                             {t('fitness.set')} {i + 1}
                           </span>
-                          <div className="row-controls">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              aria-label={t('simple.recordSet')}
-                              aria-pressed={set.completed}
-                              onClick={() => {
-                                if (!set.completed && !validCompletedSet(set, type)) {
-                                  setSetErrors((x) => ({ ...x, [set.id]: t('record.invalidSet') }));
-                                  return;
-                                }
-                                updateSet(exercise.id, set.id, { completed: !set.completed });
-                              }}
-                            >
-                              <Check size={18} />
-                              {t(set.completed ? 'fitness.completed' : 'simple.recordSet')}
-                            </Button>
-                            <details className="record-more">
-                              <summary>{t('simple.more')}</summary>
+                          <strong>{setText(set)}</strong>
+                          {set.completed && <Check size={16} aria-hidden="true" />}
+                        </button>
+                      ) : (
+                        <div
+                          id={`set-${set.id}`}
+                          className={`set-row ${set.completed ? 'done' : ''}`}
+                          key={set.id}
+                        >
+                          <div className="set-label">
+                            <span>
+                              {t('fitness.set')} {i + 1}
+                            </span>
+                            <div className="row-controls">
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="icon"
-                                aria-label={t('record.copySet')}
-                                onClick={() => addSet(exercise.id, set)}
+                                aria-label={t('simple.recordSet')}
+                                aria-pressed={set.completed}
+                                onClick={() => recordSet(exercise.id, set)}
                               >
-                                <Copy size={15} />
+                                <Check size={18} />
+                                {t(set.completed ? 'flow.doneEditing' : 'simple.recordSet')}
                               </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                aria-label={t('fitness.removeSet')}
-                                onClick={() => {
-                                  if (confirm(t('common.confirmDelete')))
-                                    patch(
-                                      {
-                                        exercises: workout.exercises.map((e) =>
-                                          e.id === exercise.id
-                                            ? { ...e, sets: e.sets.filter((s) => s.id !== set.id) }
-                                            : e,
-                                        ),
-                                      },
-                                      true,
-                                    );
-                                }}
-                              >
-                                <Trash2 size={15} />
-                              </Button>
-                            </details>
+                              <details className="record-more">
+                                <summary>{t('simple.more')}</summary>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('record.copySet')}
+                                  onClick={() => addSet(exercise.id, set)}
+                                >
+                                  <Copy size={15} />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t('fitness.removeSet')}
+                                  onClick={() => {
+                                    if (confirm(t('common.confirmDelete')))
+                                      patch(
+                                        {
+                                          exercises: workout.exercises.map((e) =>
+                                            e.id === exercise.id
+                                              ? {
+                                                  ...e,
+                                                  sets: e.sets.filter((s) => s.id !== set.id),
+                                                }
+                                              : e,
+                                          ),
+                                        },
+                                        true,
+                                      );
+                                  }}
+                                >
+                                  <Trash2 size={15} />
+                                </Button>
+                              </details>
+                            </div>
                           </div>
-                        </div>
-                        <div className="record-set-inputs">
-                          {fields.map((key) => (
-                            <label className="field preset-field" key={key}>
-                              <span>
-                                {t(`fitness.${key}`)}
-                                {key === 'weight'
-                                  ? ` (${preferences.weightUnit})`
-                                  : key === 'distance'
-                                    ? ` (${preferences.distanceUnit})`
-                                    : key === 'duration'
-                                      ? ` (${t('fitness.unitSeconds')})`
-                                      : ''}
-                              </span>
-                              <input
-                                type="number"
-                                aria-label={
-                                  t(`fitness.${key}`) +
-                                  (key === 'weight'
+                          <div className="record-set-inputs">
+                            {fields.map((key) => (
+                              <label className="field preset-field" key={key}>
+                                <span>
+                                  {t(`fitness.${key}`)}
+                                  {key === 'weight'
                                     ? ` (${preferences.weightUnit})`
                                     : key === 'distance'
                                       ? ` (${preferences.distanceUnit})`
                                       : key === 'duration'
                                         ? ` (${t('fitness.unitSeconds')})`
-                                        : '')
-                                }
-                                inputMode={key === 'reps' ? 'numeric' : 'decimal'}
-                                min={key === 'weight' ? 0 : 1}
-                                step={key === 'reps' ? 1 : 'any'}
-                                value={
-                                  set[key] === null
-                                    ? ''
-                                    : key === 'weight'
-                                      ? Number(
-                                          toDisplayWeight(
-                                            set[key]!,
-                                            preferences.weightUnit,
-                                          ).toFixed(2),
-                                        )
+                                        : ''}
+                                </span>
+                                <input
+                                  type="number"
+                                  aria-label={
+                                    t(`fitness.${key}`) +
+                                    (key === 'weight'
+                                      ? ` (${preferences.weightUnit})`
                                       : key === 'distance'
+                                        ? ` (${preferences.distanceUnit})`
+                                        : key === 'duration'
+                                          ? ` (${t('fitness.unitSeconds')})`
+                                          : '')
+                                  }
+                                  inputMode={key === 'reps' ? 'numeric' : 'decimal'}
+                                  min={key === 'weight' ? 0 : 1}
+                                  step={key === 'reps' ? 1 : 'any'}
+                                  value={
+                                    set[key] === null
+                                      ? ''
+                                      : key === 'weight'
                                         ? Number(
-                                            toDisplayDistance(
+                                            toDisplayWeight(
                                               set[key]!,
-                                              preferences.distanceUnit,
-                                            ).toFixed(3),
+                                              preferences.weightUnit,
+                                            ).toFixed(2),
                                           )
-                                        : set[key]!
-                                }
-                                onChange={(event) => {
-                                  const v =
-                                    event.target.value === '' ? null : Number(event.target.value);
-                                  updateSet(exercise.id, set.id, {
-                                    [key]:
-                                      v === null
-                                        ? null
-                                        : key === 'weight'
-                                          ? toKg(v, preferences.weightUnit)
-                                          : key === 'distance'
-                                            ? toMeters(v, preferences.distanceUnit)
-                                            : v,
-                                  });
-                                }}
-                              />
-                              <span className="record-presets">
-                                {(key === 'reps'
-                                  ? [6, 8, 10, 12, 15]
-                                  : key === 'duration'
-                                    ? [30, 60, 300, 600]
-                                    : key === 'distance'
-                                      ? [1, 3, 5]
-                                      : []
-                                ).map((value) => (
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    key={value}
-                                    onClick={() =>
-                                      updateSet(exercise.id, set.id, {
-                                        [key]:
-                                          key === 'distance'
-                                            ? toMeters(value, preferences.distanceUnit)
-                                            : value,
-                                      })
-                                    }
-                                  >
-                                    {value}
-                                  </Button>
-                                ))}
-                                {key === 'weight' &&
-                                  [-1, 1].map((direction) => (
+                                        : key === 'distance'
+                                          ? Number(
+                                              toDisplayDistance(
+                                                set[key]!,
+                                                preferences.distanceUnit,
+                                              ).toFixed(3),
+                                            )
+                                          : set[key]!
+                                  }
+                                  onChange={(event) => {
+                                    const v =
+                                      event.target.value === '' ? null : Number(event.target.value);
+                                    updateSet(exercise.id, set.id, {
+                                      [key]:
+                                        v === null
+                                          ? null
+                                          : key === 'weight'
+                                            ? toKg(v, preferences.weightUnit)
+                                            : key === 'distance'
+                                              ? toMeters(v, preferences.distanceUnit)
+                                              : v,
+                                    });
+                                  }}
+                                />
+                                <span className="record-presets">
+                                  {(key === 'reps'
+                                    ? [6, 8, 10, 12, 15]
+                                    : key === 'duration'
+                                      ? [30, 60, 300, 600]
+                                      : key === 'distance'
+                                        ? [1, 3, 5]
+                                        : []
+                                  ).map((value) => (
                                     <Button
                                       type="button"
                                       variant="secondary"
-                                      key={direction}
-                                      aria-label={`${direction > 0 ? '+' : '−'} ${preferences.weightUnit === 'kg' ? 2.5 : 5} ${preferences.weightUnit}`}
+                                      key={value}
                                       onClick={() =>
                                         updateSet(exercise.id, set.id, {
-                                          weight: Math.max(
-                                            0,
-                                            (set.weight ?? 0) +
-                                              toKg(
-                                                direction *
-                                                  (preferences.weightUnit === 'kg' ? 2.5 : 5),
-                                                preferences.weightUnit,
-                                              ),
-                                          ),
+                                          [key]:
+                                            key === 'distance'
+                                              ? toMeters(value, preferences.distanceUnit)
+                                              : value,
                                         })
                                       }
                                     >
-                                      {direction > 0 ? '+' : '−'}
-                                      {preferences.weightUnit === 'kg' ? 2.5 : 5}
+                                      {value}
                                     </Button>
                                   ))}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                        <details>
-                          <summary className="small muted">{t('record.moreFields')}</summary>
-                          <div className="form-row">
-                            <label className="field">
-                              <span>RPE</span>
-                              <input
-                                type="number"
-                                min={1}
-                                max={10}
-                                step="0.5"
-                                inputMode="decimal"
-                                value={set.rpe ?? ''}
-                                onChange={(e) =>
-                                  updateSet(exercise.id, set.id, {
-                                    rpe: e.target.value ? Number(e.target.value) : null,
-                                  })
-                                }
-                              />
-                            </label>
-                            <label className="field">
-                              <span>{t('common.note')}</span>
-                              <input
-                                maxLength={1000}
-                                value={set.note}
-                                onChange={(e) =>
-                                  updateSet(exercise.id, set.id, { note: e.target.value })
-                                }
-                              />
-                            </label>
+                                  {key === 'weight' &&
+                                    [-1, 1].map((direction) => (
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        key={direction}
+                                        aria-label={`${direction > 0 ? '+' : '−'} ${preferences.weightUnit === 'kg' ? 2.5 : 5} ${preferences.weightUnit}`}
+                                        onClick={() =>
+                                          updateSet(exercise.id, set.id, {
+                                            weight: Math.max(
+                                              0,
+                                              (set.weight ?? 0) +
+                                                toKg(
+                                                  direction *
+                                                    (preferences.weightUnit === 'kg' ? 2.5 : 5),
+                                                  preferences.weightUnit,
+                                                ),
+                                            ),
+                                          })
+                                        }
+                                      >
+                                        {direction > 0 ? '+' : '−'}
+                                        {preferences.weightUnit === 'kg' ? 2.5 : 5}
+                                      </Button>
+                                    ))}
+                                </span>
+                              </label>
+                            ))}
                           </div>
-                        </details>
-                        {setErrors[set.id] && (
-                          <p role="alert" className="error small">
-                            {setErrors[set.id]}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                          <details>
+                            <summary className="small muted">{t('record.moreFields')}</summary>
+                            <div className="form-row">
+                              <label className="field">
+                                <span>RPE</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={10}
+                                  step="0.5"
+                                  inputMode="decimal"
+                                  value={set.rpe ?? ''}
+                                  onChange={(e) =>
+                                    updateSet(exercise.id, set.id, {
+                                      rpe: e.target.value ? Number(e.target.value) : null,
+                                    })
+                                  }
+                                />
+                              </label>
+                              <label className="field">
+                                <span>{t('common.note')}</span>
+                                <input
+                                  maxLength={1000}
+                                  value={set.note}
+                                  onChange={(e) =>
+                                    updateSet(exercise.id, set.id, { note: e.target.value })
+                                  }
+                                />
+                              </label>
+                            </div>
+                          </details>
+                          {setErrors[set.id] && (
+                            <p role="alert" className="error small">
+                              {setErrors[set.id]}
+                            </p>
+                          )}
+                        </div>
+                      ),
+                    )}
                     <Button type="button" variant="secondary" onClick={() => addSet(exercise.id)}>
                       <Plus size={16} />
                       {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
@@ -1011,7 +1091,7 @@ export default function WorkoutEditor({
               </Button>
             }
             <Button type="submit" disabled={finishing || !ready}>
-              {initial.status === 'completed' ? t('common.save') : t('fitness.finish')}
+              {initial.status === 'completed' ? t('flow.doneEditing') : t('fitness.finish')}
             </Button>
           </div>
         </fieldset>

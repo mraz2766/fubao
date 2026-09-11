@@ -86,10 +86,10 @@ test('training item states, single add entry, contextual multiselect and refresh
       'true',
     );
     await expect(page.locator('.exercise-context p')).toHaveText('背部 · 手臂');
-    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('textbox', { name: '搜索', exact: true }).press('Escape');
     await expect(page.getByRole('button', { name: '添加动作', exact: true })).toBeFocused();
-    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await page.getByRole('button', { name: '添加动作', exact: true }).click();
     await page.getByRole('button', { name: '相关动作', exact: true }).click();
     await page.getByRole('button', { name: '浏览', exact: true }).click();
@@ -124,7 +124,10 @@ test('training item states, single add entry, contextual multiselect and refresh
     await expect(page.locator('.set-exercise')).toHaveCount(2);
     await expect(page.getByRole('button', { name: '添加动作', exact: true })).toHaveCount(1);
     await expect(page.locator('.record-heading [role=status]')).toHaveText('已保存');
-    await page.locator('.record-footer').getByRole('button', { name: '保存', exact: true }).click();
+    await page
+      .locator('.record-footer')
+      .getByRole('button', { name: '完成编辑', exact: true })
+      .click();
     await expect(page.locator('.workout-workspace')).toHaveCount(0);
     await page.reload();
     const saved = await (await page.request.get('/api/fitness/sessions/' + id)).json();

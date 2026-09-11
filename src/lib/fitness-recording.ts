@@ -108,3 +108,26 @@ export function zonedISO(value: string, timezone: string): string {
   }
   throw new Error('INVALID_INPUT'); // A nonexistent local time at a daylight-saving transition.
 }
+
+/** First instant of a calendar day, including zones that skip midnight for DST. */
+export function zonedDayStart(date: string, timezone: string): string {
+  try {
+    return zonedISO(date + 'T00:00', timezone);
+  } catch {
+    const format = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const center = Date.parse(date + 'T00:00:00Z') / 1000;
+    let low = center - 172800,
+      high = center + 172800;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (format.format(new Date(middle * 1000)) < date) low = middle + 1;
+      else high = middle;
+    }
+    return new Date(low * 1000).toISOString();
+  }
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { fitnessDay, patchCheckin } from './services/fitness-overview';
 import { idSchema } from '../lib/schemas';
 import { zonedISO, trainingParts } from '../lib/fitness-recording';
 import { translator } from '../lib/i18n';
@@ -21,6 +22,11 @@ import type { Workout } from '../types/domain';
 export async function fitnessRoute(context: APIContext, parts: string[]) {
   const [resource, id, action] = parts,
     method = context.request.method;
+  if (resource === 'day' && method === 'GET') {
+    const user = requireUser(context);
+    const date = z.iso.date().parse(context.url.searchParams.get('date'));
+    return json(await fitnessDay(user, context.locals.preferences, date));
+  }
   if (resource === 'checkin' && method === 'POST') {
     const user = requireUser(context);
     const input = z
@@ -66,20 +72,31 @@ export async function fitnessRoute(context: APIContext, parts: string[]) {
   if (resource === 'sessions') {
     if (method === 'GET') {
       const status = context.url.searchParams.get('status');
-      const items = (await listWorkouts(context.locals.user, id)).filter(
-        (w) => !status || w.status === status,
-      );
+      const items = (
+        await listWorkouts(
+          context.locals.user,
+          id,
+          id
+            ? undefined
+            : {
+                limit: 21,
+                offset: Math.max(0, Number(context.url.searchParams.get('page')) || 0) * 20,
+                status: status ?? undefined,
+              },
+        )
+      ).filter((w) => !status || w.status === status);
       if (id) {
         if (!items[0]) throw new HttpError(404, 'NOT_FOUND');
         return json(items[0]);
       }
-      const page = Math.max(0, Number(context.url.searchParams.get('page')) || 0);
       return json({
-        items: items.slice(page * 20, page * 20 + 20),
-        hasMore: items.length > (page + 1) * 20,
+        items: items.slice(0, 20),
+        hasMore: items.length > 20,
       });
     }
     const user = requireUser(context);
+    if (method === 'PATCH' && id && !action)
+      return json(await patchCheckin(user, idSchema.parse(id), await readJSON(context.request)));
     if (method === 'POST' || method === 'PUT') {
       const input = (await readJSON(context.request)) as Record<string, unknown>;
       if (id && input.id !== id) throw new HttpError(400, 'INVALID_INPUT');

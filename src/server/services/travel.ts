@@ -6,10 +6,18 @@ import { optimizedImage } from '../../lib/image-validation';
 import { photoLimits } from '../../lib/photo-policy';
 import type { User, Trip, TravelPhoto, Location, Wish } from '../../types/domain';
 type TripRow = Omit<Trip, 'photos' | 'location' | 'tags'> & { tags: string };
-export async function listTrips(user: User | null, id?: string): Promise<Trip[]> {
+export async function listTrips(
+  user: User | null,
+  id?: string,
+  page?: { limit: number; offset?: number },
+): Promise<Trip[]> {
   const owner = user?.id ?? null;
-  const scope = `t.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND t.deleted_at IS NULL${user ? '' : " AND t.visibility='public'"}${id ? ' AND t.id=?' : ''}`,
-    bindings = id ? [owner, id] : [owner];
+  let scope = `t.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND t.deleted_at IS NULL${user ? '' : " AND t.visibility='public'"}${id ? ' AND t.id=?' : ''}`,
+    bindings: (string | number | null)[] = id ? [owner, id] : [owner];
+  if (page && !id) {
+    scope = `t.id IN (SELECT t.id FROM travel_entries t WHERE ${scope} ORDER BY t.start_date IS NULL,t.start_date DESC,t.updated_at DESC,t.id DESC LIMIT ? OFFSET ?)`;
+    bindings.push(page.limit, page.offset ?? 0);
+  }
   const results = await db().batch([
     statement(
       `SELECT t.* FROM travel_entries t WHERE ${scope} ORDER BY t.start_date IS NULL,t.start_date DESC,t.updated_at DESC`,
@@ -339,4 +347,26 @@ export async function cleanupStorage() {
     }
   }
   return { processed: jobs.length };
+}
+
+export async function travelCounts(user: User | null) {
+  return (await first<{ trips: number; places: number }>(
+    `SELECT COUNT(*) trips,COUNT(DISTINCT COALESCE(spot_id,location_id || ':' || COALESCE(place_name,''))) places FROM travel_entries WHERE user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND deleted_at IS NULL${user ? '' : " AND visibility='public'"}`,
+    user?.id ?? null,
+  ))!;
+}
+export async function photoPage(user: User | null, locale: 'zh-CN' | 'en-US', offset: number) {
+  const rows = await all<{
+    id: string;
+    travelId: string;
+    width: number;
+    height: number;
+    label: string;
+    year: string;
+  }>(
+    `SELECT p.id,t.id travelId,p.width,p.height,COALESCE(NULLIF(t.place_name,''),${locale === 'zh-CN' ? "NULLIF(spot.name_zh,''),NULLIF(l.name_zh,''),l.name" : 'spot.name_en,l.name'}) label,COALESCE(SUBSTR(t.start_date,1,4),'') year FROM travel_photos p JOIN travel_entries t ON t.id=p.travel_id JOIN locations l ON l.id=t.location_id LEFT JOIN scenic_spots spot ON spot.id=t.spot_id WHERE t.user_id=COALESCE(?,(SELECT id FROM users ORDER BY created_at LIMIT 1)) AND t.deleted_at IS NULL${user ? '' : " AND t.visibility='public'"} ORDER BY t.start_date IS NULL,t.start_date DESC,t.updated_at DESC,t.id DESC,p.position,p.id LIMIT 25 OFFSET ?`,
+    user?.id ?? null,
+    offset,
+  );
+  return { items: rows.slice(0, 24), hasMore: rows.length > 24 };
 }

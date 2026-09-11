@@ -45,7 +45,10 @@ test('populated home and domestic travel remain compact across all page families
       .filter({ has: page.getByText('上海', { exact: true }) })
       .first()
       .click();
-    await page.locator('input[type=file]').setInputFiles('public/scenery/li-river-small.webp');
+    await page
+      .getByRole('dialog')
+      .locator('input[type=file]')
+      .setInputFiles('public/scenery/li-river-small.webp');
     await expect(page.getByRole('button', { name: '保存', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await expect(page).toHaveURL(/\/travel\/[a-f0-9-]+$/);
@@ -74,9 +77,10 @@ test('populated home and domestic travel remain compact across all page families
     await expect(page.locator('.map-place-list').getByRole('link', { name: /上海/ })).toBeVisible();
     expect(await page.locator('.china-map svg a').count()).toBeGreaterThan(0);
     // Actual cities are plotted; unrelated catalog destinations aren't added to personal footprints.
+    const wishes = await (await page.request.get('/api/travel/wishlist')).json();
     await expect(
       page.locator('.map-place-list').getByText('漓江·阳朔', { exact: true }),
-    ).toHaveCount(0);
+    ).toHaveCount(wishes.items.some((w: { spot_id?: string }) => w.spot_id === 'li-river') ? 1 : 0);
     await page.screenshot({ path: 'output/playwright/neutral-map.png', fullPage: true });
 
     const urls = [

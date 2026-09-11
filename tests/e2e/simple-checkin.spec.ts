@@ -11,59 +11,97 @@ test.beforeEach(async ({ page }) => {
     ).ok(),
   ).toBe(true);
 });
-test('one-tap check-in, double tap, optional fields, retry and undo', async ({ page, request }) => {
+test('persistent one-tap choices, rapid additions, retry, refresh, date changes and explicit new session', async ({
+  page,
+  request,
+}) => {
   const ids: string[] = [];
+  const panel = page.locator('.quick-checkin');
   try {
     await page.goto('/fitness');
-    await expect(page.getByRole('heading', { name: '今天练了什么？' })).toBeVisible();
-    expect(await page.locator('.quick-checkin input:visible').count()).toBe(0);
+    if (await panel.getByRole('heading', { name: '已打卡', exact: true }).isVisible()) {
+      await panel.locator('.checkin-more > summary').click();
+      await panel.getByRole('button', { name: '再记一次', exact: true }).click();
+    }
+    expect(await panel.locator('input:visible').count()).toBe(0);
     const receipt = page.waitForResponse(
       (r) => r.url().endsWith('/api/fitness/checkin') && r.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: '背部', exact: true }).dblclick();
+    await panel.getByRole('button', { name: '背部', exact: true }).dblclick();
     const w = await (await receipt).json();
     ids.push(w.id);
-    expect(w.status).toBe('completed');
-    expect(w.end_at).toBeNull();
-    expect(w.duration_seconds).toBeNull();
-    expect(w.exercises).toEqual([]);
-    await expect(page.getByRole('heading', { name: '已打卡', exact: true })).toBeVisible();
-    await expect(page.locator('.checkin-result .success-mark')).toHaveAttribute(
-      'data-celebrate',
+    expect(w).toMatchObject({
+      status: 'completed',
+      end_at: null,
+      duration_seconds: null,
+      exercises: [],
+    });
+    await expect(panel.locator('.checkin-save')).toHaveText('已保存');
+    await expect(panel.getByRole('button', { name: '背部', exact: true })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
+    await expect(page.locator('.daily-recent')).toContainText('背部');
     expect((await request.get(`/api/fitness/sessions/${w.id}`)).status()).toBe(404);
-    await page.getByRole('button', { name: '补充记录', exact: true }).click();
-    await page.getByRole('button', { name: '有氧', exact: true }).click();
-    await page.locator('summary').filter({ hasText: '补充记录' }).click();
-    await page.getByRole('button', { name: '45 分钟', exact: true }).click();
-    await expect(page.locator('.record-heading [role=status]')).toHaveText('已保存');
-    await page.locator('.record-footer').getByRole('button', { name: '保存', exact: true }).click();
-    await expect(page.locator('.workout-workspace')).toHaveCount(0);
+    await panel.getByRole('button', { name: '有氧', exact: true }).click();
+    await expect(panel.locator('.checkin-save')).toHaveText('已保存');
+    await panel.locator('.checkin-more > summary').click();
+    await panel.getByRole('button', { name: '45 分钟', exact: true }).click();
+    await expect(panel.locator('.checkin-save')).toHaveText('已保存');
+    await page.reload();
+    await expect(panel.getByRole('button', { name: '背部', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(panel.getByRole('button', { name: '有氧', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     const updated = await (await page.request.get(`/api/fitness/sessions/${w.id}`)).json();
     expect(updated.body_parts).toEqual(['back', 'cardio']);
     expect(updated.duration_seconds).toBe(2700);
-    expect(updated.end_at).toBeNull();
-    await page.goto('/fitness');
     let failed = false;
-    await page.route('**/api/fitness/checkin', (route) => {
-      if (!failed) {
+    await page.route('**/api/fitness/sessions/*', (route) => {
+      if (route.request().method() === 'PATCH' && !failed) {
         failed = true;
         return route.abort();
       }
       return route.continue();
     });
-    await page.getByRole('button', { name: '有氧', exact: true }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
-    await expect(page.locator('.checkin-result')).toHaveCount(0);
-    const retry = page.waitForResponse(
+    await panel.getByRole('button', { name: '胸部', exact: true }).click();
+    await expect(panel.getByRole('alert')).toBeVisible();
+    await expect(panel.getByRole('button', { name: '胸部', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await panel.getByRole('button', { name: '腿部', exact: true }).click();
+    await panel.getByRole('button', { name: '重试保存', exact: true }).click();
+    await expect(panel.locator('.checkin-save')).toHaveText('已保存');
+    const merged = await (await page.request.get(`/api/fitness/sessions/${w.id}`)).json();
+    expect(merged.body_parts).toEqual(['back', 'cardio', 'chest', 'legs']);
+    await panel.getByRole('button', { name: '昨天', exact: true }).click();
+    await panel.getByRole('button', { name: '今天', exact: true }).click();
+    await expect(panel.getByRole('button', { name: '胸部', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await panel.locator('.checkin-more > summary').click();
+    await panel.getByRole('button', { name: '再记一次', exact: true }).click();
+    const next = page.waitForResponse(
       (r) => r.url().endsWith('/api/fitness/checkin') && r.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: '重试保存', exact: true }).click();
-    const second = await (await retry).json();
+    await panel.getByRole('button', { name: '有氧', exact: true }).click();
+    const second = await (await next).json();
     ids.push(second.id);
-    await page.getByRole('button', { name: '撤销', exact: true }).click();
-    await expect(page.getByRole('heading', { name: '今天练了什么？' })).toBeVisible();
+    expect(second.id).not.toBe(w.id);
+    await expect(panel.locator('.checkin-save')).toHaveText('已保存');
+    await panel.locator('.checkin-more > summary').click();
+    page.once('dialog', (d) => d.accept());
+    await panel.getByRole('button', { name: '撤销', exact: true }).click();
+    await expect(panel.getByRole('button', { name: '胸部', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     expect((await page.request.get(`/api/fitness/sessions/${second.id}`)).status()).toBe(404);
   } finally {
     for (const id of ids) await page.request.delete(`/api/fitness/sessions/${id}`, { headers });
