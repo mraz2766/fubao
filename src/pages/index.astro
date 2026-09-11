@@ -3,7 +3,7 @@ import Base from '../layouts/Base.astro';
 import { translator } from '../lib/i18n';
 import Dashboard from '../features/dashboard/Dashboard.astro';
 import { greetingAt } from '../features/dashboard/presentation';
-import { Sun, Moon, Plus } from 'lucide-react';
+import { Sunrise, Sun, Moon, Plus } from 'lucide-react';
 import { listWorkouts } from '../server/services/fitness';
 import { getWidgets } from '../server/services/settings';
 import { listTrips } from '../server/services/travel';
@@ -15,7 +15,7 @@ const [workouts, widgets, trips] = await Promise.all([
 ]);
 const now = new Date();
 const greeting = greetingAt(now, Astro.locals.preferences.timezone);
-const GreetingIcon = greeting === 'evening' ? Moon : Sun;
+const GreetingIcon = greeting === 'evening' ? Moon : greeting === 'morning' ? Sunrise : Sun;
 ---
 
 <Base title={t('nav.home')}>
@@ -34,7 +34,7 @@ const GreetingIcon = greeting === 'evening' ? Moon : Sun;
         }).format(now)}
       </span>
       <h1>
-        <span class="greeting-icon">
+        <span class="greeting-icon" data-time={greeting}>
           <GreetingIcon size={22} strokeWidth={1.7} aria-hidden="true" />
         </span>
         {t(`dashboard.${greeting}`)}
@@ -54,5 +54,4 @@ const GreetingIcon = greeting === 'evening' ? Moon : Sun;
     owner={!!Astro.locals.user}
     feedbackScope={Astro.locals.user?.id ?? 'public'}
   />
-  {!Astro.locals.user && <p class="footer-note">{t('dashboard.publicHint')}</p>}
 </Base>

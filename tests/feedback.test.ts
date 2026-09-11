@@ -54,8 +54,12 @@ describe('presentation state does not change saved data', () => {
     expect(greetingAt(now, 'America/Los_Angeles')).toBe('afternoon');
     expect(greetingAt(now, 'UTC')).toBe('evening');
   });
-  it('preserves widget order, visibility and sizes without mutating preferences', () => {
+  it('preserves order and visibility while ignoring legacy sizes for layout', () => {
     expect(dashboardLayout(defaultWidgets).editorial).toBe(true);
+    expect(dashboardLayout(defaultWidgets.map((w) => ({ ...w, size: 'large' }))).editorial).toBe(
+      true,
+    );
+    expect(dashboardLayout(defaultWidgets.filter((w) => w.key !== 'recent')).editorial).toBe(true);
     const custom = defaultWidgets.map((w, i) => ({
       ...w,
       order: 3 - i,

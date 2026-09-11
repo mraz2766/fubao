@@ -106,6 +106,7 @@ img {
   font-size: 23px;
   font-weight: 650;
   letter-spacing: -1px;
+  min-height: 44px;
 }
 .mobile-nav {
   position: fixed;
@@ -607,26 +608,11 @@ textarea {
   .page-header {
     margin-bottom: 38px;
   }
-  .widget-small {
-    grid-column: span 4;
-  }
-  .widget-medium {
-    grid-column: span 6;
-  }
-  .widget-large {
-    grid-column: span 12;
-  }
   .card {
     padding: 28px;
   }
   .fitness-main {
     gap: 20px;
-  }
-  .widget-small .fitness-main {
-    flex-direction: column;
-  }
-  .widget-small .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (min-width: 1440px) {
@@ -1355,10 +1341,6 @@ textarea {
   display: flex;
   gap: 3px;
   align-items: center;
-}
-.widget-controls select {
-  width: auto !important;
-  min-width: 75px !important;
 }
 .data-actions {
   display: flex;
@@ -3052,7 +3034,7 @@ textarea {
     padding: 18px 16px 96px;
   }
   .mobile-header {
-    padding: 16px 18px 0;
+    padding: 8px 18px 0;
   }
   .brand {
     font-size: 21px;
@@ -3156,8 +3138,26 @@ textarea {
   gap: 9px;
 }
 .greeting-icon {
-  color: var(--accent);
+  color: #876b43;
+  background: #f0ebe2;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+}
+.greeting-icon[data-time='evening'] {
+  color: #65728a;
+  background: #e9edf3;
+}
+[data-theme='dark'] .greeting-icon {
+  color: #d5b98e;
+  background: #343027;
+}
+[data-theme='dark'] .greeting-icon[data-time='evening'] {
+  color: #b0bfd9;
+  background: #292f3b;
 }
 .home-bento {
   display: grid;
@@ -3306,7 +3306,7 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 204px;
+  min-height: 160px;
   color: var(--muted);
   font-size: 14px;
 }
@@ -3329,6 +3329,16 @@ textarea {
   gap: 4px;
   font-size: 11px;
 }
+.home-bento .week-day::after {
+  content: '';
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: transparent;
+}
+.home-bento .week-day.today::after {
+  background: var(--accent);
+}
 .home-bento .day-dot {
   width: min(26px, 100%);
   height: 26px;
@@ -3344,8 +3354,7 @@ textarea {
   background: transparent;
 }
 .home-bento .week-day.today .day-dot {
-  outline: 1px solid var(--accent-line);
-  outline-offset: 2px;
+  font-weight: 600;
 }
 .home-bento .recent-row {
   gap: 10px;
@@ -3361,9 +3370,6 @@ textarea {
 .home-bento .dashboard-recent {
   background: transparent;
   padding-block: 4px;
-}
-.dashboard-recent-list > p {
-  padding-block: 6px;
 }
 .dashboard-interactive {
   border-radius: 8px;
@@ -3426,6 +3432,10 @@ textarea {
   }
   .home-bento > .card {
     padding: 14px 18px;
+    grid-column: span 6;
+  }
+  .home-bento:not(.bento-editorial) > .card:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
   .bento-editorial > .dashboard-travel {
     grid-row: span 2;
@@ -3492,6 +3502,9 @@ textarea {
     animation: bento-arrive 200ms var(--ease-settle) backwards;
     animation-delay: calc(var(--entry-order) * 40ms);
   }
+  html[data-bento-motion='enter'] .greeting-icon > svg {
+    animation: greeting-awake 240ms var(--ease-settle);
+  }
   .dashboard-interactive:active {
     transform: scale(0.985);
   }
@@ -3523,10 +3536,12 @@ textarea {
     transform: scale(1);
   }
 }
-@media (min-width: 768px) and (max-width: 1023px) {
-  /* A sidebar leaves too little room for three usable cards on a tablet. */
-  .home-bento > .widget-small {
-    grid-column: span 6;
+@keyframes greeting-awake {
+  from {
+    transform: rotate(-18deg) scale(0.9);
+  }
+  to {
+    transform: none;
   }
 }
 

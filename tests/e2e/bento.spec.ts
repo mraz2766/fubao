@@ -26,12 +26,13 @@ test('Bento entry is immediate, ordered, and does not replay on restore or reduc
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   const entries = await page.evaluate(() => (window as any).__entries);
-  expect(entries).toHaveLength(4);
-  expect(entries.map((e: any) => e.delay)).toEqual(['0s', '0.04s', '0.08s', '0.12s']);
+  expect(entries).toHaveLength(3);
+  expect(entries.map((e: any) => e.delay)).toEqual(['0s', '0.04s', '0.08s']);
   expect(entries.every((e: any) => e.opacity === '1' && e.duration === '0.2s')).toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('.dashboard-recent').scrollIntoViewIfNeeded();
-  expect(await page.evaluate(() => (window as any).__entries.length)).toBe(4);
+  await page.locator('.dashboard-weekly').scrollIntoViewIfNeeded();
+  await expect(page.locator('.dashboard-recent')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__entries.length)).toBe(3);
   await page.goto('/fitness');
   await page.goBack();
   await page.waitForLoadState('networkidle');
@@ -95,6 +96,23 @@ test('populated Bento keeps the first screen compact, honors widgets and records
         })
       ).ok(),
     ).toBe(true);
+    const olderId = crypto.randomUUID();
+    ids.push(olderId);
+    const yesterday = new Date(date + 'T12:00:00Z');
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    expect(
+      (
+        await page.request.post('/api/fitness/checkin', {
+          headers,
+          data: {
+            id: olderId,
+            mutation_id: crypto.randomUUID(),
+            date: yesterday.toISOString().slice(0, 10),
+            part: 'chest',
+          },
+        })
+      ).ok(),
+    ).toBe(true);
     await page.goto('/fitness');
     await page.getByRole('button', { name: '开始训练', exact: true }).click();
     await Promise.race([
@@ -138,6 +156,11 @@ test('populated Bento keeps the first screen compact, honors widgets and records
       await videoPage.goto('/');
       await videoPage.waitForLoadState('networkidle');
       await expect(videoPage.locator('.dashboard-resume')).toBeVisible();
+      await expect(videoPage.locator('.mobile-header > a')).toHaveCount(1);
+      await expect(videoPage.locator('.sidebar-bottom a[href="/settings"]')).toHaveCount(0);
+      await expect(videoPage.locator('.week-day[aria-current="date"]')).toHaveCount(1);
+      await expect(videoPage.locator('.dashboard-photo')).not.toContainText('日期未设置');
+
       await expect(videoPage.locator('[data-goal-week] .success-mark')).toHaveAttribute(
         'data-celebrate',
         'true',
@@ -234,7 +257,7 @@ test('populated Bento keeps the first screen compact, honors widgets and records
       .toBe('none');
     const travel = await page.locator('.dashboard-travel').boundingBox();
     const grid = await page.locator('.home-bento').boundingBox();
-    expect(travel!.width).toBeCloseTo(grid!.width, 0);
+    expect(travel!.width).toBeCloseTo((grid!.width - 16) / 2, 0);
     await page.request.patch('/api/settings', {
       headers,
       data: {

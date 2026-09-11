@@ -9,7 +9,7 @@ import {
   Clock3,
   Play,
 } from 'lucide-react';
-import { translator, locationRegion } from '../../lib/i18n';
+import { translator } from '../../lib/i18n';
 import { fitnessSummary, workoutDay } from '../../lib/analytics';
 import { dashboardLayout } from './presentation';
 import { SuccessMark } from '../../components/ui/success-mark';
@@ -34,31 +34,29 @@ const {
 const t = translator(locale),
   summary = fitnessSummary(workouts, preferences),
   today = summary.todayWorkouts[0];
-const { visible, editorial } = dashboardLayout(widgets);
-const hasFitness = visible.some((w) => w.key === 'fitness');
-const hasTravel = visible.some((w) => w.key === 'travel');
+const hasFitness = widgets.some((w) => w.visible && w.key === 'fitness');
+const hasTravel = widgets.some((w) => w.visible && w.key === 'travel');
 const active = owner ? workouts.find((w) => w.status !== 'completed') : undefined;
 const recentTrip = trips[0];
 const nextWorkout = workouts.find(
   (w) => w.status === 'completed' && (!hasFitness || w.id !== today?.id),
 );
 const nextTrip = trips.find((trip) => !hasTravel || trip.id !== recentTrip?.id);
+const { visible, editorial } = dashboardLayout(
+  widgets.filter((w) => w.key !== 'recent' || nextWorkout || nextTrip),
+);
 const tripName = (trip: Trip) =>
   trip.place_name ||
   (locale === 'zh-CN' ? trip.location.name_zh || trip.location.name : trip.location.name);
-const tripRegion = (trip: Trip) =>
-  trip.location.country_code === 'CN'
-    ? locationRegion(trip.location, locale)
-    : locale === 'zh-CN'
-      ? trip.location.country_name_zh || trip.location.country_name
-      : trip.location.country_name;
-const dateText = (
-  date: string,
-  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
-) =>
-  new Intl.DateTimeFormat(locale, { timeZone: preferences.timezone, ...opts }).format(
-    new Date(date),
+const isDefaultTitle = (workout: Workout) =>
+  (['zh-CN', 'en-US'] as const).some(
+    (language) => workout.title === translator(language)('record.defaultTitle'),
   );
+const workoutTitle = (workout: Workout) =>
+  isDefaultTitle(workout)
+    ? workout.body_parts.map((part) => t(`fitness.${part}` as 'fitness.back')).join(' · ') ||
+      t('simple.checkedIn')
+    : workout.title;
 // Calendar-only dates are formatted in UTC so westward timezones cannot shift the day.
 const calendarText = (
   date: string,
@@ -72,7 +70,7 @@ const calendarText = (
 <div class:list={['bento', 'home-bento', { 'bento-editorial': editorial }]}>
   {visible.map((widget, index) => (
     <section
-      class:list={['card', 'widget-' + widget.size, 'dashboard-' + widget.key]}
+      class:list={['card', 'dashboard-' + widget.key]}
       style={`--entry-order:${index}`}
       aria-labelledby={`widget-${widget.key}`}
     >
@@ -93,15 +91,8 @@ const calendarText = (
           >
             <div class="today-title">
               {today && <SuccessMark />}
-              <h3>{today?.title ?? t('dashboard.noWorkout')}</h3>
+              <h3>{today ? workoutTitle(today) : t('dashboard.noWorkout')}</h3>
             </div>
-            {today && today.time_precision !== 'date' && (
-              <p class="muted small">
-                {dateText(today.start_at, { hour: '2-digit', minute: '2-digit' })}
-                {today.end_at &&
-                  ' – ' + dateText(today.end_at, { hour: '2-digit', minute: '2-digit' })}
-              </p>
-            )}
           </a>
           <div class="week-summary">
             <span>
@@ -127,7 +118,7 @@ const calendarText = (
           {active && (
             <a class="dashboard-resume dashboard-interactive" href={`/fitness/${active.id}`}>
               <Play size={14} aria-hidden="true" />
-              <span>{active.title}</span>
+              <span>{isDefaultTitle(active) ? t('fitness.active') : active.title}</span>
               <strong>{t('record.resume')}</strong>
               <ArrowRight size={15} aria-hidden="true" />
             </a>
@@ -163,15 +154,12 @@ const calendarText = (
               <div class="photo-description">
                 <div>
                   <h3>{tripName(recentTrip)}</h3>
-                  {tripRegion(recentTrip) !== tripName(recentTrip) && (
-                    <span class="small muted">{tripRegion(recentTrip)}</span>
-                  )}
                 </div>
-                <span class="small muted">
-                  {recentTrip.start_date
-                    ? calendarText(recentTrip.start_date)
-                    : t('common.undated')}
-                </span>
+                {recentTrip.start_date && (
+                  <time class="small muted" datetime={recentTrip.start_date}>
+                    {calendarText(recentTrip.start_date)}
+                  </time>
+                )}
               </div>
             </a>
           ) : (
@@ -179,7 +167,6 @@ const calendarText = (
               <span class="empty-landmark" aria-hidden="true">
                 <MapPin size={28} strokeWidth={1.4} />
               </span>
-              <p>{t('dashboard.noTravel')}</p>
               <a class="text-link" href={owner ? '/travel?new=1' : '/travel'}>
                 {t(owner ? 'travel.add' : 'travel.timeline')}{' '}
                 <ArrowUpRight size={15} aria-hidden="true" />
@@ -197,7 +184,6 @@ const calendarText = (
               </span>
               {t('dashboard.weekly')}
             </h2>
-            <span class="small muted">{calendarText(summary.weekStart)}</span>
           </div>
           <a
             class="weekly-dots dashboard-interactive"
@@ -205,7 +191,10 @@ const calendarText = (
             aria-label={t('dashboard.weekly') + ' · ' + t('fitness.history')}
           >
             {summary.days.map(({ day, trained }) => (
-              <span class:list={['week-day', { today: day === summary.today }]}>
+              <span
+                class:list={['week-day', { today: day === summary.today }]}
+                aria-current={day === summary.today ? 'date' : undefined}
+              >
                 <span>{calendarText(day, { weekday: 'narrow' })}</span>
                 <span class:list={['day-dot', { trained }]} aria-hidden="true">
                   {trained ? <Check size={13} /> : Number(day.slice(8))}
@@ -233,7 +222,7 @@ const calendarText = (
               <a class="recent-row dashboard-interactive" href={'/fitness/' + nextWorkout.id}>
                 <Dumbbell size={17} className="muted" aria-hidden="true" />
                 <div class="recent-info">
-                  <h3>{nextWorkout.title}</h3>
+                  <h3>{workoutTitle(nextWorkout)}</h3>
                   <span class="small muted">
                     {calendarText(workoutDay(nextWorkout, preferences.timezone))}
                   </span>
@@ -246,17 +235,14 @@ const calendarText = (
                 <MapPin size={17} className="muted" aria-hidden="true" />
                 <div class="recent-info">
                   <h3>{tripName(nextTrip)}</h3>
-                  <span class="small muted">
-                    {nextTrip.start_date ? calendarText(nextTrip.start_date) : t('common.undated')}
-                  </span>
+                  {nextTrip.start_date && (
+                    <time class="small muted" datetime={nextTrip.start_date}>
+                      {calendarText(nextTrip.start_date)}
+                    </time>
+                  )}
                 </div>
                 <ArrowUpRight size={16} aria-hidden="true" />
               </a>
-            )}
-            {!nextWorkout && !nextTrip && (
-              <p class="muted small">
-                {t(today || recentTrip ? 'dashboard.allCaughtUp' : 'dashboard.noRecent')}
-              </p>
             )}
           </div>
         </>

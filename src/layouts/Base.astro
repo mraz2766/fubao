@@ -77,12 +77,14 @@ const nav = [
           </a>
         ))}
       </nav>
-      <div class="sidebar-bottom">
-        <a class="text-link" href={Astro.locals.user ? '/settings' : '/login'}>
-          {Astro.locals.user?.username ?? t('auth.login')}
-          <ArrowUpRight size={14} />
-        </a>
-      </div>
+      {!Astro.locals.user && (
+        <div class="sidebar-bottom">
+          <a class="text-link" href="/login">
+            {t('auth.login')}
+            <ArrowUpRight size={14} />
+          </a>
+        </div>
+      )}
     </aside>
     <div class="mobile-header">
       <a href="/" class="brand">
@@ -90,10 +92,6 @@ const nav = [
           f
         </span>
         fubao.
-      </a>
-      <a class="text-link" href={Astro.locals.user ? '/settings' : '/login'}>
-        {Astro.locals.user?.username ?? t('auth.login')}
-        <ArrowUpRight size={14} />
       </a>
     </div>
     <main id="main" class="main">

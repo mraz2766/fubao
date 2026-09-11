@@ -138,7 +138,7 @@ export default function SettingsPanel({
     }
     persist({ preferences: patch });
   };
-  function changeWidget(key: Widget['key'], patch: Partial<Pick<Widget, 'visible' | 'size'>>) {
+  function changeWidget(key: Widget['key'], patch: Pick<Widget, 'visible'>) {
     setWidgets((previous) => previous.map((w) => (w.key === key ? { ...w, ...patch } : w)));
     persist({ widgets: [{ key, ...patch }] });
   }
@@ -416,21 +416,6 @@ export default function SettingsPanel({
                     {t(('dashboard.' + w.key) as 'dashboard.fitness')}
                   </label>
                   <div className="widget-controls">
-                    <select
-                      aria-label={
-                        t(('dashboard.' + w.key) as 'dashboard.fitness') + ' ' + t('settings.size')
-                      }
-                      value={w.size}
-                      onChange={(e) =>
-                        changeWidget(w.key, { size: e.target.value as Widget['size'] })
-                      }
-                    >
-                      {(['small', 'medium', 'large'] as const).map((v) => (
-                        <option key={v} value={v}>
-                          {t(('settings.' + v) as 'settings.small')}
-                        </option>
-                      ))}
-                    </select>
                     <Button
                       type="button"
                       variant="ghost"

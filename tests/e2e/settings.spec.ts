@@ -54,15 +54,14 @@ test('immediate preferences, retry, independent tabs, language and widget persis
     });
     await other.close();
     await page.locator('.settings-group > summary').filter({ hasText: '首页模块' }).click();
-    await page.getByLabel('训练状态', { exact: true }).uncheck();
-    await page.getByLabel('训练状态 尺寸', { exact: true }).selectOption('small');
+    await expect(page.locator('.widget-controls select')).toHaveCount(0);
+    await page.getByLabel('今日训练', { exact: true }).uncheck();
     await expect(page.locator('.settings-save-status')).toContainText('已保存');
     saved = await (await page.request.get('/api/settings')).json();
     expect(saved.widgets.find((w: any) => w.key === 'fitness')).toMatchObject({
       visible: false,
-      size: 'small',
     });
-    await page.getByRole('button', { name: '上移 旅行足迹', exact: true }).click();
+    await page.getByRole('button', { name: '上移 旅行', exact: true }).click();
     await expect(page.locator('.settings-save-status')).toContainText('已保存');
     expect((await (await page.request.get('/api/settings')).json()).widgets[0].key).toBe('travel');
     await page.getByLabel('语言', { exact: true }).selectOption('en-US');

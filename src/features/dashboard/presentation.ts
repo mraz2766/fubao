@@ -13,9 +13,9 @@ export function greetingAt(now: Date, timezone: string) {
 
 export function dashboardLayout(widgets: Widget[]) {
   const visible = widgets.filter((widget) => widget.visible).toSorted((a, b) => a.order - b.order);
-  // A row-spanning photo fits the stock layout. Explicit user sizes/order always win.
-  const editorial =
-    visible.map((w) => w.key).join(',') === 'fitness,travel,weekly,recent' &&
-    visible.every((w) => w.size === 'medium');
+  // Legacy size preferences are backup-only. Content and viewport determine card sizes.
+  const editorial = ['fitness,travel,weekly', 'fitness,travel,weekly,recent'].includes(
+    visible.map((w) => w.key).join(','),
+  );
   return { visible, editorial };
 }
