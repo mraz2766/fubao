@@ -2,7 +2,7 @@
 import Discover from '../../features/travel/Discover';
 import ChinaMap from '../../features/travel/ChinaMap.astro';
 import Base from '../../layouts/Base.astro';
-import TravelActions from '../../features/travel/TravelActions';
+import TravelJournal from '../../features/travel/TravelJournal';
 import InteractiveMap from '../../features/travel/InteractiveMap';
 import Wishlist from '../../features/travel/Wishlist';
 import PhotoWall from '../../features/travel/PhotoWall';
@@ -14,10 +14,8 @@ import {
   travelCounts,
   photoPage,
 } from '../../server/services/travel';
-import { tripName } from '../../lib/travel-presentation';
-import { translator, locationRegion } from '../../lib/i18n';
+import { translator } from '../../lib/i18n';
 
-import { MapPin, ArrowUpRight } from 'lucide-react';
 const { user, locale } = Astro.locals,
   t = translator(locale);
 const view = Astro.url.searchParams.get('view') ?? 'timeline';
@@ -30,9 +28,7 @@ const [trips, wishes, visitedIds, counts, photos] = await Promise.all([
       : Promise.resolve([]),
   ['map', 'wishlist', 'discover'].includes(view) ? listWishlist(user) : Promise.resolve([]),
   view === 'discover' ? visitedSpotIds(user) : Promise.resolve([]),
-  ['timeline', 'photos'].includes(view)
-    ? travelCounts(user)
-    : Promise.resolve({ trips: 0, places: 0 }),
+  view === 'photos' ? travelCounts(user) : Promise.resolve({ trips: 0, places: 0 }),
   view === 'photos'
     ? photoPage(user, locale, page * 24)
     : Promise.resolve({ items: [], hasMore: false }),
@@ -43,9 +39,7 @@ const world =
     : null;
 const isView = (v: string) => view === v;
 const placeCount = counts.places;
-const visible = trips.slice(0, 12),
-  years = [...new Set(visible.map((t) => t.start_date?.slice(0, 4) ?? ''))];
-const name = (trip: (typeof trips)[number]) => tripName(trip, locale);
+const visible = trips.slice(0, 12);
 const wall = photos.items;
 ---
 
@@ -54,36 +48,16 @@ const wall = photos.items;
     <div>
       <h1>{t('travel.title')}</h1>
     </div>
-    {user && (
-      <div class="page-actions">
-        <TravelActions locale={locale} client:load />
-      </div>
-    )}
   </header>
-  <div class="view-toolbar">
-    <nav class="section-tabs" aria-label={t('travel.title')}>
-      {(['timeline', 'photos'] as const).map((v) => (
-        <a
-          href={'/travel?view=' + v}
-          class:list={{ active: isView(v) }}
-          aria-current={isView(v) ? 'page' : undefined}
-        >
-          {t(('travel.' + v) as 'travel.timeline')}
-        </a>
-      ))}
-    </nav>
-    <details class="view-menu">
-      <summary>{t('quiet.moreTravel')}</summary>
-      <nav aria-label={t('quiet.moreTravel')}>
-        {(['map', 'wishlist', 'discover'] as const).map((v) => (
-          <a href={'/travel?view=' + v} aria-current={isView(v) ? 'page' : undefined}>
-            {t(('travel.' + v) as 'travel.map')}
-          </a>
-        ))}
-      </nav>
-    </details>
-  </div>
-  {(isView('timeline') || isView('photos')) && counts.trips > 0 && (
+  {isView('timeline') && (
+    <TravelJournal locale={locale} initial={visible} owner={!!user} client:load />
+  )}
+  {!isView('timeline') && (
+    <a class="text-link" href="/travel#record">
+      ← {t('travel.title')}
+    </a>
+  )}
+  {isView('photos') && counts.trips > 0 && (
     <p class="travel-summary small muted">
       {placeCount} {t('quiet.places')} · {counts.trips} {t('travel.trips')}
     </p>
@@ -118,65 +92,6 @@ const wall = photos.items;
     ) : (
       <ChinaMap locale={locale} trips={trips} wishes={wishes} />
     ))}
-  {isView('timeline') && (
-    <>
-      {years.map((year) => (
-        <section>
-          <h2 class="travel-year">{year || t('common.undated')}</h2>
-          <div class="travel-grid">
-            {visible
-              .filter((trip) => (trip.start_date?.slice(0, 4) ?? '') === year)
-              .map((trip) => (
-                <a class="travel-card" href={`/travel/${trip.id}`}>
-                  <div class="travel-cover">
-                    <img
-                      src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
-                      alt={name(trip)}
-                      width="480"
-                      height="360"
-                      loading="lazy"
-                      decoding="async"
-                      sizes="(max-width:640px) 90vw, 33vw"
-                    />
-                    <span class="photo-count">
-                      {trip.photos.length} {t('travel.photosCount')}
-                    </span>
-                  </div>
-                  <div class="card-heading">
-                    <h3>{name(trip)}</h3>
-                    <ArrowUpRight size={17} />
-                  </div>
-                  <p class="muted">
-                    {trip.location.country_code === 'CN'
-                      ? locationRegion(trip.location, locale)
-                      : locale === 'zh-CN'
-                        ? trip.location.country_name_zh || trip.location.country_name
-                        : trip.location.country_name}{' '}
-                    {trip.start_date && '· ' + trip.start_date}
-                  </p>
-                  {user && (
-                    <span class="badge" style="margin-top:8px">
-                      {t(`common.${trip.visibility}`)}
-                    </span>
-                  )}
-                </a>
-              ))}
-          </div>
-        </section>
-      ))}
-      {!visible.length && (
-        <div class="empty">
-          <MapPin size={32} strokeWidth={1} />
-          <p>{t('travel.noTrips')}</p>
-          {user && (
-            <a href="/travel?new=1" class="text-link">
-              {t('travel.add')}
-            </a>
-          )}
-        </div>
-      )}
-    </>
-  )}
   {isView('photos') && <PhotoWall locale={locale} photos={wall} client:visible />}
   {isView('wishlist') && (
     <div class="card">

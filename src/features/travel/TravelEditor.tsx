@@ -27,12 +27,20 @@ export default function TravelEditor({
   initial,
   onClose,
   initialFiles = [],
+  inline = false,
+  onSaved,
+  onDirtyChange,
 }: {
   locale: Locale;
   initial?: Trip;
   initialFiles?: File[];
+  inline?: boolean;
+  onSaved?: (trip: Trip) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
 }) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const t = translator(locale),
     [id] = useState(() => initial?.id ?? crypto.randomUUID()),
     [place, setPlace] = useState<Location | null>(initial?.location ?? null),
@@ -77,7 +85,7 @@ export default function TravelEditor({
     dateTouched = useRef(!!initial);
   const suggestionSource = useRef<{ date?: string; location?: string }>({});
   const [organizing, setOrganizing] = useState(false),
-    [dateOpen, setDateOpen] = useState(!!initial?.start_date),
+    [dateOpen, setDateOpen] = useState(inline || !!initial?.start_date),
     [endOpen, setEndOpen] = useState(!!initial?.end_date);
   const picked = useRef(false);
   useEffect(() => {
@@ -88,6 +96,7 @@ export default function TravelEditor({
   }, []);
   const processingLock = useRef(false);
   useEffect(() => () => previews.current.forEach(URL.revokeObjectURL), []);
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const allowNavigation = useUnsaved(dirty);
   const mark = () => setDirty(true);
   function close() {
@@ -224,22 +233,27 @@ export default function TravelEditor({
       setDirty(false);
       allowNavigation();
       queueSaveFeedback('travel', saved.id);
-      location.assign(`/travel/${saved.id}`);
+      if (onSaved) onSaved(saved);
+      else location.assign(`/travel/${saved.id}`);
     } catch (e) {
       setError(errorText(e, locale));
     } finally {
       setPending(false);
     }
   }
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => !open && close()}
-      title={initial ? t('common.edit') : t('travel.add')}
-      locale={locale}
-      wide
-    >
-      <form className="form travel-composer" onSubmit={save}>
+  const form = (
+    <form className="form travel-composer" onSubmit={save}>
+      <fieldset className="record-fields" disabled={!ready || pending}>
+        <LocationSearch
+          locale={locale}
+          recent
+          selected={place}
+          onSelect={(p) => {
+            locationTouched.current = true;
+            setPlace(p);
+            mark();
+          }}
+        />
         <div>
           <div className="card-heading">
             <h3>
@@ -374,16 +388,6 @@ export default function TravelEditor({
             ))}
           </div>
         </div>
-        <LocationSearch
-          locale={locale}
-          recent
-          selected={place}
-          onSelect={(p) => {
-            locationTouched.current = true;
-            setPlace(p);
-            mark();
-          }}
-        />
         {suggestion &&
           ((!dateTouched.current && suggestion.date) ||
             (!locationTouched.current && suggestion.location)) && (
@@ -463,6 +467,19 @@ export default function TravelEditor({
             )}
           </div>
         </details>
+        <div className="field">
+          <label htmlFor={`trip-note-${id}`}>{t('travel.description')}</label>
+          <textarea
+            id={`trip-note-${id}`}
+            rows={2}
+            value={description}
+            maxLength={10000}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              mark();
+            }}
+          />
+        </div>
         <details className="form-details">
           <summary>{t('quiet.details')}</summary>
           <label className="field">
@@ -477,17 +494,7 @@ export default function TravelEditor({
               }}
             />
           </label>
-          <label className="field">
-            <span>{t('travel.description')}</span>
-            <textarea
-              value={description}
-              maxLength={10000}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                mark();
-              }}
-            />
-          </label>
+
           <label className="field">
             <span>{t('travel.tags')}</span>
             <input
@@ -551,9 +558,11 @@ export default function TravelEditor({
           </p>
         )}
         <div className="form-actions">
-          <Button type="button" variant="ghost" disabled={pending || processing} onClick={close}>
-            {t('common.cancel')}
-          </Button>
+          {!inline && (
+            <Button type="button" variant="ghost" disabled={pending || processing} onClick={close}>
+              {t('common.cancel')}
+            </Button>
+          )}
           <Button
             type="submit"
             disabled={
@@ -564,10 +573,23 @@ export default function TravelEditor({
               photos.some((p) => !p.uploaded)
             }
           >
-            {pending ? t('common.saving') : t('common.save')}
+            {pending ? t('common.saving') : t('inline.saveTrip')}
           </Button>
         </div>
-      </form>
+      </fieldset>
+    </form>
+  );
+  return inline ? (
+    form
+  ) : (
+    <Dialog
+      open
+      onOpenChange={(open) => !open && close()}
+      title={initial ? t('common.edit') : t('travel.add')}
+      locale={locale}
+      wide
+    >
+      {form}
     </Dialog>
   );
 }

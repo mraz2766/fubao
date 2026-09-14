@@ -41,16 +41,22 @@ export default function WorkoutEditor({
   onClose,
   onDirtyChange,
   openSearch = false,
+  inline = false,
+  fresh = false,
+  onSaved,
 }: {
   locale: Locale;
   preferences: Preferences;
   initial: Workout;
   openSearch?: boolean;
+  inline?: boolean;
+  fresh?: boolean;
+  onSaved?: (workout: Workout) => void;
   onClose?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const t = translator(locale),
-    automatic = true;
+    automatic = !fresh;
   const {
     workout,
     change,
@@ -279,6 +285,7 @@ export default function WorkoutEditor({
     patch({ exercises }, true);
   }
   async function finish() {
+    if (finishing) return;
     setError('');
     const exercises = workout.exercises.map((e) => ({
       ...e,
@@ -328,13 +335,18 @@ export default function WorkoutEditor({
     try {
       change({
         exercises,
-        title: workout.title.trim() || t('record.defaultTitle'),
+        title:
+          !workout.title.trim() || workout.title === t('record.defaultTitle')
+            ? workout.body_parts.map((part) => t(`fitness.${part as 'back'}`)).join(' · ') ||
+              t('record.defaultTitle')
+            : workout.title.trim(),
         end_at: input.end_at,
       });
       const saved = await save(true);
       allowNavigation();
       if (initial.status !== 'completed') queueSaveFeedback('workout', saved.id);
-      location.assign(`/fitness/${saved.id}`);
+      if (onSaved) onSaved(saved);
+      else location.assign(`/fitness/${saved.id}`);
     } catch (e) {
       setError(errorText(e, locale));
     } finally {
@@ -353,75 +365,78 @@ export default function WorkoutEditor({
   );
   const durationKnown = workout.time_precision !== 'date' || knownWorkoutSeconds(workout) !== null;
   const volumeKnown = hasWorkoutVolume(workout);
-  if (search)
-    return (
-      <div className="workout-workspace workout-picker" ref={pickerRoot}>
-        <div className="picker-heading">
-          <Button type="button" variant="ghost" onClick={dismissSearch}>
-            <ArrowLeft size={16} />
-            {t('record.backToWorkout')}
-          </Button>
-          <h3 tabIndex={-1} ref={pickerHeading}>
-            {t('fitness.addExercise')}
-          </h3>
-        </div>
-        <Suspense fallback={<p>{t('common.loading')}</p>}>
-          <ExerciseSearch
-            locale={locale}
-            owner
-            trainingItems={workout.body_parts}
-            onSelectMany={addExercises}
-            selectedIds={workout.exercises.map((e) => e.exercise_id)}
-            onExisting={(id) => {
-              focusId.current = workout.exercises.find((e) => e.exercise_id === id)?.id ?? null;
-              setSearch(false);
-            }}
-          />
-        </Suspense>
+  const picker = search ? (
+    <div className="workout-workspace workout-picker" ref={pickerRoot}>
+      <div className="picker-heading">
+        <Button type="button" variant="ghost" onClick={dismissSearch}>
+          <ArrowLeft size={16} />
+          {t('record.backToWorkout')}
+        </Button>
+        <h3 tabIndex={-1} ref={pickerHeading}>
+          {t('fitness.addExercise')}
+        </h3>
       </div>
-    );
+      <Suspense fallback={<p>{t('common.loading')}</p>}>
+        <ExerciseSearch
+          locale={locale}
+          owner
+          trainingItems={workout.body_parts}
+          onSelectMany={inline ? undefined : addExercises}
+          onSelect={inline ? (exercise) => addExercises([exercise]) : undefined}
+          selectedIds={workout.exercises.map((e) => e.exercise_id)}
+          onExisting={(id) => {
+            focusId.current = workout.exercises.find((e) => e.exercise_id === id)?.id ?? null;
+            setSearch(false);
+          }}
+        />
+      </Suspense>
+    </div>
+  ) : null;
+  if (search && !inline) return picker;
   return (
     <div className="workout-workspace">
-      <div className="record-heading">
-        {!onClose && (
-          <Button type="button" variant="ghost" onClick={close}>
-            <ArrowLeft size={16} />
-            {t('fitness.history')}
-          </Button>
-        )}
-        {initial.status !== 'completed' && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t('record.discard')}
-            disabled={finishing || !ready}
-            onClick={() => void discard()}
-          >
-            <Trash2 size={16} />
-          </Button>
-        )}
-        <span role="status" className={`small ${state === 'error' ? 'error' : 'muted'}`}>
-          {t(`record.${state}`)}
-        </span>
-        {state === 'error' && (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              if (saveError instanceof ApiFailure && saveError.code === 'CONFLICT') {
-                if (confirm(t('common.unsaved'))) location.reload();
-              } else void save().catch(() => {});
-            }}
-          >
-            {t(
-              saveError instanceof ApiFailure && saveError.code === 'CONFLICT'
-                ? 'record.reload'
-                : 'record.retry',
-            )}
-          </Button>
-        )}
-      </div>
+      {!fresh && (
+        <div className="record-heading">
+          {!onClose && (
+            <Button type="button" variant="ghost" onClick={close}>
+              <ArrowLeft size={16} />
+              {t('fitness.history')}
+            </Button>
+          )}
+          {initial.status !== 'completed' && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t('record.discard')}
+              disabled={finishing || !ready}
+              onClick={() => void discard()}
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+          <span role="status" className={`small ${state === 'error' ? 'error' : 'muted'}`}>
+            {t(`record.${state}`)}
+          </span>
+          {state === 'error' && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                if (saveError instanceof ApiFailure && saveError.code === 'CONFLICT') {
+                  if (confirm(t('common.unsaved'))) location.reload();
+                } else void save().catch(() => {});
+              }}
+            >
+              {t(
+                saveError instanceof ApiFailure && saveError.code === 'CONFLICT'
+                  ? 'record.reload'
+                  : 'record.retry',
+              )}
+            </Button>
+          )}
+        </div>
+      )}
       {(durationKnown || completed > 0 || volumeKnown) && (
         <div className="record-summary">
           {durationKnown && (
@@ -489,6 +504,47 @@ export default function WorkoutEditor({
             }
           }}
         >
+          {workout.time_precision === 'date' && (
+            <div className="form-row">
+              <label className="field">
+                <span>{t('simple.chooseDate')}</span>
+                <input
+                  type="date"
+                  value={workout.workout_date ?? ''}
+                  onChange={(e) => {
+                    if (e.target.value)
+                      patch({
+                        workout_date: e.target.value,
+                        start_at: zonedISO(e.target.value + 'T12:00', workout.timezone),
+                      });
+                  }}
+                />
+              </label>
+              <label className="field">
+                <span>{t('simple.duration')}</span>
+                <input
+                  type="number"
+                  list="duration-options"
+                  inputMode="numeric"
+                  min="0"
+                  max="10080"
+                  placeholder={t('common.minutes')}
+                  value={workout.duration_seconds == null ? '' : workout.duration_seconds / 60}
+                  onChange={(e) =>
+                    patch({
+                      duration_seconds:
+                        e.target.value === '' ? null : Math.round(Number(e.target.value) * 60),
+                    })
+                  }
+                />
+                <datalist id="duration-options">
+                  {[15, 30, 45, 60, 90].map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+              </label>
+            </div>
+          )}
           <fieldset className="parts-field">
             <legend>{t('simple.trainingItems')}</legend>
             <div className="part-options">
@@ -535,71 +591,6 @@ export default function WorkoutEditor({
               {t('simple.supplement')} · {t('simple.optional')}
             </summary>
             <div className="form">
-              {workout.time_precision === 'date' && (
-                <>
-                  <label className="field">
-                    <span>{t('simple.chooseDate')}</span>
-                    <input
-                      type="date"
-                      value={workout.workout_date ?? ''}
-                      onChange={(e) => {
-                        if (e.target.value)
-                          patch({
-                            workout_date: e.target.value,
-                            start_at: zonedISO(e.target.value + 'T12:00', workout.timezone),
-                          });
-                      }}
-                    />
-                  </label>
-                  <fieldset className="parts-field">
-                    <legend>{t('simple.duration')}</legend>
-                    <div className="record-presets">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        aria-pressed={workout.duration_seconds == null}
-                        onClick={() => patch({ duration_seconds: null })}
-                      >
-                        {t('simple.noDuration')}
-                      </Button>
-                      {[15, 30, 45, 60, 90].map((minutes) => (
-                        <Button
-                          type="button"
-                          key={minutes}
-                          variant="secondary"
-                          aria-pressed={workout.duration_seconds === minutes * 60}
-                          onClick={() => patch({ duration_seconds: minutes * 60 })}
-                        >
-                          {minutes} {t('common.minutes')}
-                        </Button>
-                      ))}
-                    </div>
-                    <details className="record-more">
-                      <summary>{t('simple.custom')}</summary>
-                      <label className="field">
-                        <span>{t('common.minutes')}</span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="10080"
-                          inputMode="numeric"
-                          value={
-                            workout.duration_seconds == null ? '' : workout.duration_seconds / 60
-                          }
-                          onChange={(e) =>
-                            patch({
-                              duration_seconds:
-                                e.target.value === ''
-                                  ? null
-                                  : Math.round(Number(e.target.value) * 60),
-                            })
-                          }
-                        />
-                      </label>
-                    </details>
-                  </fieldset>
-                </>
-              )}
               <WorkoutTiming workout={workout} locale={locale} onApply={(p) => patch(p, true)} />
               <label className="field">
                 <span>
@@ -611,19 +602,11 @@ export default function WorkoutEditor({
                   onChange={(e) => patch({ title: e.target.value || t('record.defaultTitle') })}
                 />
               </label>
-              <label className="field">
-                <span>{t('common.note')}</span>
-                <textarea
-                  maxLength={5000}
-                  value={workout.note}
-                  onChange={(e) => patch({ note: e.target.value })}
-                />
-              </label>
             </div>
           </details>
           {
             <>
-              {!workout.exercises.length && (
+              {!inline && !workout.exercises.length && (
                 <div className="workout-empty">
                   <p>{t('record.chooseFirst')}</p>
                   <span className="small muted">{t('record.optionalExercises')}</span>
@@ -1078,20 +1061,37 @@ export default function WorkoutEditor({
                   .join(' · ')}
             </p>
           )}
+          {
+            <Button
+              ref={addButton}
+              type="button"
+              variant="secondary"
+              onClick={() => setSearch((value) => !value)}
+            >
+              <Plus size={16} />
+              {t('fitness.addExercise')}
+            </Button>
+          }
+
+          {inline && picker}
+          <label className="field">
+            <span>{t('common.note')}</span>
+            <textarea
+              rows={2}
+              maxLength={5000}
+              value={workout.note}
+              onChange={(e) => patch({ note: e.target.value })}
+            />
+          </label>
           <div className="record-footer">
-            {
-              <Button
-                ref={addButton}
-                type="button"
-                variant="secondary"
-                onClick={() => setSearch(true)}
-              >
-                <Plus size={16} />
-                {t('fitness.addExercise')}
-              </Button>
-            }
             <Button type="submit" disabled={finishing || !ready}>
-              {initial.status === 'completed' ? t('flow.doneEditing') : t('fitness.finish')}
+              {finishing
+                ? t('common.saving')
+                : fresh
+                  ? t('inline.saveWorkout')
+                  : initial.status === 'completed'
+                    ? t('flow.doneEditing')
+                    : t('fitness.finish')}
             </Button>
           </div>
         </fieldset>

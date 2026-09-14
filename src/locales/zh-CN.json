@@ -398,5 +398,15 @@
   "flow.addPhoto": "请选择至少一张照片",
   "flow.failedPhotos": "请重试或移除上传失败的照片",
   "flow.selectPhotos": "选择照片",
-  "flow.templateChoice": "使用训练模板"
+  "flow.templateChoice": "使用训练模板",
+  "inline.workout": "记录一次训练",
+  "inline.trip": "记录一个地方",
+  "inline.saveWorkout": "保存训练",
+  "inline.saveTrip": "保存旅行",
+  "inline.saved": "已保存",
+  "inline.week": "本周训练",
+  "inline.recent": "最近训练",
+  "inline.map": "查看地图",
+  "inline.again": "再记录一次",
+  "inline.places": "个地方"
 }

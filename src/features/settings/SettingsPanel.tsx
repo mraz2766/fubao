@@ -390,59 +390,83 @@ export default function SettingsPanel({
             <summary>
               <span>{t('settings.dashboard')}</span>
               <small>
-                {widgets.filter((w) => w.visible).length} / {widgets.length}
+                {widgets.filter((w) => w.visible && ['fitness', 'travel'].includes(w.key)).length} /
+                2
               </small>
             </summary>
             <div className="settings-section">
-              {widgets.map((w, i) => (
-                <div
-                  key={w.key}
-                  className="widget-setting"
-                  draggable
-                  onDragStart={() => setDragging(w.key)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    const from = widgets.findIndex((x) => x.key === dragging);
-                    if (from >= 0) reorder(from, i);
-                    setDragging(null);
-                  }}
-                >
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={w.visible}
-                      onChange={(e) => changeWidget(w.key, { visible: e.target.checked })}
-                    />
-                    {t(('dashboard.' + w.key) as 'dashboard.fitness')}
-                  </label>
-                  <div className="widget-controls">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={i === 0}
-                      aria-label={
-                        t('common.up') + ' ' + t(('dashboard.' + w.key) as 'dashboard.fitness')
-                      }
-                      onClick={() => reorder(i, i - 1)}
+              {widgets.map(
+                (w, i) =>
+                  ['fitness', 'travel'].includes(w.key) && (
+                    <div
+                      key={w.key}
+                      className="widget-setting"
+                      draggable
+                      onDragStart={() => setDragging(w.key)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        const from = widgets.findIndex((x) => x.key === dragging);
+                        if (from >= 0) reorder(from, i);
+                        setDragging(null);
+                      }}
                     >
-                      <ArrowUp size={16} />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={i === widgets.length - 1}
-                      aria-label={
-                        t('common.down') + ' ' + t(('dashboard.' + w.key) as 'dashboard.fitness')
-                      }
-                      onClick={() => reorder(i, i + 1)}
-                    >
-                      <ArrowDown size={16} />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={w.visible}
+                          onChange={(e) => changeWidget(w.key, { visible: e.target.checked })}
+                        />
+                        {t(('dashboard.' + w.key) as 'dashboard.fitness')}
+                      </label>
+                      <div className="widget-controls">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={
+                            !widgets.slice(0, i).some((x) => ['fitness', 'travel'].includes(x.key))
+                          }
+                          aria-label={
+                            t('common.up') + ' ' + t(('dashboard.' + w.key) as 'dashboard.fitness')
+                          }
+                          onClick={() =>
+                            reorder(
+                              i,
+                              widgets.findIndex(
+                                (x) => x.key !== w.key && ['fitness', 'travel'].includes(x.key),
+                              ),
+                            )
+                          }
+                        >
+                          <ArrowUp size={16} />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={
+                            !widgets.slice(i + 1).some((x) => ['fitness', 'travel'].includes(x.key))
+                          }
+                          aria-label={
+                            t('common.down') +
+                            ' ' +
+                            t(('dashboard.' + w.key) as 'dashboard.fitness')
+                          }
+                          onClick={() =>
+                            reorder(
+                              i,
+                              widgets.findIndex(
+                                (x) => x.key !== w.key && ['fitness', 'travel'].includes(x.key),
+                              ),
+                            )
+                          }
+                        >
+                          <ArrowDown size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  ),
+              )}
             </div>
           </details>
         </>

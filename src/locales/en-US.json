@@ -398,5 +398,15 @@
   "flow.addPhoto": "Choose at least one photo",
   "flow.failedPhotos": "Retry or remove the unsuccessful photos",
   "flow.selectPhotos": "Choose photos",
-  "flow.templateChoice": "Use a template"
+  "flow.templateChoice": "Use a template",
+  "inline.workout": "Record a workout",
+  "inline.trip": "Record a place",
+  "inline.saveWorkout": "Save workout",
+  "inline.saveTrip": "Save trip",
+  "inline.saved": "Saved",
+  "inline.week": "This week",
+  "inline.recent": "Recent workouts",
+  "inline.map": "View map",
+  "inline.again": "Record another",
+  "inline.places": "places"
 }
