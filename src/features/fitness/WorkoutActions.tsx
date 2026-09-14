@@ -105,10 +105,10 @@ export default function WorkoutActions({
             </details>
             <Button
               disabled={!ready}
-              onClick={() => location.assign(`/fitness/${workout.id}?edit=1`)}
+              onClick={() => location.assign(`/fitness/${workout.id}/edit`)}
             >
               <Pencil size={15} />
-              {t('simple.supplement')}
+              {t('common.edit')}
             </Button>
           </>
         ) : (

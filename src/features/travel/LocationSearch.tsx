@@ -11,10 +11,12 @@ export default function LocationSearch({
   selected,
   onSelect,
   recent = false,
+  allowManual = false,
 }: {
   locale: Locale;
   selected: Location | null;
   recent?: boolean;
+  allowManual?: boolean;
   onSelect: (location: Location) => void;
 }) {
   const t = translator(locale),
@@ -22,6 +24,7 @@ export default function LocationSearch({
     [items, setItems] = useState<Location[]>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState(''),
+    [retry, setRetry] = useState(0),
     id = useId();
   const [editing, setEditing] = useState(false),
     [recentItems, setRecentItems] = useState<Location[]>([]);
@@ -37,6 +40,7 @@ export default function LocationSearch({
     setEditing(false);
     setQuery('');
     setItems([]);
+    setError('');
   };
   const expanded = !selected || editing;
   useEffect(() => {
@@ -45,10 +49,13 @@ export default function LocationSearch({
   useEffect(() => {
     if (!query.trim()) {
       setItems([]);
+      setError('');
+      setLoading(false);
       return;
     }
     const controller = new AbortController();
     setLoading(true);
+    setItems([]);
     const timeout = setTimeout(() => {
       api<{ items: Location[] }>(`/api/locations?preferCountry=CN&q=${encodeURIComponent(query)}`, {
         signal: controller.signal,
@@ -68,7 +75,7 @@ export default function LocationSearch({
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [query, locale]);
+  }, [query, locale, retry]);
   return (
     <div>
       <label className="field" htmlFor={expanded ? id : undefined}>
@@ -125,7 +132,33 @@ export default function LocationSearch({
       {error && (
         <p role="alert" className="form-message error">
           {error}
+          <Button type="button" variant="ghost" onClick={() => setRetry((n) => n + 1)}>
+            {t('common.retry')}
+          </Button>
         </p>
+      )}
+      {allowManual && expanded && query.trim() && !loading && (error || !items.length) && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() =>
+            choose({
+              id: 'manual-place',
+              kind: 'region',
+              country_code: '',
+              country_name: '',
+              country_name_zh: '',
+              region: '',
+              city: '',
+              name: query.trim(),
+              name_zh: query.trim(),
+              latitude: null,
+              longitude: null,
+            })
+          }
+        >
+          {t('ia.manualPlace')} · {query.trim()}
+        </Button>
       )}
       {expanded && query && (
         <div className="location-results" aria-live="polite">

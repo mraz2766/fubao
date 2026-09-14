@@ -1,8 +1,9 @@
 ---
+import TravelScroll from '../../components/TravelScroll.astro';
 import Discover from '../../features/travel/Discover';
 import ChinaMap from '../../features/travel/ChinaMap.astro';
 import Base from '../../layouts/Base.astro';
-import TravelJournal from '../../features/travel/TravelJournal';
+import TravelGallery from '../../features/travel/TravelGallery.astro';
 import InteractiveMap from '../../features/travel/InteractiveMap';
 import Wishlist from '../../features/travel/Wishlist';
 import PhotoWall from '../../features/travel/PhotoWall';
@@ -48,12 +49,33 @@ const wall = photos.items;
     <div>
       <h1>{t('travel.title')}</h1>
     </div>
+    {user && (
+      <a class="button button-primary" href="/travel/new">
+        + {t('ia.newTrip')}
+      </a>
+    )}
   </header>
-  {isView('timeline') && (
-    <TravelJournal locale={locale} initial={visible} owner={!!user} client:load />
-  )}
+  <details class="view-menu travel-view-menu">
+    <summary>{t('simple.more')}</summary>
+    <nav class="secondary-links">
+      {(
+        [
+          ['timeline', 'travel.timeline'],
+          ['photos', 'travel.photos'],
+          ['map', 'travel.map'],
+          ['wishlist', 'travel.wishlist'],
+          ['discover', 'travel.discover'],
+        ] as const
+      ).map(([v, label]) => (
+        <a class="text-link" href={`/travel?view=${v}`}>
+          {t(label)}
+        </a>
+      ))}
+    </nav>
+  </details>
+  {isView('timeline') && <TravelGallery locale={locale} initial={visible} />}
   {!isView('timeline') && (
-    <a class="text-link" href="/travel#record">
+    <a class="text-link" href="/travel">
       ← {t('travel.title')}
     </a>
   )}
@@ -112,4 +134,4 @@ const wall = photos.items;
       )}
     </div>
   )}
-</Base>
+<TravelScroll /></Base>

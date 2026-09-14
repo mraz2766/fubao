@@ -38,8 +38,8 @@ test('immediate preferences, retry, independent tabs, language and widget persis
     const other = await context.newPage();
     await other.goto('/settings');
     await other.waitForLoadState('networkidle');
-    for (const p of [page, other])
-      await p.locator('.settings-group > summary').filter({ hasText: '通用' }).click();
+    await page.locator('.settings-group > summary').filter({ hasText: '默认训练设置' }).click();
+    await other.locator('.settings-group > summary').filter({ hasText: '旅行与照片设置' }).click();
     await Promise.all([
       page.getByLabel('重量', { exact: true }).selectOption('lb'),
       other.getByLabel('距离', { exact: true }).selectOption('mile'),

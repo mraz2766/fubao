@@ -43,6 +43,7 @@ export default function WorkoutEditor({
   openSearch = false,
   inline = false,
   fresh = false,
+  manual = false,
   onSaved,
 }: {
   locale: Locale;
@@ -51,12 +52,13 @@ export default function WorkoutEditor({
   openSearch?: boolean;
   inline?: boolean;
   fresh?: boolean;
+  manual?: boolean;
   onSaved?: (workout: Workout) => void;
   onClose?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const t = translator(locale),
-    automatic = !fresh;
+    automatic = !fresh && !manual;
   const {
     workout,
     change,
@@ -344,7 +346,7 @@ export default function WorkoutEditor({
       });
       const saved = await save(true);
       allowNavigation();
-      if (initial.status !== 'completed') queueSaveFeedback('workout', saved.id);
+      queueSaveFeedback('workout', saved.id);
       if (onSaved) onSaved(saved);
       else location.assign(`/fitness/${saved.id}`);
     } catch (e) {
@@ -380,6 +382,7 @@ export default function WorkoutEditor({
         <ExerciseSearch
           locale={locale}
           owner
+          compact
           trainingItems={workout.body_parts}
           onSelectMany={inline ? undefined : addExercises}
           onSelect={inline ? (exercise) => addExercises([exercise]) : undefined}
@@ -395,7 +398,7 @@ export default function WorkoutEditor({
   if (search && !inline) return picker;
   return (
     <div className="workout-workspace">
-      {!fresh && (
+      {!fresh && !manual && (
         <div className="record-heading">
           {!onClose && (
             <Button type="button" variant="ghost" onClick={close}>
@@ -545,14 +548,8 @@ export default function WorkoutEditor({
               </label>
             </div>
           )}
-          <WorkoutTiming
-            workout={workout}
-            locale={locale}
-            expanded={inline}
-            onApply={(p) => patch(p, true)}
-          />
           <fieldset className="parts-field">
-            <legend>{t('simple.trainingItems')}</legend>
+            <legend>{t('ia.trainingParts')}</legend>
             <div className="part-options">
               {trainingParts.map((part) => (
                 <button
@@ -592,11 +589,26 @@ export default function WorkoutEditor({
               ))}
             </div>
           </fieldset>
+          <label className="field">
+            <span>{t('common.note')}</span>
+            <textarea
+              rows={2}
+              maxLength={5000}
+              value={workout.note}
+              onChange={(e) => patch({ note: e.target.value })}
+            />
+          </label>
           <details className="record-metadata">
             <summary>
-              {t('simple.supplement')} · {t('simple.optional')}
+              {t('simple.more')} · {t('simple.optional')}
             </summary>
             <div className="form">
+              <WorkoutTiming
+                workout={workout}
+                locale={locale}
+                expanded={false}
+                onApply={(p) => patch(p, true)}
+              />
               <label className="field">
                 <span>
                   {t('fitness.type')} · {t('simple.optional')}
@@ -609,428 +621,405 @@ export default function WorkoutEditor({
               </label>
             </div>
           </details>
-          {
-            <>
-              {!inline && !workout.exercises.length && (
-                <div className="workout-empty">
-                  <p>{t('record.chooseFirst')}</p>
-                  <span className="small muted">{t('record.optionalExercises')}</span>
-                </div>
-              )}
-              {workout.exercises.map((exercise, index) => {
-                const type = recordingType(exercise),
-                  fields =
-                    type === 'weight'
-                      ? (['weight', 'reps'] as const)
-                      : type === 'reps'
-                        ? (['reps'] as const)
-                        : type === 'duration'
-                          ? (['duration'] as const)
-                          : (['duration', 'distance'] as const);
-                return (
-                  <section className="set-exercise" key={exercise.id} id={exercise.id}>
-                    <div className="card-heading">
-                      <h3>
-                        {String(index + 1).padStart(2, '0')} · {exerciseName(exercise, locale)}
-                      </h3>
-                      <details className="record-more">
-                        <summary>{t('simple.more')}</summary>
-                        <div className="row-controls">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={index === 0}
-                            aria-label={t('record.moveUp')}
-                            onClick={() => move(index, -1)}
-                          >
-                            <ArrowUp size={16} />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={index === workout.exercises.length - 1}
-                            aria-label={t('record.moveDown')}
-                            onClick={() => move(index, 1)}
-                          >
-                            <ArrowDown size={16} />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            aria-label={t('fitness.removeExercise')}
-                            onClick={() => {
-                              if (confirm(t('common.confirmDelete')))
-                                patch(
-                                  {
-                                    exercises: workout.exercises.filter(
-                                      (e) => e.id !== exercise.id,
-                                    ),
-                                  },
-                                  true,
-                                );
-                            }}
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        </div>
-                        <div className="record-exercise-meta">
-                          <label className="field">
-                            <span>{t('record.recordingType')}</span>
-                            <select
-                              value={type}
-                              onChange={(event) => {
-                                const next = event.target.value as RecordingType;
-                                patch({
-                                  exercises: workout.exercises.map((e) =>
-                                    e.id === exercise.id
-                                      ? {
-                                          ...e,
-                                          recording_type: next,
-                                        }
-                                      : e,
-                                  ),
-                                });
+          <details
+            className="exercise-details"
+            open={workout.exercises.length > 0 || search || undefined}
+          >
+            <summary>{t('ia.exerciseDetails')}</summary>
+            {
+              <>
+                {!inline && !workout.exercises.length && (
+                  <div className="workout-empty">
+                    <p>{t('record.chooseFirst')}</p>
+                    <span className="small muted">{t('record.optionalExercises')}</span>
+                  </div>
+                )}
+                {workout.exercises.map((exercise, index) => {
+                  const type = recordingType(exercise),
+                    fields =
+                      type === 'weight'
+                        ? (['weight', 'reps'] as const)
+                        : type === 'reps'
+                          ? (['reps'] as const)
+                          : type === 'duration'
+                            ? (['duration'] as const)
+                            : (['duration', 'distance'] as const);
+                  return (
+                    <section className="set-exercise" key={exercise.id} id={exercise.id}>
+                      <div className="card-heading">
+                        <h3>
+                          {String(index + 1).padStart(2, '0')} · {exerciseName(exercise, locale)}
+                        </h3>
+                        <details className="record-more">
+                          <summary>{t('simple.more')}</summary>
+                          <div className="row-controls">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={index === 0}
+                              aria-label={t('record.moveUp')}
+                              onClick={() => move(index, -1)}
+                            >
+                              <ArrowUp size={16} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={index === workout.exercises.length - 1}
+                              aria-label={t('record.moveDown')}
+                              onClick={() => move(index, 1)}
+                            >
+                              <ArrowDown size={16} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={t('fitness.removeExercise')}
+                              onClick={() => {
+                                if (confirm(t('common.confirmDelete')))
+                                  patch(
+                                    {
+                                      exercises: workout.exercises.filter(
+                                        (e) => e.id !== exercise.id,
+                                      ),
+                                    },
+                                    true,
+                                  );
                               }}
                             >
-                              {(['weight', 'reps', 'duration', 'cardio'] as const).map((v) => (
-                                <option key={v} value={v}>
-                                  {t(`record.type.${v}`)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <span className="muted small">
-                            {Math.round(
-                              toDisplayWeight(
-                                workoutVolume({ ...workout, exercises: [exercise] }),
-                                preferences.weightUnit,
-                              ),
-                            )}{' '}
-                            {preferences.weightUnit}
-                          </span>
-                        </div>
-                      </details>
-                    </div>
-                    {suggestions[exercise.exercise_id] && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          const previous = suggestions[exercise.exercise_id];
-                          const first = exercise.sets.find(
-                            (s) =>
-                              !s.completed &&
-                              s.weight === null &&
-                              s.reps === null &&
-                              s.duration === null &&
-                              s.distance === null,
-                          );
-                          if (first)
-                            updateSet(exercise.id, first.id, {
-                              weight: previous.weight,
-                              reps: previous.reps,
-                              duration: previous.duration,
-                              distance: previous.distance,
-                            });
-                          else addSet(exercise.id, previous);
-                        }}
-                      >
-                        {t('simple.useLast')}{' '}
-                        {suggestions[exercise.exercise_id].weight !== null
-                          ? `${toDisplayWeight(suggestions[exercise.exercise_id].weight!, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit}`
-                          : ''}
-                        {suggestions[exercise.exercise_id].reps !== null
-                          ? ` · ${suggestions[exercise.exercise_id].reps} ${t('fitness.reps')}`
-                          : ''}
-                      </Button>
-                    )}
-                    {exercise.sets.map((set, i) =>
-                      editingSet !== set.id &&
-                      (set.completed || exercise.sets.find((s) => !s.completed)?.id !== set.id) ? (
-                        <button
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                          <div className="record-exercise-meta">
+                            <label className="field">
+                              <span>{t('record.recordingType')}</span>
+                              <select
+                                value={type}
+                                onChange={(event) => {
+                                  const next = event.target.value as RecordingType;
+                                  patch({
+                                    exercises: workout.exercises.map((e) =>
+                                      e.id === exercise.id
+                                        ? {
+                                            ...e,
+                                            recording_type: next,
+                                          }
+                                        : e,
+                                    ),
+                                  });
+                                }}
+                              >
+                                {(['weight', 'reps', 'duration', 'cardio'] as const).map((v) => (
+                                  <option key={v} value={v}>
+                                    {t(`record.type.${v}`)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <span className="muted small">
+                              {Math.round(
+                                toDisplayWeight(
+                                  workoutVolume({ ...workout, exercises: [exercise] }),
+                                  preferences.weightUnit,
+                                ),
+                              )}{' '}
+                              {preferences.weightUnit}
+                            </span>
+                          </div>
+                        </details>
+                      </div>
+                      {suggestions[exercise.exercise_id] && (
+                        <Button
                           type="button"
-                          className={`set-receipt ${set.completed ? 'done' : ''}`}
-                          key={set.id}
-                          aria-label={`${t('flow.editSet')} ${i + 1}: ${setText(set)}`}
-                          onClick={() => setEditingSet(set.id)}
+                          variant="ghost"
+                          onClick={() => {
+                            const previous = suggestions[exercise.exercise_id];
+                            const first = exercise.sets.find(
+                              (s) =>
+                                !s.completed &&
+                                s.weight === null &&
+                                s.reps === null &&
+                                s.duration === null &&
+                                s.distance === null,
+                            );
+                            if (first)
+                              updateSet(exercise.id, first.id, {
+                                weight: previous.weight,
+                                reps: previous.reps,
+                                duration: previous.duration,
+                                distance: previous.distance,
+                              });
+                            else addSet(exercise.id, previous);
+                          }}
                         >
-                          <span>
-                            {t('fitness.set')} {i + 1}
-                          </span>
-                          <strong>{setText(set)}</strong>
-                          {set.completed && <Check size={16} aria-hidden="true" />}
-                        </button>
-                      ) : (
-                        <div
-                          id={`set-${set.id}`}
-                          className={`set-row ${set.completed ? 'done' : ''}`}
-                          key={set.id}
-                        >
-                          <div className="set-label">
+                          {t('simple.useLast')}{' '}
+                          {suggestions[exercise.exercise_id].weight !== null
+                            ? `${toDisplayWeight(suggestions[exercise.exercise_id].weight!, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit}`
+                            : ''}
+                          {suggestions[exercise.exercise_id].reps !== null
+                            ? ` · ${suggestions[exercise.exercise_id].reps} ${t('fitness.reps')}`
+                            : ''}
+                        </Button>
+                      )}
+                      {exercise.sets.map((set, i) =>
+                        editingSet !== set.id &&
+                        (set.completed ||
+                          exercise.sets.find((s) => !s.completed)?.id !== set.id) ? (
+                          <button
+                            type="button"
+                            className={`set-receipt ${set.completed ? 'done' : ''}`}
+                            key={set.id}
+                            aria-label={`${t('flow.editSet')} ${i + 1}: ${setText(set)}`}
+                            onClick={() => setEditingSet(set.id)}
+                          >
                             <span>
                               {t('fitness.set')} {i + 1}
                             </span>
-                            <div className="row-controls">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                aria-label={t('simple.recordSet')}
-                                aria-pressed={set.completed}
-                                onClick={() => recordSet(exercise.id, set)}
-                              >
-                                <Check size={18} />
-                                {t(set.completed ? 'flow.doneEditing' : 'simple.recordSet')}
-                              </Button>
-                              <details className="record-more">
-                                <summary>{t('simple.more')}</summary>
+                            <strong>{setText(set)}</strong>
+                            {set.completed && <Check size={16} aria-hidden="true" />}
+                          </button>
+                        ) : (
+                          <div
+                            id={`set-${set.id}`}
+                            className={`set-row ${set.completed ? 'done' : ''}`}
+                            key={set.id}
+                          >
+                            <div className="set-label">
+                              <span>
+                                {t('fitness.set')} {i + 1}
+                              </span>
+                              <div className="row-controls">
                                 <Button
                                   type="button"
                                   variant="ghost"
-                                  size="icon"
-                                  aria-label={t('record.copySet')}
-                                  onClick={() => addSet(exercise.id, set)}
+                                  aria-label={t('simple.recordSet')}
+                                  aria-pressed={set.completed}
+                                  onClick={() => recordSet(exercise.id, set)}
                                 >
-                                  <Copy size={15} />
+                                  <Check size={18} />
+                                  {t(set.completed ? 'common.save' : 'simple.recordSet')}
                                 </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  aria-label={t('fitness.removeSet')}
-                                  onClick={() => {
-                                    if (confirm(t('common.confirmDelete')))
-                                      patch(
-                                        {
-                                          exercises: workout.exercises.map((e) =>
-                                            e.id === exercise.id
-                                              ? {
-                                                  ...e,
-                                                  sets: e.sets.filter((s) => s.id !== set.id),
-                                                }
-                                              : e,
-                                          ),
-                                        },
-                                        true,
-                                      );
-                                  }}
-                                >
-                                  <Trash2 size={15} />
-                                </Button>
-                              </details>
+                                <details className="record-more">
+                                  <summary>{t('simple.more')}</summary>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('record.copySet')}
+                                    onClick={() => addSet(exercise.id, set)}
+                                  >
+                                    <Copy size={15} />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label={t('fitness.removeSet')}
+                                    onClick={() => {
+                                      if (confirm(t('common.confirmDelete')))
+                                        patch(
+                                          {
+                                            exercises: workout.exercises.map((e) =>
+                                              e.id === exercise.id
+                                                ? {
+                                                    ...e,
+                                                    sets: e.sets.filter((s) => s.id !== set.id),
+                                                  }
+                                                : e,
+                                            ),
+                                          },
+                                          true,
+                                        );
+                                    }}
+                                  >
+                                    <Trash2 size={15} />
+                                  </Button>
+                                </details>
+                              </div>
                             </div>
-                          </div>
-                          <div className="record-set-inputs">
-                            {fields.map((key) => (
-                              <label className="field preset-field" key={key}>
-                                <span>
-                                  {t(`fitness.${key}`)}
-                                  {key === 'weight'
-                                    ? ` (${preferences.weightUnit})`
-                                    : key === 'distance'
-                                      ? ` (${preferences.distanceUnit})`
-                                      : key === 'duration'
-                                        ? ` (${t('fitness.unitSeconds')})`
-                                        : ''}
-                                </span>
-                                <input
-                                  type="number"
-                                  aria-label={
-                                    t(`fitness.${key}`) +
-                                    (key === 'weight'
+                            <div className="record-set-inputs">
+                              {fields.map((key) => (
+                                <label className="field preset-field" key={key}>
+                                  <span>
+                                    {t(`fitness.${key}`)}
+                                    {key === 'weight'
                                       ? ` (${preferences.weightUnit})`
                                       : key === 'distance'
                                         ? ` (${preferences.distanceUnit})`
                                         : key === 'duration'
                                           ? ` (${t('fitness.unitSeconds')})`
-                                          : '')
-                                  }
-                                  inputMode={key === 'reps' ? 'numeric' : 'decimal'}
-                                  min={key === 'weight' ? 0 : 1}
-                                  step={key === 'reps' ? 1 : 'any'}
-                                  value={
-                                    set[key] === null
-                                      ? ''
-                                      : key === 'weight'
-                                        ? Number(
-                                            toDisplayWeight(
-                                              set[key]!,
-                                              preferences.weightUnit,
-                                            ).toFixed(2),
-                                          )
+                                          : ''}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    aria-label={
+                                      t(`fitness.${key}`) +
+                                      (key === 'weight'
+                                        ? ` (${preferences.weightUnit})`
                                         : key === 'distance'
+                                          ? ` (${preferences.distanceUnit})`
+                                          : key === 'duration'
+                                            ? ` (${t('fitness.unitSeconds')})`
+                                            : '')
+                                    }
+                                    inputMode={key === 'reps' ? 'numeric' : 'decimal'}
+                                    min={key === 'weight' ? 0 : 1}
+                                    step={key === 'reps' ? 1 : 'any'}
+                                    value={
+                                      set[key] === null
+                                        ? ''
+                                        : key === 'weight'
                                           ? Number(
-                                              toDisplayDistance(
+                                              toDisplayWeight(
                                                 set[key]!,
-                                                preferences.distanceUnit,
-                                              ).toFixed(3),
+                                                preferences.weightUnit,
+                                              ).toFixed(2),
                                             )
-                                          : set[key]!
-                                  }
-                                  onChange={(event) => {
-                                    const v =
-                                      event.target.value === '' ? null : Number(event.target.value);
-                                    updateSet(exercise.id, set.id, {
-                                      [key]:
-                                        v === null
+                                          : key === 'distance'
+                                            ? Number(
+                                                toDisplayDistance(
+                                                  set[key]!,
+                                                  preferences.distanceUnit,
+                                                ).toFixed(3),
+                                              )
+                                            : set[key]!
+                                    }
+                                    onChange={(event) => {
+                                      const v =
+                                        event.target.value === ''
                                           ? null
-                                          : key === 'weight'
-                                            ? toKg(v, preferences.weightUnit)
-                                            : key === 'distance'
-                                              ? toMeters(v, preferences.distanceUnit)
-                                              : v,
-                                    });
-                                  }}
-                                />
-                                <span className="record-presets">
-                                  {(key === 'reps'
-                                    ? [6, 8, 10, 12, 15]
-                                    : key === 'duration'
-                                      ? [30, 60, 300, 600]
-                                      : key === 'distance'
-                                        ? [1, 3, 5]
-                                        : []
-                                  ).map((value) => (
-                                    <Button
-                                      type="button"
-                                      variant="secondary"
-                                      key={value}
-                                      onClick={() =>
-                                        updateSet(exercise.id, set.id, {
-                                          [key]:
-                                            key === 'distance'
-                                              ? toMeters(value, preferences.distanceUnit)
-                                              : value,
-                                        })
-                                      }
-                                    >
-                                      {value}
-                                    </Button>
-                                  ))}
-                                  {key === 'weight' &&
-                                    [-1, 1].map((direction) => (
+                                          : Number(event.target.value);
+                                      updateSet(exercise.id, set.id, {
+                                        [key]:
+                                          v === null
+                                            ? null
+                                            : key === 'weight'
+                                              ? toKg(v, preferences.weightUnit)
+                                              : key === 'distance'
+                                                ? toMeters(v, preferences.distanceUnit)
+                                                : v,
+                                      });
+                                    }}
+                                  />
+                                  <span className="record-presets">
+                                    {(key === 'reps'
+                                      ? [6, 8, 10, 12, 15]
+                                      : key === 'duration'
+                                        ? [30, 60, 300, 600]
+                                        : key === 'distance'
+                                          ? [1, 3, 5]
+                                          : []
+                                    ).map((value) => (
                                       <Button
                                         type="button"
                                         variant="secondary"
-                                        key={direction}
-                                        aria-label={`${direction > 0 ? '+' : '−'} ${preferences.weightUnit === 'kg' ? 2.5 : 5} ${preferences.weightUnit}`}
+                                        key={value}
                                         onClick={() =>
                                           updateSet(exercise.id, set.id, {
-                                            weight: Math.max(
-                                              0,
-                                              (set.weight ?? 0) +
-                                                toKg(
-                                                  direction *
-                                                    (preferences.weightUnit === 'kg' ? 2.5 : 5),
-                                                  preferences.weightUnit,
-                                                ),
-                                            ),
+                                            [key]:
+                                              key === 'distance'
+                                                ? toMeters(value, preferences.distanceUnit)
+                                                : value,
                                           })
                                         }
                                       >
-                                        {direction > 0 ? '+' : '−'}
-                                        {preferences.weightUnit === 'kg' ? 2.5 : 5}
+                                        {value}
                                       </Button>
                                     ))}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                          <details>
-                            <summary className="small muted">{t('record.moreFields')}</summary>
-                            <div className="form-row">
-                              <label className="field">
-                                <span>RPE</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={10}
-                                  step="0.5"
-                                  inputMode="decimal"
-                                  value={set.rpe ?? ''}
-                                  onChange={(e) =>
-                                    updateSet(exercise.id, set.id, {
-                                      rpe: e.target.value ? Number(e.target.value) : null,
-                                    })
-                                  }
-                                />
-                              </label>
-                              <label className="field">
-                                <span>{t('common.note')}</span>
-                                <input
-                                  maxLength={1000}
-                                  value={set.note}
-                                  onChange={(e) =>
-                                    updateSet(exercise.id, set.id, { note: e.target.value })
-                                  }
-                                />
-                              </label>
-                            </div>
-                          </details>
-                          {setErrors[set.id] && (
-                            <p role="alert" className="error small">
-                              {setErrors[set.id]}
-                            </p>
-                          )}
-                        </div>
-                      ),
-                    )}
-                    <Button type="button" variant="secondary" onClick={() => addSet(exercise.id)}>
-                      <Plus size={16} />
-                      {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
-                    </Button>
-                    {!exercise.sets.some((s) => s.completed) && (
-                      <details className="record-more">
-                        <summary>{t('simple.addSets')}</summary>
-                        <div className="record-presets">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              key={n}
-                              onClick={() =>
-                                patch(
-                                  {
-                                    exercises: workout.exercises.map((e) =>
-                                      e.id === exercise.id
-                                        ? {
-                                            ...e,
-                                            sets: [
-                                              ...e.sets.filter(
-                                                (s) =>
-                                                  s.weight !== null ||
-                                                  s.reps !== null ||
-                                                  s.duration !== null ||
-                                                  s.distance !== null ||
-                                                  s.rpe !== null ||
-                                                  !!s.note,
+                                    {key === 'weight' &&
+                                      [-1, 1].map((direction) => (
+                                        <Button
+                                          type="button"
+                                          variant="secondary"
+                                          key={direction}
+                                          aria-label={`${direction > 0 ? '+' : '−'} ${preferences.weightUnit === 'kg' ? 2.5 : 5} ${preferences.weightUnit}`}
+                                          onClick={() =>
+                                            updateSet(exercise.id, set.id, {
+                                              weight: Math.max(
+                                                0,
+                                                (set.weight ?? 0) +
+                                                  toKg(
+                                                    direction *
+                                                      (preferences.weightUnit === 'kg' ? 2.5 : 5),
+                                                    preferences.weightUnit,
+                                                  ),
                                               ),
-                                              ...Array.from({ length: n }, () => ({
-                                                ...blankSet(),
-                                                completed: true,
-                                              })),
-                                            ],
+                                            })
                                           }
-                                        : e,
-                                    ),
-                                  },
-                                  true,
-                                )
-                              }
-                            >
-                              {n} {t('fitness.set')}
-                            </Button>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </section>
-                );
-              })}
-            </>
-          }
+                                        >
+                                          {direction > 0 ? '+' : '−'}
+                                          {preferences.weightUnit === 'kg' ? 2.5 : 5}
+                                        </Button>
+                                      ))}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                            <details>
+                              <summary className="small muted">{t('record.moreFields')}</summary>
+                              <div className="form-row">
+                                <label className="field">
+                                  <span>RPE</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    step="0.5"
+                                    inputMode="decimal"
+                                    value={set.rpe ?? ''}
+                                    onChange={(e) =>
+                                      updateSet(exercise.id, set.id, {
+                                        rpe: e.target.value ? Number(e.target.value) : null,
+                                      })
+                                    }
+                                  />
+                                </label>
+                                <label className="field">
+                                  <span>{t('common.note')}</span>
+                                  <input
+                                    maxLength={1000}
+                                    value={set.note}
+                                    onChange={(e) =>
+                                      updateSet(exercise.id, set.id, { note: e.target.value })
+                                    }
+                                  />
+                                </label>
+                              </div>
+                            </details>
+                            {setErrors[set.id] && (
+                              <p role="alert" className="error small">
+                                {setErrors[set.id]}
+                              </p>
+                            )}
+                          </div>
+                        ),
+                      )}
+                      <Button type="button" variant="secondary" onClick={() => addSet(exercise.id)}>
+                        <Plus size={16} />
+                        {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
+                      </Button>
+                    </section>
+                  );
+                })}
+              </>
+            }
+            {
+              <Button
+                ref={addButton}
+                type="button"
+                variant="secondary"
+                onClick={() => setSearch((value) => !value)}
+              >
+                <Plus size={16} />
+                {t('fitness.addExercise')}
+              </Button>
+            }
+
+            {inline && picker}
+          </details>
           {initial.status === 'completed' && (
             <details className="record-more">
               <summary>{t('common.visibility')}</summary>
@@ -1066,37 +1055,23 @@ export default function WorkoutEditor({
                   .join(' · ')}
             </p>
           )}
-          {
-            <Button
-              ref={addButton}
-              type="button"
-              variant="secondary"
-              onClick={() => setSearch((value) => !value)}
-            >
-              <Plus size={16} />
-              {t('fitness.addExercise')}
-            </Button>
-          }
 
-          {inline && picker}
-          <label className="field">
-            <span>{t('common.note')}</span>
-            <textarea
-              rows={2}
-              maxLength={5000}
-              value={workout.note}
-              onChange={(e) => patch({ note: e.target.value })}
-            />
-          </label>
           <div className="record-footer">
+            {manual && (
+              <Button type="button" variant="secondary" onClick={close}>
+                {t('common.cancel')}
+              </Button>
+            )}
             <Button type="submit" disabled={finishing || !ready}>
               {finishing
                 ? t('common.saving')
                 : fresh
                   ? t('inline.saveWorkout')
-                  : initial.status === 'completed'
-                    ? t('flow.doneEditing')
-                    : t('fitness.finish')}
+                  : manual
+                    ? t('ia.saveChanges')
+                    : initial.status === 'completed'
+                      ? t('flow.doneEditing')
+                      : t('fitness.finish')}
             </Button>
           </div>
         </fieldset>

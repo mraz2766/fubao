@@ -1,0 +1,12 @@
+<script>
+  const viewport = window.visualViewport;
+  const sync = () => {
+    if (!document.querySelector('.task-form') || !viewport) return;
+    const inset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+    document.documentElement.style.setProperty('--keyboard-bottom', `${inset}px`);
+    document.documentElement.toggleAttribute('data-keyboard', inset > 100);
+    if (inset > 100 && document.activeElement instanceof HTMLInputElement)
+      document.activeElement.scrollIntoView({ block: 'center' });
+  };
+  viewport?.addEventListener('resize', sync);
+</script>

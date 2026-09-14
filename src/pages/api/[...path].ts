@@ -35,7 +35,7 @@ export const ALL: APIRoute = (context) =>
       return json({
         fitness: fitnessSummary(workouts, context.locals.preferences),
         travel: {
-          countries: new Set(trips.map((t) => t.location.country_code)).size,
+          countries: new Set(trips.map((t) => t.location.country_code).filter(Boolean)).size,
           cities: new Set(trips.filter((t) => t.location.kind === 'city').map((t) => t.location_id))
             .size,
           trips: trips.length,

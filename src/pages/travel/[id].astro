@@ -1,4 +1,5 @@
 ---
+import TravelScroll from '../../components/TravelScroll.astro';
 import { tripName } from '../../lib/travel-presentation';
 import Base from '../../layouts/Base.astro';
 import SaveFeedback from '../../components/SaveFeedback.astro';
@@ -15,7 +16,7 @@ const name = tripName(trip, locale);
 ---
 
 <Base title={name} active="travel">
-  <a href="/travel?view=timeline" class="text-link">
+  <a data-travel-back href="/travel" class="text-link">
     <ArrowLeft size={15} />
     {t('travel.timeline')}
   </a>
@@ -58,4 +59,4 @@ const name = tripName(trip, locale);
     ))}
   </div>
   {user && <SaveFeedback />}
-</Base>
+<TravelScroll /></Base>

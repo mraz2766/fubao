@@ -47,11 +47,13 @@ export default function SettingsPanel({
   initial,
   initialWidgets,
   owner,
+  username = '',
 }: {
   locale: Locale;
   initial: Preferences;
   initialWidgets: Widget[];
   owner: boolean;
+  username?: string;
 }) {
   const t = translator(locale),
     [preferences, setPreferences] = useState(initial),
@@ -267,7 +269,12 @@ export default function SettingsPanel({
           </span>
         )}
       </div>
+      <section className="settings-section">
+        <h2>{t('ia.profile')}</h2>
+        <p>{username || t('app.public')}</p>
+      </section>
       <section className="settings-section settings-primary">
+        <h2>{t('ia.appearance')}</h2>
         <div className="setting-row">
           <span>{t('settings.appearance')}</span>
           <div className="segmented">
@@ -298,7 +305,7 @@ export default function SettingsPanel({
       </section>
       <details className="settings-group">
         <summary>
-          <span>{t('quiet.general')}</span>
+          <span>{t('ia.trainingSettings')}</span>
           <small>
             {preferences.weightUnit} · {preferences.distanceUnit} ·{' '}
             {t(preferences.weekStart ? 'settings.monday' : 'settings.sunday')}
@@ -317,17 +324,6 @@ export default function SettingsPanel({
             </select>
           </label>
           <label className="setting-row">
-            <span>{t('fitness.distance')}</span>
-            <select
-              aria-label={t('fitness.distance')}
-              value={preferences.distanceUnit}
-              onChange={(e) => update({ distanceUnit: e.target.value as 'km' | 'mile' })}
-            >
-              <option value="km">km</option>
-              <option value="mile">mile</option>
-            </select>
-          </label>
-          <label className="setting-row">
             <span>{t('settings.weekStart')}</span>
             <select
               aria-label={t('settings.weekStart')}
@@ -338,6 +334,22 @@ export default function SettingsPanel({
               <option value={0}>{t('settings.sunday')}</option>
             </select>
           </label>
+          {owner && (
+            <label className="setting-row">
+              <span>{t('settings.goal')}</span>
+              <select
+                aria-label={t('settings.goal')}
+                value={preferences.weeklyGoal}
+                onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}
+              >
+                {Array.from({ length: 21 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n} {t('common.times')}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {owner && (
             <label className="field">
               <span>{t('settings.timezone')}</span>
@@ -362,30 +374,6 @@ export default function SettingsPanel({
       </details>
       {owner && (
         <>
-          <details className="settings-group">
-            <summary>
-              <span>{t('settings.goal')}</span>
-              <small>
-                {preferences.weeklyGoal} {t('common.times')}
-              </small>
-            </summary>
-            <div className="settings-section">
-              <label className="setting-row">
-                <span>{t('settings.goal')}</span>
-                <select
-                  aria-label={t('settings.goal')}
-                  value={preferences.weeklyGoal}
-                  onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}
-                >
-                  {Array.from({ length: 21 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={n}>
-                      {n} {t('common.times')}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </details>
           <details className="settings-group">
             <summary>
               <span>{t('settings.dashboard')}</span>
@@ -485,6 +473,24 @@ export default function SettingsPanel({
       </div>
       {owner && (
         <>
+          <details className="settings-group">
+            <summary>{t('ia.travelSettings')}</summary>
+            <div className="settings-section">
+              {' '}
+              <label className="setting-row">
+                <span>{t('fitness.distance')}</span>
+                <select
+                  aria-label={t('fitness.distance')}
+                  value={preferences.distanceUnit}
+                  onChange={(e) => update({ distanceUnit: e.target.value as 'km' | 'mile' })}
+                >
+                  <option value="km">km</option>
+                  <option value="mile">mile</option>
+                </select>
+              </label>
+            </div>
+          </details>
+          <h2 className="section-title">{t('ia.accountData')}</h2>
           <details className="settings-group">
             <summary>{t('settings.data')}</summary>
             <section className="settings-section">

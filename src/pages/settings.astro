@@ -17,6 +17,7 @@ const t = translator(Astro.locals.locale);
     initial={{ ...Astro.locals.preferences, language: Astro.locals.locale }}
     initialWidgets={await getWidgets(Astro.locals.user?.id)}
     owner={!!Astro.locals.user}
+    username={Astro.locals.user?.username}
     client:load
   />
 </Base>

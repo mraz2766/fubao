@@ -22,5 +22,5 @@ export function Button({
   ...props
 }: ComponentProps<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : 'button';
-  return <Comp className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+  return <Comp title={props.title ?? props['aria-label']} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
 }

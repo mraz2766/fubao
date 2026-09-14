@@ -28,6 +28,7 @@ export default function TravelEditor({
   onClose,
   initialFiles = [],
   inline = false,
+  pageMode = false,
   onSaved,
   onDirtyChange,
 }: {
@@ -35,6 +36,7 @@ export default function TravelEditor({
   initial?: Trip;
   initialFiles?: File[];
   inline?: boolean;
+  pageMode?: boolean;
   onSaved?: (trip: Trip) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onClose: () => void;
@@ -43,7 +45,16 @@ export default function TravelEditor({
   useEffect(() => setReady(true), []);
   const t = translator(locale),
     [id] = useState(() => initial?.id ?? crypto.randomUUID()),
-    [place, setPlace] = useState<Location | null>(initial?.location ?? null),
+    [place, setPlace] = useState<Location | null>(
+      initial?.location
+        ? {
+            ...initial.location,
+            ...(initial.location.id === 'manual-place'
+              ? { name: initial.place_name, name_zh: initial.place_name }
+              : {}),
+          }
+        : null,
+    ),
     [placeName, setPlaceName] = useState(initial?.place_name ?? ''),
     [start, setStart] = useState(initial?.start_date ?? ''),
     [end, setEnd] = useState(initial?.end_date ?? ''),
@@ -100,7 +111,10 @@ export default function TravelEditor({
   const allowNavigation = useUnsaved(dirty);
   const mark = () => setDirty(true);
   function close() {
-    if (!pending && !processing && (!dirty || confirm(t('common.unsaved')))) onClose();
+    if (!pending && !processing && (!dirty || confirm(t('common.unsaved')))) {
+      allowNavigation();
+      onClose();
+    }
   }
   const patchPhoto = (photoId: string, patch: Partial<EditorPhoto>) =>
     setPhotos((items) => items.map((p) => (p.id === photoId ? { ...p, ...patch } : p)));
@@ -247,10 +261,12 @@ export default function TravelEditor({
         <LocationSearch
           locale={locale}
           recent
+          allowManual
           selected={place}
           onSelect={(p) => {
             locationTouched.current = true;
             setPlace(p);
+            if (p.id === 'manual-place') setPlaceName(p.name);
             mark();
           }}
         />
@@ -317,7 +333,7 @@ export default function TravelEditor({
                     {p.name}
                   </p>
                 )}
-                {organizing && (
+                {(organizing || p.error) && (
                   <div className="upload-controls">
                     <Button
                       type="button"
@@ -557,8 +573,8 @@ export default function TravelEditor({
                     : t('travel.uploading')}
           </p>
         )}
-        <div className="form-actions">
-          {!inline && (
+        <div className={pageMode ? 'form-actions task-footer' : 'form-actions'}>
+          {(!inline || pageMode) && (
             <Button type="button" variant="ghost" disabled={pending || processing} onClick={close}>
               {t('common.cancel')}
             </Button>
@@ -573,7 +589,7 @@ export default function TravelEditor({
               photos.some((p) => !p.uploaded)
             }
           >
-            {pending ? t('common.saving') : t('inline.saveTrip')}
+            {pending ? t('common.saving') : t(initial ? 'ia.saveChanges' : 'inline.saveTrip')}
           </Button>
         </div>
       </fieldset>

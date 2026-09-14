@@ -1,8 +1,9 @@
 ---
 import { fitnessOverview } from '../../server/services/fitness-overview';
 import { ProgressBar } from '../../components/ui/progress-bar';
+import WorkoutHistoryList from '../../features/fitness/WorkoutHistoryList.astro';
 import Base from '../../layouts/Base.astro';
-import FitnessJournal from '../../features/fitness/FitnessJournal';
+
 import ExerciseSearch from '../../features/fitness/ExerciseSearch';
 import HistoryCalendar from '../../features/fitness/HistoryCalendar';
 import Templates from '../../features/fitness/Templates';
@@ -32,12 +33,13 @@ const catalogCount =
       ).first<{ count: number }>('SELECT COUNT(*) count FROM exercise_library WHERE active=1')
     : null;
 const overview = view === 'today' ? await fitnessOverview(user, preferences) : null;
+const recordPage = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0);
 const workouts = overview
-    ? overview.workouts
+    ? await listWorkouts(user, undefined, { limit: 21, offset: recordPage * 20 })
     : ['history', 'analytics'].includes(view)
       ? await listWorkouts(user)
       : [],
-  summary = fitnessSummary(workouts, preferences);
+  summary = fitnessSummary(overview?.workouts ?? workouts, preferences);
 const filtered = selected
   ? workouts.filter((w) => workoutDay(w, preferences.timezone) === selected)
   : workouts;
@@ -80,64 +82,61 @@ const muscles =
       <h1>{t('fitness.title')}</h1>
     </div>
   </header>
-  {!isView('today') && (
-    <a class="text-link" href="/fitness#record">
-      ← {t('inline.workout')}
-    </a>
-  )}
-  {(isView('history') || isView('analytics')) && (
-    <div class="secondary-links">
+  <nav class="section-tabs task-tabs" aria-label={t('nav.fitness')}>
+    {(
+      [
+        ['today', 'fitness.history'],
+        ['analytics', 'fitness.analytics'],
+        ['templates', 'fitness.templates'],
+        ['library', 'fitness.library'],
+      ] as const
+    ).map(([key, label]) => (
       <a
-        class="text-link"
-        href={isView('analytics') ? '/fitness?view=history' : '/fitness?view=analytics'}
+        class:list={{ active: view === key || (key === 'today' && view === 'history') }}
+        href={`/fitness?view=${key}`}
       >
-        {t(isView('analytics') ? 'fitness.history' : 'fitness.analytics')}{' '}
-        <ArrowUpRight size={15} />
+        {t(label)}
       </a>
-    </div>
-  )}
-  {isView('templates') && <h2 class="section-title">{t('fitness.templates')}</h2>}
+    ))}
+  </nav>
   {isView('today') && (
-    <>
-      {user && (
-        <FitnessJournal locale={locale} preferences={preferences} initial={workouts} client:load />
-      )}
-      {!user && (
+    <section class="fitness-workspace">
+      <div class="workspace-intro">
+        <p>{summary.todayWorkouts.length ? t('ia.todayTrained') : t('dashboard.noWorkout')}</p>
         <p class="muted">
-          {t('dashboard.week')}: {summary.weekCount}
+          {t('dashboard.week')}: {summary.weekCount} · {t('dashboard.month')}: {summary.monthCount}
         </p>
-      )}
-      {!user && (
-        <section class="daily-recent">
-          <div class="card-heading">
-            <h2>{t('simple.recent')}</h2>
-            <a class="text-link" href="/fitness?view=history">
-              {t('common.all')} →
-            </a>
-          </div>
-          {workouts
-            .filter((w) => w.status === 'completed')
-            .slice(0, 5)
-            .map((w) => (
-              <a class="resume-entry" href={`/fitness/${w.id}`}>
-                <span>
-                  <strong>{w.title}</strong>
-                  <span class="muted small"> · {workoutDay(w, preferences.timezone)}</span>
-                </span>
-                <span class="muted small">
-                  {knownWorkoutSeconds(w) !== null
-                    ? `${Math.round(workoutSeconds(w) / 60)} ${t('common.minutes')}`
-                    : t('fitness.completed')}{' '}
-                  →
-                </span>
-              </a>
-            ))}
-          {!workouts.some((w) => w.status === 'completed') && (
-            <p class="muted">{t('dashboard.noWorkout')}</p>
-          )}
-        </section>
-      )}
-    </>
+        {user && (
+          <a class="button button-primary" href="/fitness/new">
+            + {t('ia.recordToday')}
+          </a>
+        )}
+        {overview?.recent[0] && (
+          <p class="small muted">
+            {t('story.latest')} · {overview.recent[0].title}
+          </p>
+        )}
+      </div>
+      <h2 class="section-title">{t('fitness.history')}</h2>
+      <WorkoutHistoryList
+        workouts={workouts.slice(0, 20)}
+        locale={locale}
+        preferences={preferences}
+      />
+      <div class="form-actions">
+        {recordPage > 0 && (
+          <a class="button button-secondary" href={`/fitness?page=${recordPage - 1}`}>
+            {t('common.previous')}
+          </a>
+        )}
+        {workouts.length > 20 && (
+          <a class="button button-secondary" href={`/fitness?page=${recordPage + 1}`}>
+            {t('common.next')}
+          </a>
+        )}
+      </div>
+      {!workouts.length && <p class="muted">{t('dashboard.noWorkout')}</p>}
+    </section>
   )}
   {isView('history') && (
     <>
@@ -183,7 +182,7 @@ const muscles =
                     : `${Math.round(workoutSeconds(w) / 60)} ${t('common.minutes')}`}
                 </span>
                 <span>
-                  {w.exercises.length} {t('fitness.library')}
+                  {w.exercises.length} {t('ia.exerciseCount')}
                 </span>
                 <span>{t(`fitness.${w.status}`)}</span>
                 {user && <span>{t(`common.${w.visibility}`)}</span>}

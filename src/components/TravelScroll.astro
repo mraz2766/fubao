@@ -1,0 +1,29 @@
+<script>
+  // Only list position is retained; no private record contents enter browser storage.
+  if (location.pathname === '/travel') {
+    try {
+      const previous = new URL(document.referrer || location.origin);
+      const saved = JSON.parse(sessionStorage.getItem('fubao.travel-scroll') || 'null');
+      if (
+        previous.origin === location.origin &&
+        previous.pathname.startsWith('/travel/') &&
+        saved?.url === location.pathname + location.search
+      )
+        requestAnimationFrame(() => scrollTo(0, saved.y));
+    } catch {}
+    addEventListener('pagehide', () => {
+      try {
+        sessionStorage.setItem(
+          'fubao.travel-scroll',
+          JSON.stringify({ url: location.pathname + location.search, y: scrollY }),
+        );
+      } catch {}
+    });
+  } else if (location.pathname.startsWith('/travel/')) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('fubao.travel-scroll') || 'null');
+      const back = document.querySelector<HTMLAnchorElement>('a[data-travel-back]');
+      if (back && saved && /^\/travel(?:\?|$)/.test(saved.url)) back.href = saved.url;
+    } catch {}
+  }
+</script>

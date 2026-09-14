@@ -196,6 +196,7 @@ export async function saveTrip(userId: string, input: unknown) {
       'SELECT user_id,updated_at,deleted_at FROM travel_entries WHERE id=?',
       trip.id,
     );
+  if (trip.location_id === 'manual-place' && !trip.place_name?.trim()) throw new HttpError(400, 'INVALID_INPUT');
   if (existing && (existing.user_id !== userId || existing.deleted_at))
     throw new HttpError(404, 'NOT_FOUND');
   if (existing && trip.updated_at && existing.updated_at !== trip.updated_at)

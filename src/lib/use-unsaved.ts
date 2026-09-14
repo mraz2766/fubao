@@ -30,6 +30,8 @@ export function useUnsaved(dirty: boolean) {
       ) {
         e.preventDefault();
         e.stopImmediatePropagation();
+      } else {
+        guard.current = false;
       }
     };
     document.addEventListener('click', navigate, true);

@@ -1,0 +1,33 @@
+---
+import type { Trip, Locale } from '../../types/domain';
+import { tripName } from '../../lib/travel-presentation';
+import { translator } from '../../lib/i18n';
+import StoryScene from '../../components/illustrations/StoryScene';
+const { initial, locale } = Astro.props as { initial: Trip[]; locale: Locale };
+const t = translator(locale);
+---
+
+<section class="travel-grid">
+  {initial.map((trip) => (
+    <a class="travel-card card-link" href={`/travel/${trip.id}`}>
+      <div class="travel-cover">
+        <img
+          src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
+          width="480"
+          height="360"
+          alt={tripName(trip, locale)}
+          loading="lazy"
+        />
+      </div>
+      <h2>{tripName(trip, locale)}</h2>
+      <p class="muted small">{trip.start_date ?? t('common.undated')}</p>
+      {trip.description && <p class="gallery-description">{trip.description}</p>}
+    </a>
+  ))}
+</section>
+{!initial.length && (
+  <div class="travel-empty">
+    <StoryScene kind="travel" />
+    <p>{t('travel.noTrips')}</p>
+  </div>
+)}

@@ -69,7 +69,7 @@ export default function TravelActions({ locale, trip }: { locale: Locale; trip?:
         )}
         <Button
           disabled={!ready || pending}
-          onClick={() => (trip ? setOpen(true) : picker.current?.click())}
+          onClick={() => location.assign(trip ? `/travel/${trip.id}/edit` : '/travel/new')}
         >
           {trip ? <Pencil size={15} /> : <Plus size={16} />}{' '}
           {trip ? t('common.edit') : t('travel.add')}

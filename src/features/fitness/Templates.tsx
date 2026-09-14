@@ -63,7 +63,7 @@ export default function Templates({
         method: 'POST',
         body: {},
       });
-      location.assign(`/fitness/${result.id}`);
+      location.assign(`/fitness/${result.id}/edit`);
     } catch (e) {
       setError(errorText(e, locale));
       setPending(false);

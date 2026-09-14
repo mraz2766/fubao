@@ -17,6 +17,7 @@ export default function ExerciseSearch({
   onExisting,
   preferences = defaultPreferences,
   trainingItems = [],
+  compact = false,
 }: {
   locale: Locale;
   onSelect?: (exercise: Exercise) => void;
@@ -26,10 +27,11 @@ export default function ExerciseSearch({
   onExisting?: (id: string) => void;
   preferences?: Preferences;
   trainingItems?: string[];
+  compact?: boolean;
 }) {
   const relatedParts = trainingParts.filter((part) => trainingItems.includes(part));
   const relatedKey = relatedParts.join(',');
-  const [related, setRelated] = useState(relatedParts.length > 0);
+  const [related, setRelated] = useState(!compact && relatedParts.length > 0);
   const [selected, setSelected] = useState<Exercise[]>([]),
     [ready, setReady] = useState(false),
     [targets, setTargets] = useState<Workout[] | null>(null),
@@ -94,7 +96,7 @@ export default function ExerciseSearch({
         method: 'PUT',
         body: base,
       });
-      location.assign(`/fitness/${saved.id}`);
+      location.assign(`/fitness/${saved.id}/edit`);
     } catch (err) {
       setError(errorText(err, locale));
       setPending(false);
@@ -106,7 +108,7 @@ export default function ExerciseSearch({
     [body, setBody] = useState(''),
     [target, setTarget] = useState(''),
     [equipment, setEquipment] = useState(''),
-    [mode, setMode] = useState('all'),
+    [mode, setMode] = useState(compact ? 'recent' : 'all'),
     [page, setPage] = useState(0);
   const [items, setItems] = useState<Exercise[]>([]),
     [more, setMore] = useState(false),
@@ -187,7 +189,7 @@ export default function ExerciseSearch({
   return (
     <div className="exercise-search">
       <div hidden={!!detail}>
-        {relatedParts.length > 0 && (
+        {!compact && relatedParts.length > 0 && (
           <div className="exercise-context">
             <div className="segmented" aria-label={t('record.exerciseScope')}>
               <button type="button" aria-pressed={related} onClick={() => changeScope(true)}>
@@ -214,6 +216,7 @@ export default function ExerciseSearch({
             onChange={(e) => {
               setLoading(true);
               selectFilter(setQuery, e.target.value);
+              if (compact) setMode('all');
             }}
           />
         </label>
@@ -254,7 +257,10 @@ export default function ExerciseSearch({
         </details>
         {owner && (
           <div className="section-tabs">
-            {(['all', 'recent', 'frequent', 'favorites'] as const).map((value) => (
+            {(compact
+              ? ['recent', 'frequent', 'all']
+              : ['all', 'recent', 'frequent', 'favorites']
+            ).map((value) => (
               <button
                 type="button"
                 key={value}
@@ -262,8 +268,14 @@ export default function ExerciseSearch({
                 onClick={() => selectFilter(setMode, value)}
               >
                 {value === 'all'
-                  ? t(relatedParts.length ? 'record.browseExercises' : 'fitness.allExercises')
-                  : t(`fitness.${value}`)}
+                  ? t(
+                      compact
+                        ? 'ia.searchAll'
+                        : relatedParts.length
+                          ? 'record.browseExercises'
+                          : 'fitness.allExercises',
+                    )
+                  : t(`fitness.${value}` as 'fitness.recent')}
               </button>
             ))}
           </div>
@@ -341,7 +353,7 @@ export default function ExerciseSearch({
                     <Heart size={18} fill={exercise.favorite ? 'currentColor' : 'none'} />
                   </Button>
                 )}
-                {selecting && (
+                {selecting && !compact && (
                   <Button
                     type="button"
                     variant="secondary"
@@ -363,7 +375,7 @@ export default function ExerciseSearch({
                     )}
                   </Button>
                 )}
-                {selecting && (
+                {selecting && !compact && (
                   <Button
                     type="button"
                     variant="ghost"

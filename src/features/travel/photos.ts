@@ -171,7 +171,18 @@ export function uploadPrepared(
     request.open('POST', '/api/travel/photos');
     request.setRequestHeader('X-Fubao-CSRF', '1');
     request.timeout = 120000;
+    let stall: ReturnType<typeof setTimeout>;
+    const heartbeat = () => {
+      clearTimeout(stall);
+      stall = setTimeout(() => {
+        reject(new ApiFailure('PHOTO_UPLOAD_TIMEOUT'));
+        request.abort();
+      }, 30000);
+    };
+    request.addEventListener('loadend', () => clearTimeout(stall));
+    heartbeat();
     request.upload.onprogress = (e) => {
+      heartbeat();
       if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
     };
     request.onerror = () => reject(new ApiFailure('NETWORK'));
