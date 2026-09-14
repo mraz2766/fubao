@@ -39,7 +39,11 @@ const visible = widgets
   {visible.map((widget, index) => (
     <a
       href={widget.key === 'fitness' ? '/fitness' : '/travel'}
-      class:list={['home-life-card', 'dashboard-' + widget.key]}
+      class:list={[
+        'home-life-card',
+        'dashboard-' + widget.key,
+        { 'has-photo': widget.key === 'travel' && !!trip },
+      ]}
       style={`--entry-order:${index}`}
     >
       <div class="story-card-heading">
@@ -47,13 +51,10 @@ const visible = widgets
           <StoryIcon kind={widget.key === 'fitness' ? 'fitness' : 'travel'} size={30} />
           {t(widget.key === 'fitness' ? 'nav.fitness' : 'nav.travel')}
         </h2>
-        <span class="story-card-arrow" aria-hidden="true">
-          ↗
-        </span>
       </div>
       {widget.key === 'fitness' ? (
         <>
-          <h3>{today ? name(today) : t('dashboard.noWorkout')}</h3>
+          <h3>{today ? t('ia.todayTrained') : t('dashboard.noWorkout')}</h3>
           <div class="story-counts">
             <span>
               {t('dashboard.week')} <strong>{summary.weekCount}</strong> {t('common.times')}
@@ -101,6 +102,7 @@ const visible = widgets
               <StoryScene kind="travel" />
             </>
           )}
+          {trip?.description && <p class="home-trip-description">{trip.description}</p>}
           {places > 0 && (
             <p class="small muted">
               {places} {t('inline.places')}

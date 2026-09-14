@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import '../styles/themes/storybook.css';
 import '../styles/task-pages.css';
+import '../styles/h5.css';
 import StoryIcon from '../components/illustrations/StoryIcon';
 import { ArrowUpRight } from 'lucide-react';
 import { translator } from '../lib/i18n';
@@ -57,7 +58,10 @@ const nav = [
       })();
     </script>
   </head>
-  <body data-page={active}>
+  <body
+    data-page={active}
+    data-form-page={/^\/(fitness|travel)\/(new|[^/]+\/edit)$/.test(Astro.url.pathname) || undefined}
+  >
     <a class="skip-link" href="#main">
       {locale === 'zh-CN' ? '跳转至内容' : 'Skip to content'}
     </a>

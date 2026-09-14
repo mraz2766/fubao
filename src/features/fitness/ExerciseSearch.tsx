@@ -187,7 +187,7 @@ export default function ExerciseSearch({
     setLoading(true);
   }
   return (
-    <div className="exercise-search">
+    <div className={compact ? 'exercise-search compact-exercises' : 'exercise-search'}>
       <div hidden={!!detail}>
         {!compact && relatedParts.length > 0 && (
           <div className="exercise-context">
@@ -220,6 +220,31 @@ export default function ExerciseSearch({
             }}
           />
         </label>
+        {owner && (
+          <div className="section-tabs">
+            {(compact
+              ? ['recent', 'frequent', 'all']
+              : ['all', 'recent', 'frequent', 'favorites']
+            ).map((value) => (
+              <button
+                type="button"
+                key={value}
+                className={mode === value ? 'active' : ''}
+                onClick={() => selectFilter(setMode, value)}
+              >
+                {value === 'all'
+                  ? t(
+                      compact
+                        ? 'common.all'
+                        : relatedParts.length
+                          ? 'record.browseExercises'
+                          : 'fitness.allExercises',
+                    )
+                  : t(`fitness.${value}` as 'fitness.recent')}
+              </button>
+            ))}
+          </div>
+        )}
         <details className="filter-panel" onToggle={(e) => setFilterOpen(e.currentTarget.open)}>
           <summary>
             {t('quiet.filters')}
@@ -255,31 +280,6 @@ export default function ExerciseSearch({
             ))}
           </div>
         </details>
-        {owner && (
-          <div className="section-tabs">
-            {(compact
-              ? ['recent', 'frequent', 'all']
-              : ['all', 'recent', 'frequent', 'favorites']
-            ).map((value) => (
-              <button
-                type="button"
-                key={value}
-                className={mode === value ? 'active' : ''}
-                onClick={() => selectFilter(setMode, value)}
-              >
-                {value === 'all'
-                  ? t(
-                      compact
-                        ? 'ia.searchAll'
-                        : relatedParts.length
-                          ? 'record.browseExercises'
-                          : 'fitness.allExercises',
-                    )
-                  : t(`fitness.${value}` as 'fitness.recent')}
-              </button>
-            ))}
-          </div>
-        )}
         {error && (
           <p className="form-message error" role="alert">
             {error}
@@ -340,6 +340,13 @@ export default function ExerciseSearch({
                       <small className="exercise-added">{t('record.inWorkout')}</small>
                     )}
                   </span>
+                  {selecting && compact && (
+                    <Plus
+                      size={18}
+                      aria-hidden="true"
+                      style={{ marginLeft: 'auto', flexShrink: 0 }}
+                    />
+                  )}
                 </button>
                 {owner && !selecting && (
                   <Button

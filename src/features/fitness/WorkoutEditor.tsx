@@ -371,15 +371,17 @@ export default function WorkoutEditor({
   const volumeKnown = hasWorkoutVolume(workout);
   const picker = search ? (
     <div className="workout-workspace workout-picker" ref={pickerRoot}>
-      <div className="picker-heading">
-        <Button type="button" variant="ghost" onClick={dismissSearch}>
-          <ArrowLeft size={16} />
-          {t('record.backToWorkout')}
-        </Button>
-        <h3 tabIndex={-1} ref={pickerHeading}>
-          {t('fitness.addExercise')}
-        </h3>
-      </div>
+      {!inline && (
+        <div className="picker-heading">
+          <Button type="button" variant="ghost" onClick={dismissSearch}>
+            <ArrowLeft size={16} />
+            {t('record.backToWorkout')}
+          </Button>
+          <h3 tabIndex={-1} ref={pickerHeading}>
+            {t('fitness.addExercise')}
+          </h3>
+        </div>
+      )}
       <Suspense fallback={<p>{t('common.loading')}</p>}>
         <ExerciseSearch
           locale={locale}
@@ -510,7 +512,7 @@ export default function WorkoutEditor({
           }}
         >
           {workout.time_precision === 'date' && (
-            <div className="form-row">
+            <div className="form-row workout-date-duration">
               <label className="field">
                 <span>{t('simple.chooseDate')}</span>
                 <input
@@ -631,6 +633,9 @@ export default function WorkoutEditor({
           <details
             className="exercise-details"
             open={workout.exercises.length > 0 || search || undefined}
+            onToggle={(event) => {
+              if (event.currentTarget.open && !workout.exercises.length) setSearch(true);
+            }}
           >
             <summary>{t('ia.exerciseDetails')}</summary>
             {
@@ -1004,16 +1009,23 @@ export default function WorkoutEditor({
                           </div>
                         ),
                       )}
-                      <Button type="button" variant="secondary" onClick={() => addSet(exercise.id)}>
-                        <Plus size={16} />
-                        {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
-                      </Button>
+                      <details className="record-more copy-set-menu">
+                        <summary>{t('simple.more')}</summary>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => addSet(exercise.id)}
+                        >
+                          <Plus size={16} />
+                          {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
+                        </Button>
+                      </details>
                     </section>
                   );
                 })}
               </>
             }
-            {
+            {!search && (
               <Button
                 ref={addButton}
                 type="button"
@@ -1023,7 +1035,7 @@ export default function WorkoutEditor({
                 <Plus size={16} />
                 {t('fitness.addExercise')}
               </Button>
-            }
+            )}
 
             {inline && picker}
           </details>
@@ -1064,6 +1076,9 @@ export default function WorkoutEditor({
           )}
 
           <div className="record-footer">
+            <span className="footer-count">
+              {workout.exercises.length} {t('ia.exerciseCount')}
+            </span>
             {manual && (
               <Button type="button" variant="secondary" onClick={close}>
                 {t('common.cancel')}

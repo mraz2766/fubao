@@ -106,23 +106,61 @@ export default function TravelEditor({
     }
   }, []);
   const processingLock = useRef(false);
+  const departed = useRef(false);
+  const cancelled = useRef(new Set<string>());
+  const uploads = useRef(new Map<string, AbortController>());
+  function stopUploads() {
+    departed.current = true;
+    uploads.current.forEach((controller) => controller.abort());
+    uploads.current.clear();
+  }
+  useEffect(() => {
+    departed.current = false;
+    window.addEventListener('pagehide', stopUploads);
+    return () => {
+      window.removeEventListener('pagehide', stopUploads);
+      stopUploads();
+    };
+  }, []);
+  function removePhoto(photo: EditorPhoto) {
+    if (!confirm(t('common.confirmDelete'))) return;
+    cancelled.current.add(photo.id);
+    uploads.current.get(photo.id)?.abort();
+    if (photo.preview.startsWith('blob:')) {
+      URL.revokeObjectURL(photo.preview);
+      previews.current = previews.current.filter((url) => url !== photo.preview);
+    }
+    setPhotos((items) => items.filter((p) => p.id !== photo.id));
+    setError('');
+    mark();
+  }
+
   useEffect(() => () => previews.current.forEach(URL.revokeObjectURL), []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   const allowNavigation = useUnsaved(dirty);
   const mark = () => setDirty(true);
   function close() {
-    if (!pending && !processing && (!dirty || confirm(t('common.unsaved')))) {
+    if (!pending && (!dirty || confirm(t('common.unsaved')))) {
+      stopUploads();
       allowNavigation();
       onClose();
     }
   }
-  const patchPhoto = (photoId: string, patch: Partial<EditorPhoto>) =>
-    setPhotos((items) => items.map((p) => (p.id === photoId ? { ...p, ...patch } : p)));
+  const patchPhoto = (photoId: string, patch: Partial<EditorPhoto>) => {
+    if (!departed.current && !cancelled.current.has(photoId))
+      setPhotos((items) => items.map((p) => (p.id === photoId ? { ...p, ...patch } : p)));
+  };
   async function upload(photo: PreparedPhoto) {
+    if (departed.current || cancelled.current.has(photo.id)) return;
+    const controller = new AbortController();
+    uploads.current.set(photo.id, controller);
     patchPhoto(photo.id, { error: undefined, progress: 0, stage: 'uploading' });
     try {
-      const result = await uploadPrepared(photo, id, (percent) =>
-        patchPhoto(photo.id, { progress: percent }),
+      const result = await uploadPrepared(
+        photo,
+        id,
+        (percent) => patchPhoto(photo.id, { progress: percent }),
+        controller.signal,
       );
       patchPhoto(photo.id, {
         uploaded: result,
@@ -132,15 +170,23 @@ export default function TravelEditor({
         prepared: undefined,
       });
     } catch (e) {
-      patchPhoto(photo.id, { error: errorText(e, locale), stage: 'error' });
+      if (!controller.signal.aborted)
+        patchPhoto(photo.id, { error: errorText(e, locale), stage: 'error' });
+    } finally {
+      uploads.current.delete(photo.id);
     }
   }
   async function processPhoto(photo: EditorPhoto) {
+    if (departed.current || cancelled.current.has(photo.id)) return;
     try {
       let prepared = photo.prepared;
       if (!prepared && photo.source) {
         patchPhoto(photo.id, { error: undefined, stage: 'processing' });
         prepared = await preparePhoto(photo.source, photo.id);
+        if (departed.current || cancelled.current.has(photo.id)) {
+          URL.revokeObjectURL(prepared.preview);
+          return;
+        }
         previews.current.push(prepared.preview);
         patchPhoto(photo.id, { preview: prepared.preview, prepared });
       }
@@ -191,10 +237,13 @@ export default function TravelEditor({
     }));
     setPhotos((items) => [...items, ...additions]);
     try {
-      for (const photo of additions) await processPhoto(photo);
+      for (const photo of additions) {
+        if (departed.current) break;
+        await processPhoto(photo);
+      }
     } finally {
       processingLock.current = false;
-      setProcessing(false);
+      if (!departed.current) setProcessing(false);
     }
   }
   async function retryPhoto(photo: EditorPhoto) {
@@ -205,7 +254,7 @@ export default function TravelEditor({
       await processPhoto(photo);
     } finally {
       processingLock.current = false;
-      setProcessing(false);
+      if (!departed.current) setProcessing(false);
     }
   }
   function move(index: number, direction: number) {
@@ -286,34 +335,37 @@ export default function TravelEditor({
               </Button>
             )}
           </div>
-          <label
-            className={`photo-drop ${photos.length ? 'photo-drop-compact' : ''}`}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              addFiles(e.dataTransfer.files);
-            }}
-          >
-            <ImagePlus size={26} strokeWidth={1.3} />
-            <span>
-              {processing
-                ? t('travel.processing')
-                : photos.length
-                  ? t('flow.selectPhotos')
-                  : t('travel.photoHint')}
-            </span>
-            <input
-              type="file"
-              multiple
-              accept={photoAccept}
-              disabled={pending || processing || photos.length >= photoLimits.count}
-              onChange={(e) => {
-                if (e.target.files) addFiles(e.target.files);
-                e.target.value = '';
+          <div className="upload-grid photo-strip">
+            <label
+              className={`photo-drop ${photos.length ? 'photo-drop-compact' : ''}`}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                addFiles(e.dataTransfer.files);
               }}
-            />
-          </label>
-          <div className="upload-grid">
+            >
+              <ImagePlus size={26} strokeWidth={1.3} />
+              <span className="photo-pick-caption">{t('flow.selectPhotos')}</span>
+              <span className="photo-pick-hint">
+                {processing
+                  ? t('travel.processing')
+                  : photos.length
+                    ? t('flow.selectPhotos')
+                    : t('travel.photoHint')}
+              </span>
+              <input
+                type="file"
+                aria-label={t('flow.selectPhotos')}
+                multiple
+                accept={photoAccept}
+                disabled={pending || processing || photos.length >= photoLimits.count}
+                onChange={(e) => {
+                  if (e.target.files) addFiles(e.target.files);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+
             {photos.map((p, i) => (
               <div className="upload-photo" key={p.id}>
                 {p.preview ? (
@@ -333,49 +385,44 @@ export default function TravelEditor({
                     {p.name}
                   </p>
                 )}
-                {(organizing || p.error) && (
+                {
                   <div className="upload-controls">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={t('common.up')}
-                      disabled={pending || processing || i === 0}
-                      onClick={() => move(i, -1)}
-                    >
-                      <ArrowLeft size={15} />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      aria-label={t('common.down')}
-                      disabled={pending || processing || i === photos.length - 1}
-                      onClick={() => move(i, 1)}
-                    >
-                      <ArrowRight size={15} />
-                    </Button>
+                    {organizing && (
+                      <>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('common.up')}
+                          disabled={pending || processing || i === 0}
+                          onClick={() => move(i, -1)}
+                        >
+                          <ArrowLeft size={15} />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          aria-label={t('common.down')}
+                          disabled={pending || processing || i === photos.length - 1}
+                          onClick={() => move(i, 1)}
+                        >
+                          <ArrowRight size={15} />
+                        </Button>
+                      </>
+                    )}
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
                       aria-label={t('travel.photoRemove')}
-                      disabled={pending || processing}
-                      onClick={() => {
-                        if (!confirm(t('common.confirmDelete'))) return;
-                        if (p.preview.startsWith('blob:')) {
-                          URL.revokeObjectURL(p.preview);
-                          previews.current = previews.current.filter((url) => url !== p.preview);
-                        }
-                        setPhotos((items) => items.filter((x) => x.id !== p.id));
-                        setError('');
-                        mark();
-                      }}
+                      disabled={pending}
+                      onClick={() => removePhoto(p)}
                     >
                       <Trash2 size={15} />
                     </Button>
                   </div>
-                )}
+                }
                 {!p.uploaded && !p.error && (
                   <p className="small muted" role="status">
                     {p.stage === 'queued'
@@ -560,22 +607,23 @@ export default function TravelEditor({
             {error}
           </p>
         )}
-        {(!place || processing || !photos.length || photos.some((p) => !p.uploaded)) && (
-          <p className="small muted" role="status">
-            {processing
-              ? t('travel.processing')
-              : photos.some((p) => p.error)
-                ? t('flow.failedPhotos')
-                : !photos.length
-                  ? t('flow.addPhoto')
-                  : !place
-                    ? t('flow.selectPlace')
-                    : t('travel.uploading')}
-          </p>
-        )}
         <div className={pageMode ? 'form-actions task-footer' : 'form-actions'}>
+          {(!place || processing || !photos.length || photos.some((p) => !p.uploaded)) && (
+            <p className="small muted save-requirement" role="status">
+              {processing
+                ? t('travel.processing')
+                : photos.some((p) => p.error)
+                  ? t('flow.failedPhotos')
+                  : !photos.length
+                    ? t('flow.addPhoto')
+                    : !place
+                      ? t('flow.selectPlace')
+                      : t('travel.uploading')}
+            </p>
+          )}
+
           {(!inline || pageMode) && (
-            <Button type="button" variant="ghost" disabled={pending || processing} onClick={close}>
+            <Button type="button" variant="ghost" disabled={pending} onClick={close}>
               {t('common.cancel')}
             </Button>
           )}

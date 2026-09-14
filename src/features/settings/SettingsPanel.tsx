@@ -1,3 +1,4 @@
+import StoryIcon from '../../components/illustrations/StoryIcon';
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { ArrowUp, ArrowDown, Download, Upload, LogOut, Check } from 'lucide-react';
 import type { Locale, Preferences, Widget } from '../../types/domain';
@@ -270,11 +271,17 @@ export default function SettingsPanel({
         )}
       </div>
       <section className="settings-section">
-        <h2>{t('ia.profile')}</h2>
+        <h2>
+          <StoryIcon kind="plant" size={20} />
+          {t('ia.profile')}
+        </h2>
         <p>{username || t('app.public')}</p>
       </section>
       <section className="settings-section settings-primary">
-        <h2>{t('ia.appearance')}</h2>
+        <h2>
+          <StoryIcon kind="sun" size={20} />
+          {t('ia.appearance')}
+        </h2>
         <div className="setting-row">
           <span>{t('settings.appearance')}</span>
           <div className="segmented">
@@ -305,7 +312,10 @@ export default function SettingsPanel({
       </section>
       <details className="settings-group">
         <summary>
-          <span>{t('ia.trainingSettings')}</span>
+          <span>
+            <StoryIcon kind="fitness" size={20} />
+            {t('ia.trainingSettings')}
+          </span>
           <small>
             {preferences.weightUnit} · {preferences.distanceUnit} ·{' '}
             {t(preferences.weekStart ? 'settings.monday' : 'settings.sunday')}
@@ -376,7 +386,10 @@ export default function SettingsPanel({
         <>
           <details className="settings-group">
             <summary>
-              <span>{t('settings.dashboard')}</span>
+              <span>
+                <StoryIcon kind="home" size={20} />
+                {t('settings.dashboard')}
+              </span>
               <small>
                 {widgets.filter((w) => w.visible && ['fitness', 'travel'].includes(w.key)).length} /
                 2
@@ -474,7 +487,12 @@ export default function SettingsPanel({
       {owner && (
         <>
           <details className="settings-group">
-            <summary>{t('ia.travelSettings')}</summary>
+            <summary>
+              <span>
+                <StoryIcon kind="camera" size={20} />
+                {t('ia.travelSettings')}
+              </span>
+            </summary>
             <div className="settings-section">
               {' '}
               <label className="setting-row">

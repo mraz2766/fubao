@@ -160,6 +160,7 @@ export function uploadPrepared(
   photo: PreparedPhoto,
   travelId: string,
   onProgress: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<TravelPhoto> {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest(),
@@ -171,6 +172,16 @@ export function uploadPrepared(
     request.open('POST', '/api/travel/photos');
     request.setRequestHeader('X-Fubao-CSRF', '1');
     request.timeout = 120000;
+    const cancel = () => {
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+      request.abort();
+    };
+    if (signal?.aborted) {
+      cancel();
+      return;
+    }
+    signal?.addEventListener('abort', cancel, { once: true });
+    request.addEventListener('loadend', () => signal?.removeEventListener('abort', cancel));
     let stall: ReturnType<typeof setTimeout>;
     const heartbeat = () => {
       clearTimeout(stall);

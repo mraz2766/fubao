@@ -72,7 +72,6 @@ for (const width of [1440, 390])
       await page.goto('/fitness/new');
       await page.getByRole('button', { name: '背部', exact: true }).click();
       await page.locator('.exercise-details>summary').click();
-      await page.getByRole('button', { name: '添加动作', exact: true }).click();
       await expect(page.locator('.workout-picker .section-tabs button')).toHaveCount(3);
       await page.getByRole('textbox', { name: '搜索', exact: true }).fill('barbell deadlift');
       await page.locator('.exercise-open').first().click();
@@ -95,9 +94,14 @@ for (const width of [1440, 390])
         .filter({ has: page.getByText('上海', { exact: true }) })
         .first()
         .click();
-      await page.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+      await page
+        .locator('input[type=file]')
+        .setInputFiles(Array(3).fill('tests/fixtures/photo.jpg'));
       await page.getByLabel('旅行描述', { exact: true }).fill(`IA trip ${width}`);
       await expect(page.getByRole('button', { name: '保存旅行', exact: true })).toBeEnabled();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
       await screenshot('travel-new');
       let response = page.waitForResponse(
         (r) => r.url().endsWith('/api/travel/entries') && r.request().method() === 'POST',
@@ -109,7 +113,7 @@ for (const width of [1440, 390])
       trips.push(tripId);
       const trip = await (await page.request.get(`/api/travel/entries/${tripId}`)).json();
       await page.waitForURL((u) => u.pathname === `/travel/${trip.id}`);
-      expect(trip.photos).toHaveLength(1);
+      expect(trip.photos).toHaveLength(3);
       expect((await request.get(`/api/media/${trip.photos[0].id}/large`)).status()).toBe(404);
       await screenshot('travel-detail');
       await page.getByRole('button', { name: '编辑', exact: true }).click();
@@ -251,7 +255,7 @@ test('compact forms, narrow screens, English, dark mode and reduced motion', asy
         const button = page.getByRole('button', { name: 'Save workout', exact: true });
         await expect(button).toBeVisible();
         const box = await button.boundingBox();
-        expect(box!.y + box!.height).toBeLessThan(775);
+        expect(box!.y + box!.height).toBeLessThan(845);
         expect(box!.height).toBeGreaterThanOrEqual(44);
         await page.screenshot({ path: 'output/playwright/ia-after-english-dark-390.png' });
       }

@@ -7,7 +7,7 @@ const { initial, locale } = Astro.props as { initial: Trip[]; locale: Locale };
 const t = translator(locale);
 ---
 
-<section class="travel-grid">
+<section class:list={['travel-grid', { 'travel-grid-single': initial.length === 1 }]}>
   {initial.map((trip) => (
     <a class="travel-card card-link" href={`/travel/${trip.id}`}>
       <div class="travel-cover">
