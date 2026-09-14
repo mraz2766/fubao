@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { ImagePlus, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
 import type { Locale, Location, Trip, TravelPhoto } from '../../types/domain';
 import { translator } from '../../lib/i18n';
-import { api, errorText } from '../../lib/api';
+import { api, errorText, ApiFailure } from '../../lib/api';
 import { tripSchema } from '../../lib/schemas';
 import { photoAccept, photoLimits } from '../../lib/photo-policy';
 import { useUnsaved } from '../../lib/use-unsaved';
@@ -116,8 +116,23 @@ export default function TravelEditor({
   }
   useEffect(() => {
     departed.current = false;
+    const restore = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      departed.current = false;
+      processingLock.current = false;
+      setProcessing(false);
+      setPhotos((items) =>
+        items.map((photo) =>
+          ['queued', 'processing', 'uploading'].includes(photo.stage)
+            ? { ...photo, stage: 'error', error: errorText(new ApiFailure('NETWORK'), locale) }
+            : photo,
+        ),
+      );
+    };
+    window.addEventListener('pageshow', restore);
     window.addEventListener('pagehide', stopUploads);
     return () => {
+      window.removeEventListener('pageshow', restore);
       window.removeEventListener('pagehide', stopUploads);
       stopUploads();
     };
