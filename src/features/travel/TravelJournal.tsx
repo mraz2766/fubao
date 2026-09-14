@@ -1,9 +1,11 @@
 import { useRef, useState, lazy, Suspense } from 'react';
-import { MapPin, Check, Pencil } from 'lucide-react';
+import { Check, Pencil } from 'lucide-react';
 import type { Locale, Trip } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { tripName } from '../../lib/travel-presentation';
 import TravelEditor from './TravelEditor';
+import StoryIcon from '../../components/illustrations/StoryIcon';
+import StoryScene from '../../components/illustrations/StoryScene';
 const TravelExtras = lazy(() => import('./TravelExtras'));
 export default function TravelJournal({
   locale,
@@ -23,38 +25,18 @@ export default function TravelJournal({
     dirty = useRef(false),
     composer = useRef<HTMLElement>(null);
   return (
-    <>
-      {owner && (
-        <section className="inline-composer travel-inline" id="record" ref={composer}>
-          <h2>
-            <MapPin size={20} />
-            {t(editing ? 'common.edit' : 'inline.trip')}
-          </h2>
-          {saved && (
-            <p role="status" className="journal-success">
-              <Check size={17} />
-              {t('inline.saved')}
-            </p>
-          )}
-          <TravelEditor
-            key={serial}
-            locale={locale}
-            inline
-            initial={editing}
-            onDirtyChange={(value) => {
-              dirty.current = value;
-              if (value) setSaved(false);
-            }}
-            onClose={() => {}}
-            onSaved={(trip) => {
-              setItems((old) => [trip, ...old.filter((x) => x.id !== trip.id)]);
-              setSaved(true);
-              setEditing(undefined);
-              setSerial((n) => n + 1);
-            }}
-          />
-        </section>
-      )}
+    <div className="travel-journal">
+      <div className="travel-journal-heading">
+        <h2>
+          <StoryIcon kind="travel" size={25} />
+          {t('story.places')}
+        </h2>
+        {owner && (
+          <a href="#record" className="button button-secondary">
+            {t('travel.add')}
+          </a>
+        )}
+      </div>
       <section className="travel-grid journal-section">
         {items.map((trip) => (
           <article className="travel-card" key={trip.id}>
@@ -90,7 +72,43 @@ export default function TravelJournal({
           </article>
         ))}
       </section>
-      {!items.length && <p className="muted">{t('travel.noTrips')}</p>}
+      {!items.length && (
+        <div className="travel-empty">
+          <StoryScene kind="travel" />
+          <p>{t('travel.noTrips')}</p>
+        </div>
+      )}
+      {owner && (
+        <section className="inline-composer travel-inline" id="record" ref={composer}>
+          <h2>
+            <StoryIcon kind="camera" size={28} />
+            {t(editing ? 'common.edit' : 'inline.trip')}
+          </h2>
+          {saved && (
+            <p role="status" className="journal-success">
+              <Check size={17} />
+              {t('inline.saved')}
+            </p>
+          )}
+          <TravelEditor
+            key={serial}
+            locale={locale}
+            inline
+            initial={editing}
+            onDirtyChange={(value) => {
+              dirty.current = value;
+              if (value) setSaved(false);
+            }}
+            onClose={() => {}}
+            onSaved={(trip) => {
+              setItems((old) => [trip, ...old.filter((x) => x.id !== trip.id)]);
+              setSaved(true);
+              setEditing(undefined);
+              setSerial((n) => n + 1);
+            }}
+          />
+        </section>
+      )}
       <div className="journal-tools">
         {(['map', 'wishlist'] as const).map((kind) => (
           <button
@@ -105,10 +123,12 @@ export default function TravelJournal({
         <a href="/travel?view=discover">{t('travel.discover')}</a>
       </div>
       {extras && (
-        <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
-          <TravelExtras key={extras} locale={locale} owner={owner} kind={extras} />
-        </Suspense>
+        <div className="travel-extras">
+          <Suspense fallback={<p role="status">{t('common.loading')}</p>}>
+            <TravelExtras key={extras} locale={locale} owner={owner} kind={extras} />
+          </Suspense>
+        </div>
       )}
-    </>
+    </div>
   );
 }

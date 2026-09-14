@@ -408,5 +408,12 @@
   "inline.recent": "最近训练",
   "inline.map": "查看地图",
   "inline.again": "再记录一次",
-  "inline.places": "个地方"
+  "inline.places": "个地方",
+  "story.greeting": "今天也慢慢来。",
+  "story.today": "今日训练",
+  "story.month": "本月训练",
+  "story.places": "去过的地方",
+  "story.latest": "最近一次",
+  "story.noWeek": "这周还没有训练记录。",
+  "story.noMonth": "这个月还没有训练记录。"
 }

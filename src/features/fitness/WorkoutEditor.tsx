@@ -545,6 +545,12 @@ export default function WorkoutEditor({
               </label>
             </div>
           )}
+          <WorkoutTiming
+            workout={workout}
+            locale={locale}
+            expanded={inline}
+            onApply={(p) => patch(p, true)}
+          />
           <fieldset className="parts-field">
             <legend>{t('simple.trainingItems')}</legend>
             <div className="part-options">
@@ -591,7 +597,6 @@ export default function WorkoutEditor({
               {t('simple.supplement')} · {t('simple.optional')}
             </summary>
             <div className="form">
-              <WorkoutTiming workout={workout} locale={locale} onApply={(p) => patch(p, true)} />
               <label className="field">
                 <span>
                   {t('fitness.type')} · {t('simple.optional')}

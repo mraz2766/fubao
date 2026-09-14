@@ -1,15 +1,17 @@
 ---
 import '../styles/global.css';
-import { House, Dumbbell, MapPin, Settings, ArrowUpRight } from 'lucide-react';
+import '../styles/themes/storybook.css';
+import StoryIcon from '../components/illustrations/StoryIcon';
+import { ArrowUpRight } from 'lucide-react';
 import { translator } from '../lib/i18n';
 const { title, active = 'home' } = Astro.props;
 const locale = Astro.locals.locale ?? 'zh-CN';
 const t = translator(locale);
 const nav = [
-  ['home', '/', House],
-  ['fitness', '/fitness', Dumbbell],
-  ['travel', '/travel', MapPin],
-  ['settings', '/settings', Settings],
+  ['home', '/', 'home'],
+  ['fitness', '/fitness', 'fitness'],
+  ['travel', '/travel', 'travel'],
+  ['settings', '/settings', 'settings'],
 ] as const;
 ---
 
@@ -22,7 +24,7 @@ const nav = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f6f7f8" />
+    <meta name="theme-color" content="#f5f1e7" />
     <meta name="description" content={t('app.tagline')} />
     <title>{title} · Fubao</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
@@ -48,7 +50,7 @@ const nav = [
             .querySelector('meta[name="theme-color"]')
             ?.setAttribute(
               'content',
-              document.documentElement.dataset.theme === 'dark' ? '#151618' : '#f6f7f8',
+              document.documentElement.dataset.theme === 'dark' ? '#242820' : '#f5f1e7',
             );
         } catch {}
       })();
@@ -61,7 +63,7 @@ const nav = [
     <aside class="sidebar">
       <a href="/" class="brand" aria-label="Fubao">
         <span class="brand-mark" aria-hidden="true">
-          f
+          <StoryIcon kind="plant" size={31} />
         </span>
         <span>fubao.</span>
       </a>
@@ -72,7 +74,7 @@ const nav = [
             class:list={['nav-item', { active: active === key }]}
             aria-current={active === key ? 'page' : undefined}
           >
-            <Icon size={19} strokeWidth={1.6} />
+            <StoryIcon kind={Icon} size={25} />
             <span>{t(`nav.${key}`)}</span>
           </a>
         ))}
@@ -89,7 +91,7 @@ const nav = [
     <div class="mobile-header">
       <a href="/" class="brand">
         <span class="brand-mark" aria-hidden="true">
-          f
+          <StoryIcon kind="plant" size={31} />
         </span>
         fubao.
       </a>
@@ -104,7 +106,7 @@ const nav = [
           class:list={['nav-item', { active: active === key }]}
           aria-current={active === key ? 'page' : undefined}
         >
-          <Icon size={21} strokeWidth={1.6} />
+          <StoryIcon kind={Icon} size={27} />
           <span>{t(`nav.${key}`)}</span>
         </a>
       ))}

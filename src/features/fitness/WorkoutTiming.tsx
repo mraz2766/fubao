@@ -7,16 +7,17 @@ export default function WorkoutTiming({
   workout,
   locale,
   onApply,
+  expanded = false,
 }: {
   workout: Workout;
+  expanded?: boolean;
   locale: Locale;
   onApply: (patch: Partial<Workout>) => void;
 }) {
   const t = translator(locale),
     [error, setError] = useState('');
-  return (
-    <details className="record-more">
-      <summary>{t('simple.preciseTime')}</summary>
+  const fields = (
+    <>
       <div className="form-row">
         {(['start_at', 'end_at'] as const).map((key) => (
           <label className="field" key={key}>
@@ -68,6 +69,14 @@ export default function WorkoutTiming({
           {error}
         </p>
       )}
+    </>
+  );
+  return expanded ? (
+    fields
+  ) : (
+    <details className="record-more">
+      <summary>{t('simple.preciseTime')}</summary>
+      {fields}
     </details>
   );
 }

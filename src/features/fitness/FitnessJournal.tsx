@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
-import { Check, Dumbbell, Clock3, Pencil } from 'lucide-react';
+import { Check, Clock3, Pencil } from 'lucide-react';
 import type { Locale, Preferences, Workout } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { fitnessSummary, knownWorkoutSeconds, workoutDay } from '../../lib/analytics';
 import { zonedISO } from '../../lib/fitness-recording';
 import { api, errorText } from '../../lib/api';
 import WorkoutEditor from './WorkoutEditor';
+import StoryIcon from '../../components/illustrations/StoryIcon';
 export default function FitnessJournal({
   locale,
   preferences,
@@ -80,7 +81,11 @@ export default function FitnessJournal({
     const day = workoutDay(w, preferences.timezone);
     return day >= summary.weekStart && day <= summary.today;
   });
-  const recent = completed.filter((w) => !week.some((x) => x.id === w.id)).slice(0, 5);
+  const month = completed.filter(
+    (w) => workoutDay(w, preferences.timezone).slice(0, 7) === summary.today.slice(0, 7),
+  );
+  const recent = month.filter((w) => !week.some((x) => x.id === w.id)).slice(0, 5);
+  const monthSeconds = month.reduce((sum, w) => sum + (knownWorkoutSeconds(w) ?? 0), 0);
   const seconds = week.reduce((sum, w) => sum + (knownWorkoutSeconds(w) ?? 0), 0);
   function rows(records: Workout[]) {
     return records.map((w) => (
@@ -91,7 +96,7 @@ export default function FitnessJournal({
         disabled={loading}
         onClick={() => void edit(w.id)}
       >
-        <Dumbbell size={18} />
+        <StoryIcon kind="fitness" size={23} />
         <span>
           <strong>{w.title}</strong>
           <small>
@@ -109,8 +114,8 @@ export default function FitnessJournal({
     <>
       <section id="record" className="inline-composer fitness-composer" ref={editor}>
         <h2>
-          <Dumbbell size={20} />
-          {editing ? t('common.edit') : t('inline.workout')}
+          <StoryIcon kind="fitness" size={28} />
+          {editing ? t('common.edit') : t('story.today')}
         </h2>
         {saved && (
           <p className="journal-success" role="status">
@@ -155,14 +160,20 @@ export default function FitnessJournal({
             ? ` · ${Math.round(seconds / 60)} ${t('common.minutes')}`
             : ''}
         </p>
-        {week.length ? rows(week) : <p className="muted">{t('dashboard.noWorkout')}</p>}
+        {week.length ? rows(week) : <p className="muted">{t('story.noWeek')}</p>}
       </section>
-      {!!recent.length && (
+      {
         <section className="journal-section">
-          <h2>{t('inline.recent')}</h2>
+          <h2>{t('story.month')}</h2>
+          <p className="small muted">
+            {month.length} {t('common.times')}
+            {month.some((w) => knownWorkoutSeconds(w) !== null)
+              ? ` · ${Math.round(monthSeconds / 60)} ${t('common.minutes')}`
+              : ''}
+          </p>
           {rows(recent)}
         </section>
-      )}
+      }
       <nav className="journal-tools">
         <a href="/fitness?view=history">{t('fitness.history')}</a>
         <a href="/fitness?view=analytics">{t('fitness.analytics')}</a>

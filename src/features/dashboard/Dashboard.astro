@@ -1,5 +1,7 @@
 ---
-import { Dumbbell, MapPin, Plus, Clock3 } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
+import StoryIcon from '../../components/illustrations/StoryIcon';
+import StoryScene from '../../components/illustrations/StoryScene';
 import { translator } from '../../lib/i18n';
 import { fitnessSummary, knownWorkoutSeconds } from '../../lib/analytics';
 import { tripName } from '../../lib/travel-presentation';
@@ -10,7 +12,6 @@ const {
   widgets,
   preferences,
   locale,
-  owner = false,
   places = 0,
 } = Astro.props as {
   workouts: Workout[];
@@ -36,27 +37,37 @@ const visible = widgets
 
 <div class="home-pair home-bento">
   {visible.map((widget, index) => (
-    <section
+    <a
+      href={widget.key === 'fitness' ? '/fitness' : '/travel'}
       class:list={['home-life-card', 'dashboard-' + widget.key]}
       style={`--entry-order:${index}`}
     >
-      <h2>
-        <span class="life-icon">
-          {widget.key === 'fitness' ? <Dumbbell size={23} /> : <MapPin size={23} />}
+      <div class="story-card-heading">
+        <h2>
+          <StoryIcon kind={widget.key === 'fitness' ? 'fitness' : 'travel'} size={30} />
+          {t(widget.key === 'fitness' ? 'nav.fitness' : 'nav.travel')}
+        </h2>
+        <span class="story-card-arrow" aria-hidden="true">
+          ↗
         </span>
-        {t(widget.key === 'fitness' ? 'nav.fitness' : 'nav.travel')}
-      </h2>
+      </div>
       {widget.key === 'fitness' ? (
         <>
           <h3>{today ? name(today) : t('dashboard.noWorkout')}</h3>
-          <p>
-            {t('dashboard.week')} <strong>{summary.weekCount}</strong> {t('common.times')}
-          </p>
+          <div class="story-counts">
+            <span>
+              {t('dashboard.week')} <strong>{summary.weekCount}</strong> {t('common.times')}
+            </span>
+            <span>
+              {t('dashboard.month')} <strong>{summary.monthCount}</strong> {t('common.times')}
+            </span>
+          </div>
+          <StoryScene kind="fitness" />
           {latest && (
             <p class="life-recent">
               <Clock3 size={16} />
               <span>
-                {t('inline.recent')}：{name(latest)}
+                {t('story.latest')} · {name(latest)}
                 {knownWorkoutSeconds(latest) !== null &&
                   ` · ${Math.round(knownWorkoutSeconds(latest)! / 60)} ${t('common.minutes')}`}
               </span>
@@ -66,7 +77,7 @@ const visible = widgets
       ) : (
         <>
           {trip ? (
-            <a href={`/travel/${trip.id}`} class="life-photo">
+            <div class="life-photo">
               <img
                 src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
                 alt={tripName(trip, locale)}
@@ -83,9 +94,12 @@ const visible = widgets
                   </time>
                 )}
               </span>
-            </a>
+            </div>
           ) : (
-            <p class="muted">{t('travel.noTrips')}</p>
+            <>
+              <p class="muted">{t('travel.noTrips')}</p>
+              <StoryScene kind="travel" />
+            </>
           )}
           {places > 0 && (
             <p class="small muted">
@@ -94,15 +108,6 @@ const visible = widgets
           )}
         </>
       )}
-      {owner && (
-        <a
-          class="button button-secondary life-record"
-          href={widget.key === 'fitness' ? '/fitness#record' : '/travel#record'}
-        >
-          <Plus size={17} />
-          {t(widget.key === 'fitness' ? 'inline.workout' : 'travel.add')}
-        </a>
-      )}
-    </section>
+    </a>
   ))}
 </div>

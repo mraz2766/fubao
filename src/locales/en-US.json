@@ -408,5 +408,12 @@
   "inline.recent": "Recent workouts",
   "inline.map": "View map",
   "inline.again": "Record another",
-  "inline.places": "places"
+  "inline.places": "places",
+  "story.greeting": "Take today at your own pace.",
+  "story.today": "Today’s workout",
+  "story.month": "This month",
+  "story.places": "Places visited",
+  "story.latest": "Last workout",
+  "story.noWeek": "No workouts this week yet.",
+  "story.noMonth": "No workouts this month yet."
 }

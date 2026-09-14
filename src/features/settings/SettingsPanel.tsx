@@ -39,7 +39,7 @@ function applyLocal(p: Preferences) {
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute(
       'content',
-      document.documentElement.dataset.theme === 'dark' ? '#151618' : '#f6f7f8',
+      document.documentElement.dataset.theme === 'dark' ? '#242820' : '#f5f1e7',
     );
 }
 export default function SettingsPanel({
