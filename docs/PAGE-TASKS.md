@@ -36,7 +36,7 @@
 - `pnpm build`：Astro/TypeScript 检查零错误，Workers 构建通过。
 - `pnpm test`：63 项通过。
 - `pnpm db:migrate`：在已有本地库成功应用 0007；没有删除原记录。
-- `pnpm exec playwright test tests/e2e/task-flow.spec.ts tests/e2e/data.spec.ts tests/e2e/settings.spec.ts`：7 项通过（最后一次 31.8 秒）。
+- `pnpm exec playwright test tests/e2e/task-flow.spec.ts tests/e2e/data.spec.ts tests/e2e/settings.spec.ts`：9 项通过（最后一次 32.9 秒）。
 
 1440px 和 390px 均实际通过 UI 登录、从首页进入健身、只选背部和 60 分钟保存、搜索并加入硬拉/输入 80kg×5/记一组/保存、查看只读详情、取消编辑验证未写入、保存修改；进入旅行、搜索上海、上传真实 JPEG、保存、详情、修改描述、模拟地点服务 503 后保存手动地点；最后检查设置分组。
 
@@ -52,7 +52,7 @@
 - `ia-after-{home,fitness,workout-new,workout-exercise,workout-detail,travel,travel-new,travel-detail,settings}-{1440,390}.png`：修改后实际流程。
 - `ia-after-home-with-photo-{1440,390}.png`：保存旅行后的首页。
 - `ia-after-english-dark-390.png`：英文暗色手机表单。
-- `report/index.html`：上述七项测试的报告。
+- `report/index.html`：上述九项测试的报告。
 
 照片截图中的彩色图片是测试夹具，不是新增的装饰素材。测试只清理本次创建的记录；没有清理生产数据。
 
@@ -101,3 +101,13 @@
 - `src/pages/travel/new.astro`
 - `src/styles/task-pages.css`
 - `tests/e2e/task-flow.spec.ts`
+
+## 线上复核发现的登录加载问题
+
+首次线上复核发现：脚本尚未加载完成时，登录表单会使用浏览器默认提交方式。补充了 hydration 就绪状态、加载期间禁用字段和提交，并显式声明 POST 防止默认 GET；不改变登录接口或密码。新增浏览器延迟 JS 加载的回归测试。
+
+追加文件：`src/features/settings/Login.tsx`。
+
+进行中训练的显式编辑保存仍保留 active/draft 状态；只有主动使用“更多”内的“完成训练”才结束，已添加专门回归测试。
+
+首次主发布 `cf13612` 的 GitHub 检查与 Cloudflare Workers Builds 均成功，线上 1440/390px 已验证登录、两张首页卡、训练/旅行列表及新建后取消、设置分组，未写入生产业务记录。登录保护随下一次修正提交发布。

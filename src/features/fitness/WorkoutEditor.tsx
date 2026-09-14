@@ -286,7 +286,8 @@ export default function WorkoutEditor({
     [exercises[index], exercises[index + delta]] = [exercises[index + delta]!, exercises[index]!];
     patch({ exercises }, true);
   }
-  async function finish() {
+  async function finish(finalize = false) {
+    const completes = fresh || initial.status === 'completed' || !manual || finalize;
     if (finishing) return;
     setError('');
     const exercises = workout.exercises.map((e) => ({
@@ -296,9 +297,10 @@ export default function WorkoutEditor({
     const input = {
       ...workout,
       exercises,
-      status: 'completed',
-      end_at:
-        workout.time_precision === 'date'
+      status: completes ? 'completed' : workout.status,
+      end_at: !completes
+        ? workout.end_at
+        : workout.time_precision === 'date'
           ? null
           : (workout.end_at ?? (workout.status === 'active' ? new Date().toISOString() : null)),
     };
@@ -344,7 +346,7 @@ export default function WorkoutEditor({
             : workout.title.trim(),
         end_at: input.end_at,
       });
-      const saved = await save(true);
+      const saved = await save(completes);
       allowNavigation();
       queueSaveFeedback('workout', saved.id);
       if (onSaved) onSaved(saved);
@@ -609,6 +611,11 @@ export default function WorkoutEditor({
                 expanded={false}
                 onApply={(p) => patch(p, true)}
               />
+              {manual && !fresh && initial.status !== 'completed' && (
+                <Button type="button" onClick={() => void finish(true)}>
+                  {t('fitness.finish')}
+                </Button>
+              )}
               <label className="field">
                 <span>
                   {t('fitness.type')} · {t('simple.optional')}

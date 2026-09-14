@@ -132,14 +132,24 @@ for (const width of [1440, 390])
       ).toBeVisible();
       await page.goto('/');
       await screenshot('home-with-photo');
-      if(width===390) expect((await page.locator('.dashboard-travel').boundingBox())!.y + (await page.locator('.dashboard-travel').boundingBox())!.height).toBeLessThan(772);
-      await page.setViewportSize({width,height:400});
+      if (width === 390)
+        expect(
+          (await page.locator('.dashboard-travel').boundingBox())!.y +
+            (await page.locator('.dashboard-travel').boundingBox())!.height,
+        ).toBeLessThan(772);
+      await page.setViewportSize({ width, height: 400 });
       await page.goto('/travel');
-      await page.evaluate(()=>scrollTo(0,120));
+      await page.evaluate(() => scrollTo(0, 120));
       await page.locator('.travel-card').first().click();
       await page.locator('a[data-travel-back]').click();
-      await expect.poll(async()=>page.evaluate(()=>Math.abs(scrollY-JSON.parse(sessionStorage.getItem('fubao.travel-scroll')!).y))).toBeLessThan(3);
-      await page.setViewportSize({width,height:844});
+      await expect
+        .poll(async () =>
+          page.evaluate(() =>
+            Math.abs(scrollY - JSON.parse(sessionStorage.getItem('fubao.travel-scroll')!).y),
+          ),
+        )
+        .toBeLessThan(3);
+      await page.setViewportSize({ width, height: 844 });
       await page.goto('/settings');
       await page.getByText('默认训练设置', { exact: true }).click();
       await screenshot('settings');
@@ -246,5 +256,67 @@ test('compact forms, narrow screens, English, dark mode and reduced motion', asy
         await page.screenshot({ path: 'output/playwright/ia-after-english-dark-390.png' });
       }
     }
+  }
+});
+
+test('login cannot submit before hydration on a slow connection', async ({ page }) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/_astro/*.js', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('input[name=username]')).toBeDisabled();
+  await expect(page.locator('form')).toHaveAttribute('method', 'post');
+  await expect(page.locator('button[type=submit]')).toBeDisabled();
+  expect(new URL(page.url()).search).toBe('');
+  release();
+  await page.getByLabel('用户名', { exact: true }).fill('fubao');
+  await page.getByLabel('密码', { exact: true }).fill('fubao');
+  await page.getByRole('button', { name: '进入 Fubao', exact: true }).click();
+  await page.waitForURL((u) => u.pathname === '/');
+});
+
+test('editing an in-progress workout does not silently complete it', async ({ page }) => {
+  await page.request.post('/api/auth/login', {
+    headers,
+    data: { username: 'fubao', password: 'fubao' },
+  });
+  const id = crypto.randomUUID();
+  const created = await page.request.post('/api/fitness/sessions', {
+    headers,
+    data: {
+      id,
+      title: 'In progress regression',
+      mode: 'quick',
+      status: 'active',
+      body_parts: ['back'],
+      start_at: new Date().toISOString(),
+      end_at: null,
+      timezone: 'Asia/Shanghai',
+      note: '',
+      visibility: 'private',
+      exercises: [],
+    },
+  });
+  expect(created.ok()).toBe(true);
+  try {
+    await page.goto(`/fitness/${id}/edit`);
+    await page.getByLabel('备注', { exact: true }).fill('Still training');
+    await page.getByRole('button', { name: '保存修改', exact: true }).click();
+    await page.waitForURL((u) => u.pathname === `/fitness/${id}`);
+    expect((await (await page.request.get(`/api/fitness/sessions/${id}`)).json()).status).toBe(
+      'active',
+    );
+    await page.getByRole('button', { name: '编辑', exact: true }).click();
+    await page.locator('.record-metadata>summary').click();
+    await page.getByRole('button', { name: '完成训练', exact: true }).click();
+    await page.waitForURL((u) => u.pathname === `/fitness/${id}`);
+    expect((await (await page.request.get(`/api/fitness/sessions/${id}`)).json()).status).toBe(
+      'completed',
+    );
+  } finally {
+    await page.request.delete(`/api/fitness/sessions/${id}`, { headers });
   }
 });
