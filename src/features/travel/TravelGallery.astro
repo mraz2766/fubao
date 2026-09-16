@@ -11,13 +11,18 @@ const t = translator(locale);
   {initial.map((trip) => (
     <a class="travel-card card-link" href={`/travel/${trip.id}`}>
       <div class="travel-cover">
-        <img
-          src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
-          width="480"
-          height="360"
-          alt={tripName(trip, locale)}
-          loading="lazy"
-        />
+        {trip.photos[0] ? (
+          <img
+            src={`/api/media/${trip.photos[0]?.id}/thumbnail`}
+            width="480"
+            height="360"
+            alt={tripName(trip, locale)}
+            decoding="async"
+            loading="lazy"
+          />
+        ) : (
+          <StoryScene kind="travel" />
+        )}
       </div>
       <h2>{tripName(trip, locale)}</h2>
       <p class="muted small">{trip.start_date ?? t('common.undated')}</p>

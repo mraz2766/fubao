@@ -1,0 +1,35 @@
+---
+import type { Workout, Locale } from '../../types/domain';
+import { exerciseName } from '../../lib/i18n';
+import StoryIcon from '../illustrations/StoryIcon';
+const { workouts, locale, owner } = Astro.props as {
+  workouts: Workout[];
+  locale: Locale;
+  owner: boolean;
+};
+const zh = locale === 'zh-CN';
+---
+
+<section class="today-workout">
+  <div class="section-heading">
+    <h2>{zh ? '今日训练' : 'Today’s workout'}</h2>
+    <StoryIcon kind="fitness" size={28} />
+  </div>
+  {workouts.length ? (
+    workouts.map((w) => (
+      <a class="today-record" href={`/fitness/${w.id}`}>
+        <strong>{w.title}</strong>
+        <span class="muted">
+          {w.exercises.map((e) => exerciseName(e, locale)).join(' · ') ||
+            (zh ? '已记录今天的运动' : 'Your movement, recorded')}
+        </span>
+        <span class="text-link">{zh ? '查看详情' : 'View workout'} ›</span>
+      </a>
+    ))
+  ) : (
+    <p class="today-empty">{zh ? '今天还没有训练' : 'No workout yet today'}</p>
+  )}
+  <a class="button button-primary" href={owner ? '/fitness/new' : '/login'}>
+    ＋ {zh ? '记录训练' : 'Record workout'}
+  </a>
+</section>

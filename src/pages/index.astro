@@ -1,55 +1,68 @@
 ---
 import Base from '../layouts/Base.astro';
-import { translator } from '../lib/i18n';
-import Dashboard from '../features/dashboard/Dashboard.astro';
-import { greetingAt } from '../features/dashboard/presentation';
-import StoryIcon from '../components/illustrations/StoryIcon';
-import { fitnessOverview } from '../server/services/fitness-overview';
+import TodayWorkout from '../components/app/TodayWorkout.astro';
+import TravelGallery from '../features/travel/TravelGallery.astro';
+import { listWorkouts } from '../server/services/fitness';
+import { workoutSummaries } from '../server/services/fitness-overview';
+import { listTrips } from '../server/services/travel';
 import { getWidgets } from '../server/services/settings';
-import { listTrips, travelCounts } from '../server/services/travel';
-const t = translator(Astro.locals.locale);
-const [overview, widgets, trips, counts] = await Promise.all([
-  fitnessOverview(Astro.locals.user, Astro.locals.preferences, 31),
-  getWidgets(),
-  listTrips(Astro.locals.user, undefined, { limit: 2 }),
-  travelCounts(Astro.locals.user),
+import { dayKey, shiftDay } from '../lib/analytics';
+const { user, locale, preferences } = Astro.locals;
+const zh = locale === 'zh-CN',
+  now = new Date(),
+  today = dayKey(now, preferences.timezone);
+const [summaries, trips, widgets] = await Promise.all([
+  workoutSummaries(user, preferences.timezone, { from: today, to: shiftDay(today, 1) }),
+  listTrips(user, undefined, { limit: 1 }),
+  getWidgets(user?.id),
 ]);
-const now = new Date();
-const greeting = greetingAt(now, Astro.locals.preferences.timezone);
+const workouts = (await Promise.all(summaries.map((w) => listWorkouts(user, w.id)))).flat();
+const sections = widgets
+  .filter((w) => w.visible && ['fitness', 'travel'].includes(w.key))
+  .sort((a, b) => a.order - b.order);
 ---
 
-<Base title={t('nav.home')}>
+<Base title={zh ? '首页' : 'Home'}>
   <header class="page-header home-header">
     <div>
-      <span class="eyebrow">
-        {new Intl.DateTimeFormat(Astro.locals.locale, {
-          month: 'short',
+      <h1>{zh ? '今天，也慢慢来。' : 'A little life, today.'}</h1>
+      <p class="muted">
+        {new Intl.DateTimeFormat(locale, {
+          month: 'long',
           day: 'numeric',
-          timeZone: Astro.locals.preferences.timezone,
-        }).format(now)}{' '}
-        ·{' '}
-        {new Intl.DateTimeFormat(Astro.locals.locale, {
-          weekday: 'short',
-          timeZone: Astro.locals.preferences.timezone,
+          weekday: 'long',
+          timeZone: preferences.timezone,
         }).format(now)}
-      </span>
-      <h1>
-        <span class="greeting-icon" data-time={greeting}>
-          <StoryIcon kind={greeting === 'evening' ? 'moon' : 'sun'} size={32} />
-        </span>
-        {t(`dashboard.${greeting}`)}
-      </h1>
-      <p class="greeting-note">{t('story.greeting')}</p>
+      </p>
     </div>
   </header>
-  <Dashboard
-    places={counts.places}
-    workouts={overview.workouts}
-    trips={trips}
-    widgets={widgets}
-    preferences={Astro.locals.preferences}
-    locale={Astro.locals.locale}
-    owner={!!Astro.locals.user}
-    feedbackScope={Astro.locals.user?.id ?? 'public'}
-  />
+  <div class="home-journal">
+    {sections.map((section) =>
+      section.key === 'fitness' ? (
+        <TodayWorkout workouts={workouts} locale={locale} owner={!!user} />
+      ) : (
+        <section class="home-travel">
+          <div class="section-heading">
+            <h2>{zh ? '最近旅行' : 'Latest trip'}</h2>
+            <a class="text-link" href="/travel">
+              {zh ? '全部' : 'All'} ›
+            </a>
+          </div>
+          <TravelGallery initial={trips} locale={locale} />
+          {!trips.length && (
+            <a class="button button-secondary" href={user ? '/travel/new' : '/login'}>
+              ＋ {zh ? '新增旅行' : 'Add a trip'}
+            </a>
+          )}
+        </section>
+      ),
+    )}
+    {!sections.length && (
+      <p class="muted">
+        {zh
+          ? '从底部导航开始记录，或在设置中开启首页内容。'
+          : 'Start from the tabs below, or enable home sections in Settings.'}
+      </p>
+    )}
+  </div>
 </Base>

@@ -10,12 +10,10 @@ export default function TravelActions({ locale, trip }: { locale: Locale; trip?:
   const t = translator(locale),
     [open, setOpen] = useState(false),
     [pending, setPending] = useState(false),
-    [ready, setReady] = useState(false),
     [error, setError] = useState('');
   const picker = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   useEffect(() => {
-    setReady(true);
     if (new URLSearchParams(location.search).get('new') === '1') setOpen(true);
   }, []);
   async function remove() {
@@ -36,6 +34,10 @@ export default function TravelActions({ locale, trip }: { locale: Locale; trip?:
           <details className="view-menu action-menu">
             <summary aria-label={t('simple.more')}>···</summary>
             <div className="action-menu-content">
+              <a className="button button-ghost" href={`/travel/${trip.id}/edit`}>
+                <Pencil size={17} />
+                {t('common.edit')}
+              </a>
               <Button
                 variant="ghost"
 
@@ -67,13 +69,12 @@ export default function TravelActions({ locale, trip }: { locale: Locale; trip?:
             }}
           />
         )}
-        <Button
-          disabled={!ready || pending}
-          onClick={() => location.assign(trip ? `/travel/${trip.id}/edit` : '/travel/new')}
-        >
-          {trip ? <Pencil size={15} /> : <Plus size={16} />}{' '}
-          {trip ? t('common.edit') : t('travel.add')}
-        </Button>
+        {!trip && (
+          <a className="button button-primary" href="/travel/new">
+            <Plus size={16} />
+            {t('travel.add')}
+          </a>
+        )}
       </div>
       {error && (
         <p className="form-message error" role="alert">

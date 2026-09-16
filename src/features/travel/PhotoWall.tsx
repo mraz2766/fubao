@@ -79,7 +79,11 @@ export default function PhotoWall({
                     alt={p.label}
                     width={p.width}
                     height={p.height}
-                    sizes="(max-width: 640px) 45vw, 25vw"
+                    sizes={
+                      detail
+                        ? '(max-width: 680px) calc(100vw - 40px), 640px'
+                        : '(max-width: 640px) 45vw, 25vw'
+                    }
                     loading="lazy"
                     decoding="async"
                   />

@@ -103,13 +103,10 @@ export default function WorkoutActions({
                 </Button>
               </div>
             </details>
-            <Button
-              disabled={!ready}
-              onClick={() => location.assign(`/fitness/${workout.id}/edit`)}
-            >
+            <a className="button button-secondary" href={`/fitness/${workout.id}/edit`}>
               <Pencil size={15} />
               {t('common.edit')}
-            </Button>
+            </a>
           </>
         ) : (
           <Button variant="secondary" disabled={pending || !ready} onClick={() => void launch()}>

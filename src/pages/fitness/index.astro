@@ -3,6 +3,7 @@ import { fitnessOverview } from '../../server/services/fitness-overview';
 import { ProgressBar } from '../../components/ui/progress-bar';
 import WorkoutHistoryList from '../../features/fitness/WorkoutHistoryList.astro';
 import Base from '../../layouts/Base.astro';
+import TodayWorkout from '../../components/app/TodayWorkout.astro';
 
 import ExerciseSearch from '../../features/fitness/ExerciseSearch';
 import HistoryCalendar from '../../features/fitness/HistoryCalendar';
@@ -40,6 +41,18 @@ const workouts = overview
       ? await listWorkouts(user)
       : [],
   summary = fitnessSummary(overview?.workouts ?? workouts, preferences);
+const todayWorkouts = overview
+  ? (
+      await Promise.all(
+        overview.workouts
+          .filter((w) => workoutDay(w, preferences.timezone) === overview.today)
+          .map((w) => {
+            const loaded = workouts.find((item) => item.id === w.id);
+            return loaded ? [loaded] : listWorkouts(user, w.id);
+          }),
+      )
+    ).flat()
+  : [];
 const filtered = selected
   ? workouts.filter((w) => workoutDay(w, preferences.timezone) === selected)
   : workouts;
@@ -79,45 +92,34 @@ const muscles =
 <Base title={t('nav.fitness')} active="fitness">
   <header class="page-header">
     <div>
-      <h1>{t('fitness.title')}</h1>
+      <h1>{locale === 'zh-CN' ? '训练' : 'Training'}</h1>
     </div>
   </header>
-  <nav class="section-tabs task-tabs" aria-label={t('nav.fitness')}>
-    {(
-      [
-        ['today', 'fitness.history'],
-        ['analytics', 'fitness.analytics'],
-        ['templates', 'fitness.templates'],
-        ['library', 'fitness.library'],
-      ] as const
-    ).map(([key, label]) => (
-      <a
-        class:list={{ active: view === key || (key === 'today' && view === 'history') }}
-        href={`/fitness?view=${key}`}
-      >
-        {t(label)}
-      </a>
-    ))}
-  </nav>
+  <details class="view-menu">
+    <summary>{locale === 'zh-CN' ? '更多训练工具' : 'Training tools'}</summary>
+    <nav class="secondary-links" aria-label={t('nav.fitness')}>
+      {(
+        [
+          ['today', 'fitness.history'],
+          ['history', 'fitness.history'],
+          ['analytics', 'fitness.analytics'],
+          ['templates', 'fitness.templates'],
+          ['library', 'fitness.library'],
+        ] as const
+      ).map(([key, label]) => (
+        <a
+          class:list={{ active: view === key || (key === 'today' && view === 'history') }}
+          href={`/fitness?view=${key}`}
+        >
+          {key === 'history' ? (locale === 'zh-CN' ? '按日期查看' : 'Calendar') : t(label)}
+        </a>
+      ))}
+    </nav>
+  </details>
   {isView('today') && (
     <section class="fitness-workspace">
-      <div class="workspace-intro">
-        <p>{summary.todayWorkouts.length ? t('ia.todayTrained') : t('dashboard.noWorkout')}</p>
-        <p class="muted">
-          {t('dashboard.week')}: {summary.weekCount} · {t('dashboard.month')}: {summary.monthCount}
-        </p>
-        {user && (
-          <a class="button button-primary" href="/fitness/new">
-            + {t('ia.recordToday')}
-          </a>
-        )}
-        {overview?.recent[0] && (
-          <p class="small muted">
-            {t('story.latest')} · {overview.recent[0].title}
-          </p>
-        )}
-      </div>
-      <h2 class="section-title">{t('fitness.history')}</h2>
+      <TodayWorkout workouts={todayWorkouts} locale={locale} owner={!!user} />
+      <h2 class="section-title">{locale === 'zh-CN' ? '最近训练' : 'Recent workouts'}</h2>
       <WorkoutHistoryList
         workouts={workouts.slice(0, 20)}
         locale={locale}

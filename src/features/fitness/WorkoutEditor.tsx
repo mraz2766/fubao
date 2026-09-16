@@ -40,6 +40,7 @@ export default function WorkoutEditor({
   initial,
   onClose,
   onDirtyChange,
+  onPendingChange,
   openSearch = false,
   inline = false,
   fresh = false,
@@ -56,6 +57,7 @@ export default function WorkoutEditor({
   onSaved?: (workout: Workout) => void;
   onClose?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const t = translator(locale),
     automatic = !fresh && !manual;
@@ -103,6 +105,10 @@ export default function WorkoutEditor({
     }
   }, []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    onPendingChange?.(finishing);
+    return () => onPendingChange?.(false);
+  }, [finishing, onPendingChange]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 30000);
@@ -253,7 +259,7 @@ export default function WorkoutEditor({
           : '',
       ]
         .filter(Boolean)
-        .join(' · ') || t(set.completed ? 'fitness.completed' : 'simple.notRecorded')
+        .join(' × ') || t(set.completed ? 'fitness.completed' : 'simple.notRecorded')
     );
   }
   function addSet(id: string, source?: FitnessSet) {
@@ -272,6 +278,8 @@ export default function WorkoutEditor({
                 id: crypto.randomUUID(),
                 weight: previous?.weight ?? null,
                 reps: previous?.reps ?? null,
+                duration: previous?.duration ?? null,
+                distance: previous?.distance ?? null,
                 completed: false,
               },
             ],
@@ -292,8 +300,29 @@ export default function WorkoutEditor({
     setError('');
     const exercises = workout.exercises.map((e) => ({
       ...e,
-      sets: e.sets,
+      sets:
+        fresh || manual
+          ? e.sets
+              .filter(
+                (s) =>
+                  s.completed ||
+                  [s.weight, s.reps, s.duration, s.distance].some((v) => v !== null) ||
+                  s.note ||
+                  s.rpe !== null,
+              )
+              .map((s) => ({
+                ...s,
+                completed: validCompletedSet(s, recordingType(e)) ? true : s.completed,
+              }))
+          : e.sets,
     }));
+    if (
+      (fresh || manual) &&
+      exercises.some((e) => e.sets.some((s) => !validCompletedSet(s, recordingType(e))))
+    ) {
+      setError(t('record.invalidSet'));
+      return;
+    }
     const input = {
       ...workout,
       exercises,
@@ -401,7 +430,7 @@ export default function WorkoutEditor({
   ) : null;
   if (search && !inline) return picker;
   return (
-    <div className="workout-workspace">
+    <div className={`workout-workspace ${manual || fresh ? 'compact-workout' : ''}`}>
       {!fresh && !manual && (
         <div className="record-heading">
           {!onClose && (
@@ -587,60 +616,16 @@ export default function WorkoutEditor({
                     );
                   }}
                 >
-                  <Check size={14} className="part-check" aria-hidden="true" />
                   {t(`fitness.${part}`)}
                 </button>
               ))}
             </div>
           </fieldset>
-          <label className="field">
-            <span>{t('common.note')}</span>
-            <textarea
-              rows={2}
-              maxLength={5000}
-              value={workout.note}
-              onChange={(e) => patch({ note: e.target.value })}
-            />
-          </label>
-          <details className="record-metadata">
-            <summary>
-              {t('simple.more')} · {t('simple.optional')}
-            </summary>
-            <div className="form">
-              <WorkoutTiming
-                workout={workout}
-                locale={locale}
-                expanded={false}
-                onApply={(p) => patch(p, true)}
-              />
-              {manual && !fresh && initial.status !== 'completed' && (
-                <Button type="button" onClick={() => void finish(true)}>
-                  {t('fitness.finish')}
-                </Button>
-              )}
-              <label className="field">
-                <span>
-                  {t('fitness.type')} · {t('simple.optional')}
-                </span>
-                <input
-                  maxLength={120}
-                  value={workout.title}
-                  onChange={(e) => patch({ title: e.target.value || t('record.defaultTitle') })}
-                />
-              </label>
-            </div>
-          </details>
-          <details
-            className="exercise-details"
-            open={workout.exercises.length > 0 || search || undefined}
-            onToggle={(event) => {
-              if (event.currentTarget.open && !workout.exercises.length) setSearch(true);
-            }}
-          >
-            <summary>{t('ia.exerciseDetails')}</summary>
+          <section className="exercise-details">
+            {workout.exercises.length > 0 && <h3>{locale === 'zh-CN' ? '动作' : 'Exercises'}</h3>}
             {
               <>
-                {!inline && !workout.exercises.length && (
+                {!manual && !fresh && !inline && !workout.exercises.length && (
                   <div className="workout-empty">
                     <p>{t('record.chooseFirst')}</p>
                     <span className="small muted">{t('record.optionalExercises')}</span>
@@ -777,9 +762,123 @@ export default function WorkoutEditor({
                         </Button>
                       )}
                       {exercise.sets.map((set, i) =>
-                        editingSet !== set.id &&
-                        (set.completed ||
-                          exercise.sets.find((s) => !s.completed)?.id !== set.id) ? (
+                        manual || fresh ? (
+                          <div className="compact-set" key={set.id}>
+                            <span className="compact-set-number">{i + 1}</span>
+                            <div className="compact-set-values">
+                              {fields.map((key) => (
+                                <label className="field" key={key}>
+                                  <span>
+                                    {key === 'weight'
+                                      ? preferences.weightUnit
+                                      : key === 'distance'
+                                        ? preferences.distanceUnit
+                                        : key === 'duration'
+                                          ? t('fitness.unitSeconds')
+                                          : t('fitness.reps')}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    inputMode={key === 'reps' ? 'numeric' : 'decimal'}
+                                    min={key === 'weight' ? 0 : 1}
+                                    step={key === 'reps' ? 1 : 'any'}
+                                    placeholder="—"
+                                    aria-label={`${exerciseName(exercise, locale)} · ${i + 1} · ${t(`fitness.${key}`)}`}
+                                    value={
+                                      set[key] == null
+                                        ? ''
+                                        : key === 'weight'
+                                          ? Number(
+                                              toDisplayWeight(
+                                                set[key]!,
+                                                preferences.weightUnit,
+                                              ).toFixed(2),
+                                            )
+                                          : key === 'distance'
+                                            ? Number(
+                                                toDisplayDistance(
+                                                  set[key]!,
+                                                  preferences.distanceUnit,
+                                                ).toFixed(3),
+                                              )
+                                            : set[key]!
+                                    }
+                                    onChange={(event) => {
+                                      const v =
+                                        event.target.value === ''
+                                          ? null
+                                          : Number(event.target.value);
+                                      updateSet(exercise.id, set.id, {
+                                        [key]:
+                                          v === null
+                                            ? null
+                                            : key === 'weight'
+                                              ? toKg(v, preferences.weightUnit)
+                                              : key === 'distance'
+                                                ? toMeters(v, preferences.distanceUnit)
+                                                : v,
+                                      });
+                                    }}
+                                  />
+                                </label>
+                              ))}
+                            </div>
+                            <details className="compact-set-more">
+                              <summary aria-label={`${t('simple.more')} · ${i + 1}`}>•••</summary>
+                              <div className="compact-set-options">
+                                <label className="field">
+                                  <span>RPE</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    step="0.5"
+                                    value={set.rpe ?? ''}
+                                    onChange={(e) =>
+                                      updateSet(exercise.id, set.id, {
+                                        rpe: e.target.value ? Number(e.target.value) : null,
+                                      })
+                                    }
+                                  />
+                                </label>
+                                <label className="field">
+                                  <span>{t('common.note')}</span>
+                                  <input
+                                    maxLength={1000}
+                                    value={set.note}
+                                    onChange={(e) =>
+                                      updateSet(exercise.id, set.id, { note: e.target.value })
+                                    }
+                                  />
+                                </label>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() => addSet(exercise.id, set)}
+                                >
+                                  {t('record.copySet')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    patch({
+                                      exercises: workout.exercises.map((e) =>
+                                        e.id === exercise.id
+                                          ? { ...e, sets: e.sets.filter((s) => s.id !== set.id) }
+                                          : e,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  {t('fitness.removeSet')}
+                                </Button>
+                              </div>
+                            </details>
+                          </div>
+                        ) : editingSet !== set.id &&
+                          (set.completed ||
+                            exercise.sets.find((s) => !s.completed)?.id !== set.id) ? (
                           <button
                             type="button"
                             className={`set-receipt ${set.completed ? 'done' : ''}`}
@@ -1009,17 +1108,14 @@ export default function WorkoutEditor({
                           </div>
                         ),
                       )}
-                      <details className="record-more copy-set-menu">
-                        <summary>{t('simple.more')}</summary>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => addSet(exercise.id)}
-                        >
-                          <Plus size={16} />
-                          {t(exercise.sets.length ? 'simple.copyPrevious' : 'fitness.addSet')}
-                        </Button>
-                      </details>
+                      <Button type="button" variant="secondary" onClick={() => addSet(exercise.id)}>
+                        <Plus size={16} />
+                        {manual || fresh
+                          ? locale === 'zh-CN'
+                            ? '添加一组'
+                            : 'Add set'
+                          : t('fitness.addSet')}
+                      </Button>
                     </section>
                   );
                 })}
@@ -1033,11 +1129,48 @@ export default function WorkoutEditor({
                 onClick={() => setSearch((value) => !value)}
               >
                 <Plus size={16} />
-                {t('fitness.addExercise')}
+                {locale === 'zh-CN' ? '添加动作（选填）' : 'Add exercise (optional)'}
               </Button>
             )}
 
             {inline && picker}
+          </section>
+          <details className="record-metadata">
+            <summary>
+              {t('simple.more')} · {t('simple.optional')}
+            </summary>
+            <div className="form">
+              <label className="field">
+                <span>{t('common.note')}</span>
+                <textarea
+                  rows={2}
+                  maxLength={5000}
+                  value={workout.note}
+                  onChange={(e) => patch({ note: e.target.value })}
+                />
+              </label>
+              <WorkoutTiming
+                workout={workout}
+                locale={locale}
+                expanded={false}
+                onApply={(p) => patch(p, true)}
+              />
+              {manual && !fresh && initial.status !== 'completed' && (
+                <Button type="button" onClick={() => void finish(true)}>
+                  {t('fitness.finish')}
+                </Button>
+              )}
+              <label className="field">
+                <span>
+                  {t('fitness.type')} · {t('simple.optional')}
+                </span>
+                <input
+                  maxLength={120}
+                  value={workout.title}
+                  onChange={(e) => patch({ title: e.target.value || t('record.defaultTitle') })}
+                />
+              </label>
+            </div>
           </details>
           {initial.status === 'completed' && (
             <details className="record-more">

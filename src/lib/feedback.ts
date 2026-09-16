@@ -2,13 +2,13 @@
 const receiptKey = 'fubao.save-feedback';
 export type SaveKind = 'workout' | 'travel';
 
-export function queueSaveFeedback(kind: SaveKind, id: string) {
+export function queueSaveFeedback(kind: SaveKind, id: string, path?: string) {
   try {
     sessionStorage.setItem(
       receiptKey,
       JSON.stringify({
         kind,
-        path: `/${kind === 'workout' ? 'fitness' : 'travel'}/${id}`,
+        path: path ?? `/${kind === 'workout' ? 'fitness' : 'travel'}/${id}`,
         at: Date.now(),
       }),
     );

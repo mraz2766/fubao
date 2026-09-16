@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import SaveFeedback from '../../components/SaveFeedback.astro';
+import WorkoutSets from '../../components/app/WorkoutSets.astro';
 import WorkoutEditor from '../../features/fitness/WorkoutEditor';
 import WorkoutActions from '../../features/fitness/WorkoutActions';
 import { translator, exerciseName, taxonomyLabel } from '../../lib/i18n';
@@ -12,9 +12,8 @@ import {
   workoutDay,
   workoutVolume,
   toDisplayWeight,
-  toDisplayDistance,
 } from '../../lib/analytics';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 const { locale, preferences, user } = Astro.locals,
   t = translator(locale),
   workout = (await listWorkouts(user, Astro.params.id))[0];
@@ -37,11 +36,7 @@ const editing = false;
   {!editing && (
     <div class="detail-header">
       <div>
-        <h1>{t('ia.workoutDetail')}</h1>
-        <h2>{workout.title}</h2>
-        <p class="muted small">
-          {workout.body_parts.map((p) => t(`fitness.${p}` as 'fitness.back')).join(' · ')}
-        </p>
+        <h1>{workout.title}</h1>
         <p class="muted small" style="margin-top:10px">
           {workout.time_precision === 'date'
             ? workoutDay(workout, preferences.timezone)
@@ -69,41 +64,44 @@ const editing = false;
   ) : (
     <div class="detail-body">
       <div class="card">
-        <div class="stats">
-          <div class="stat">
-            <strong>
-              {knownWorkoutSeconds(workout) === null
-                ? '—'
-                : Math.round(workoutSeconds(workout) / 60)}
-            </strong>
-            <span>{t('common.minutes')}</span>
+        <details class="workout-data">
+          <summary>{locale === 'zh-CN' ? '训练数据' : 'Workout data'}</summary>
+          <div class="stats">
+            <div class="stat">
+              <strong>
+                {knownWorkoutSeconds(workout) === null
+                  ? '—'
+                  : Math.round(workoutSeconds(workout) / 60)}
+              </strong>
+              <span>{t('common.minutes')}</span>
+            </div>
+            <div class="stat">
+              <strong>{workout.exercises.length || '—'}</strong>
+              <span>{t('fitness.library')}</span>
+            </div>
+            <div class="stat">
+              <strong>
+                {workout.exercises.reduce(
+                  (n, e) => n + e.sets.filter((s) => s.completed).length,
+                  0,
+                ) || '—'}
+              </strong>
+              <span>{t('fitness.set')}</span>
+            </div>
+            <div class="stat">
+              <strong>
+                {hasWorkoutVolume(workout)
+                  ? Math.round(
+                      toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
+                    ).toLocaleString(locale)
+                  : '—'}
+              </strong>
+              <span>
+                {t('dashboard.volume')} · {preferences.weightUnit}
+              </span>
+            </div>
           </div>
-          <div class="stat">
-            <strong>{workout.exercises.length || '—'}</strong>
-            <span>{t('fitness.library')}</span>
-          </div>
-          <div class="stat">
-            <strong>
-              {workout.exercises.reduce(
-                (n, e) => n + e.sets.filter((s) => s.completed).length,
-                0,
-              ) || '—'}
-            </strong>
-            <span>{t('fitness.set')}</span>
-          </div>
-          <div class="stat">
-            <strong>
-              {hasWorkoutVolume(workout)
-                ? Math.round(
-                    toDisplayWeight(workoutVolume(workout), preferences.weightUnit),
-                  ).toLocaleString(locale)
-                : '—'}
-            </strong>
-            <span>
-              {t('dashboard.volume')} · {preferences.weightUnit}
-            </span>
-          </div>
-        </div>
+        </details>
         {workout.note && (
           <>
             <hr class="rule" />
@@ -117,29 +115,9 @@ const editing = false;
             <h2>{exerciseName(e, locale)}</h2>
             <span class="small muted">{taxonomyLabel(e.target, locale)}</span>
           </div>
-          {e.sets.map((s, i) => (
-            <div class="detail-set">
-              <span class="muted">
-                {t('fitness.set')} {i + 1}
-              </span>
-              <span>
-                {s.weight !== null
-                  ? `${toDisplayWeight(s.weight, preferences.weightUnit).toFixed(1)} ${preferences.weightUnit}${s.reps !== null ? ' × ' : ''}`
-                  : ''}
-                {s.reps !== null ? `${s.reps} ${t('fitness.reps')}` : ''}
-                {s.duration !== null ? ` · ${s.duration} ${t('fitness.unitSeconds')}` : ''}
-                {s.distance !== null
-                  ? ` · ${toDisplayDistance(s.distance, preferences.distanceUnit).toFixed(2)} ${preferences.distanceUnit}`
-                  : ''}
-                {s.rpe !== null ? ` · RPE ${s.rpe}` : ''}
-              </span>
-              {s.completed && <Check size={16} aria-label={t('fitness.completed')} />}{' '}
-              {s.note && <small style="width:100%">{s.note}</small>}
-            </div>
-          ))}
+          <WorkoutSets sets={e.sets} preferences={preferences} locale={locale} />
         </section>
       ))}
     </div>
   )}
-  {user && <SaveFeedback />}
 </Base>

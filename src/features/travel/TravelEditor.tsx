@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react';
-import { ImagePlus, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { ImagePlus, Camera, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
 import type { Locale, Location, Trip, TravelPhoto } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 import { api, errorText, ApiFailure } from '../../lib/api';
@@ -31,6 +31,7 @@ export default function TravelEditor({
   pageMode = false,
   onSaved,
   onDirtyChange,
+  onPendingChange,
 }: {
   locale: Locale;
   initial?: Trip;
@@ -39,6 +40,7 @@ export default function TravelEditor({
   pageMode?: boolean;
   onSaved?: (trip: Trip) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
   onClose: () => void;
 }) {
   const [ready, setReady] = useState(false);
@@ -96,7 +98,7 @@ export default function TravelEditor({
     dateTouched = useRef(!!initial);
   const suggestionSource = useRef<{ date?: string; location?: string }>({});
   const [organizing, setOrganizing] = useState(false),
-    [dateOpen, setDateOpen] = useState(inline || !!initial?.start_date),
+    [dateOpen, setDateOpen] = useState(true),
     [endOpen, setEndOpen] = useState(!!initial?.end_date);
   const picked = useRef(false);
   useEffect(() => {
@@ -152,6 +154,10 @@ export default function TravelEditor({
 
   useEffect(() => () => previews.current.forEach(URL.revokeObjectURL), []);
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+  useEffect(() => {
+    onPendingChange?.(pending);
+    return () => onPendingChange?.(false);
+  }, [pending, onPendingChange]);
   const allowNavigation = useUnsaved(dirty);
   const mark = () => setDirty(true);
   function close() {
@@ -322,18 +328,6 @@ export default function TravelEditor({
   const form = (
     <form className="form travel-composer" onSubmit={save}>
       <fieldset className="record-fields" disabled={!ready || pending}>
-        <LocationSearch
-          locale={locale}
-          recent
-          allowManual
-          selected={place}
-          onSelect={(p) => {
-            locationTouched.current = true;
-            setPlace(p);
-            if (p.id === 'manual-place') setPlaceName(p.name);
-            mark();
-          }}
-        />
         <div>
           <div className="card-heading">
             <h3>
@@ -350,6 +344,21 @@ export default function TravelEditor({
               </Button>
             )}
           </div>
+          <label className="photo-camera">
+            <Camera size={18} />
+            {locale === 'zh-CN' ? '拍照' : 'Take photo'}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              aria-label={locale === 'zh-CN' ? '拍照' : 'Take photo'}
+              disabled={pending || processing || photos.length >= photoLimits.count}
+              onChange={(e) => {
+                if (e.target.files) void addFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </label>
           <div className="upload-grid photo-strip">
             <label
               className={`photo-drop ${photos.length ? 'photo-drop-compact' : ''}`}
@@ -466,6 +475,18 @@ export default function TravelEditor({
             ))}
           </div>
         </div>
+        <LocationSearch
+          locale={locale}
+          recent
+          allowManual
+          selected={place}
+          onSelect={(p) => {
+            locationTouched.current = true;
+            setPlace(p);
+            if (p.id === 'manual-place') setPlaceName(p.name);
+            mark();
+          }}
+        />
         {suggestion &&
           ((!dateTouched.current && suggestion.date) ||
             (!locationTouched.current && suggestion.location)) && (

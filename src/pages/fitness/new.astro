@@ -1,42 +1,6 @@
 ---
-import FormViewport from '../../components/FormViewport.astro';
-import Base from '../../layouts/Base.astro';
-import WorkoutFormPage from '../../features/fitness/WorkoutFormPage';
-import { translator } from '../../lib/i18n';
-import { dayKey } from '../../lib/analytics';
-import { zonedISO } from '../../lib/fitness-recording';
-import type { Workout } from '../../types/domain';
-const { user, locale, preferences } = Astro.locals;
-if (!user) return Astro.redirect('/login');
-const t = translator(locale),
-  today = dayKey(new Date().toISOString(), preferences.timezone);
-const initial: Workout = {
-  id: crypto.randomUUID(),
-  mutation_id: crypto.randomUUID(),
-  user_id: '',
-  title: t('record.defaultTitle'),
-  mode: 'quick',
-  status: 'draft',
-  body_parts: [],
-  workout_date: today,
-  time_precision: 'date',
-  duration_seconds: null,
-  start_at: zonedISO(today + 'T12:00', preferences.timezone),
-  end_at: null,
-  timezone: preferences.timezone,
-  note: '',
-  visibility: 'private',
-  exercises: [],
-  updated_at: '',
-};
+if (!Astro.locals.user) return Astro.redirect('/login');
+const params = new URLSearchParams(Astro.url.searchParams);
+params.set('compose', 'workout');
+return Astro.redirect('/fitness?' + params.toString());
 ---
-
-<Base title={t('ia.newWorkout')} active="fitness">
-  <a class="text-link" href="/fitness">
-    ← {t('nav.fitness')}
-  </a>
-  <header class="page-header">
-    <h1>{t('ia.newWorkout')}</h1>
-  </header>
-  <WorkoutFormPage locale={locale} preferences={preferences} initial={initial} fresh client:load />
-<FormViewport /></Base>

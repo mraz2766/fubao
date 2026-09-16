@@ -2,7 +2,6 @@
 import TravelScroll from '../../components/TravelScroll.astro';
 import { tripName } from '../../lib/travel-presentation';
 import Base from '../../layouts/Base.astro';
-import SaveFeedback from '../../components/SaveFeedback.astro';
 import TravelActions from '../../features/travel/TravelActions';
 import PhotoWall from '../../features/travel/PhotoWall';
 import { listTrips } from '../../server/services/travel';
@@ -16,10 +15,26 @@ const name = tripName(trip, locale);
 ---
 
 <Base title={name} active="travel">
-  <a data-travel-back href="/travel" class="text-link">
-    <ArrowLeft size={15} />
-    {t('travel.timeline')}
-  </a>
+  <div class="trip-toolbar">
+    <a data-travel-back href="/travel" class="text-link">
+      <ArrowLeft size={15} />
+      {t('travel.timeline')}
+    </a>
+    {user && <TravelActions locale={locale} trip={trip} client:load />}
+  </div>
+  <PhotoWall
+    locale={locale}
+    photos={trip.photos.map((p) => ({
+      id: p.id,
+      travelId: trip.id,
+      width: p.width,
+      height: p.height,
+      label: name,
+      year: '',
+    }))}
+    detail
+    client:visible
+  />
   <header class="detail-header">
     <div>
       <span class="eyebrow">
@@ -37,26 +52,12 @@ const name = tripName(trip, locale);
         {trip.rating ? ` · ${'★'.repeat(trip.rating)}` : ''}
       </p>
     </div>
-    {user && <TravelActions locale={locale} trip={trip} client:load />}
   </header>
-  <PhotoWall
-    locale={locale}
-    photos={trip.photos.map((p) => ({
-      id: p.id,
-      travelId: trip.id,
-      width: p.width,
-      height: p.height,
-      label: name,
-      year: '',
-    }))}
-    detail
-    client:visible
-  />
   {trip.description && <p class="trip-description">{trip.description}</p>}
   <div class="trip-tags">
     {trip.tags.map((tag) => (
       <span class="badge">{tag}</span>
     ))}
   </div>
-  {user && <SaveFeedback />}
-<TravelScroll /></Base>
+  <TravelScroll />
+</Base>

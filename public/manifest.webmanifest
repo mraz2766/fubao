@@ -2,13 +2,13 @@
   "id": "/",
   "name": "Fubao · 个人生活",
   "short_name": "Fubao",
-  "description": "Fitness, travel, and life lately.",
+  "description": "记录训练，收藏旅行，慢慢生活。",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5f1e7",
-  "theme_color": "#58684a",
+  "theme_color": "#f5f1e7",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -22,5 +22,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "display_override": ["standalone"]
 }

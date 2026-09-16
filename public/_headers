@@ -4,3 +4,7 @@
   Cache-Control: public, max-age=86400
 /exercises/*
   Cache-Control: public, max-age=86400
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache

@@ -1,6 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type CSSProperties } from 'react';
 import type { Locale } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 export function Dialog({
@@ -18,6 +18,23 @@ export function Dialog({
   locale: Locale;
   wide?: boolean;
 }) {
+  const [viewport, setViewport] = useState<CSSProperties>({});
+  useEffect(() => {
+    if (!open || !window.visualViewport) return;
+    const visual = window.visualViewport;
+    const update = () =>
+      setViewport({
+        '--sheet-height': `${visual.height}px`,
+        '--sheet-bottom': `${Math.max(0, window.innerHeight - visual.height - visual.offsetTop)}px`,
+      } as CSSProperties);
+    update();
+    visual.addEventListener('resize', update);
+    visual.addEventListener('scroll', update);
+    return () => {
+      visual.removeEventListener('resize', update);
+      visual.removeEventListener('scroll', update);
+    };
+  }, [open]);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -25,6 +42,7 @@ export function Dialog({
         <DialogPrimitive.Content
           className={`dialog-content ${wide ? 'dialog-wide' : ''}`}
           aria-describedby={undefined}
+          style={viewport}
         >
           <div className="dialog-heading">
             <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
