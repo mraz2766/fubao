@@ -221,7 +221,6 @@ export default function AppComposer({
                         initial={initial as Workout}
                         fresh={!entry.id}
                         manual
-                        inline
                         onDirtyChange={markDirty}
                         onPendingChange={(v) => {
                           busy.current = v;

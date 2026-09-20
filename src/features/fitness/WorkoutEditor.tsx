@@ -120,7 +120,10 @@ export default function WorkoutEditor({
       pickerHeading.current?.scrollIntoView({ block: 'start' });
     }
     if (focusId.current && !search) {
-      document.getElementById(focusId.current)?.querySelector('input')?.focus();
+      document
+        .getElementById(focusId.current)
+        ?.querySelector<HTMLElement>('h3')
+        ?.focus({ preventScroll: true });
       focusId.current = null;
     }
   }, [search, workout.exercises]);
@@ -242,9 +245,6 @@ export default function WorkoutEditor({
       true,
     );
     setEditingSet(nextId);
-    requestAnimationFrame(() =>
-      document.getElementById(`set-${nextId}`)?.querySelector('input')?.focus(),
-    );
   }
   function setText(set: FitnessSet) {
     return (
@@ -400,7 +400,7 @@ export default function WorkoutEditor({
   const volumeKnown = hasWorkoutVolume(workout);
   const picker = search ? (
     <div className="workout-workspace workout-picker" ref={pickerRoot}>
-      {!inline && (
+      {
         <div className="picker-heading">
           <Button type="button" variant="ghost" onClick={dismissSearch}>
             <ArrowLeft size={16} />
@@ -410,15 +410,15 @@ export default function WorkoutEditor({
             {t('fitness.addExercise')}
           </h3>
         </div>
-      )}
+      }
       <Suspense fallback={<p>{t('common.loading')}</p>}>
         <ExerciseSearch
           locale={locale}
           owner
           compact
           trainingItems={workout.body_parts}
-          onSelectMany={inline ? undefined : addExercises}
-          onSelect={inline ? (exercise) => addExercises([exercise]) : undefined}
+          onSelectMany={addExercises}
+
           selectedIds={workout.exercises.map((e) => e.exercise_id)}
           onExisting={(id) => {
             focusId.current = workout.exercises.find((e) => e.exercise_id === id)?.id ?? null;
@@ -428,7 +428,7 @@ export default function WorkoutEditor({
       </Suspense>
     </div>
   ) : null;
-  if (search && !inline) return picker;
+  if (search) return picker;
   return (
     <div className={`workout-workspace ${manual || fresh ? 'compact-workout' : ''}`}>
       {!fresh && !manual && (
@@ -518,30 +518,12 @@ export default function WorkoutEditor({
               event.target.type !== 'number'
             )
               return;
-            const section = event.target.closest('.set-exercise');
-            if (!section) return;
             event.preventDefault();
-            const inputs = Array.from(section.querySelectorAll('input')).filter(
-              (input) => input.offsetParent !== null,
-            );
-            const next = inputs[inputs.indexOf(event.target) + 1];
-            if (next) next.focus();
-            else {
-              const exercise = workout.exercises.find((e) => e.id === section.id);
-              const pending = exercise?.sets.find((s) => !s.completed);
-              if (pending) recordSet(section.id, pending);
-              else addSet(section.id);
-              requestAnimationFrame(() =>
-                Array.from(section.querySelectorAll<HTMLElement>('.record-set-inputs'))
-                  .at(-1)
-                  ?.querySelector('input')
-                  ?.focus(),
-              );
-            }
+            event.target.blur();
           }}
         >
           {workout.time_precision === 'date' && (
-            <div className="form-row workout-date-duration">
+            <div className="workout-date-row">
               <label className="field">
                 <span>{t('simple.chooseDate')}</span>
                 <input
@@ -555,29 +537,6 @@ export default function WorkoutEditor({
                       });
                   }}
                 />
-              </label>
-              <label className="field">
-                <span>{t('simple.duration')}</span>
-                <input
-                  type="number"
-                  list="duration-options"
-                  inputMode="numeric"
-                  min="0"
-                  max="10080"
-                  placeholder={t('common.minutes')}
-                  value={workout.duration_seconds == null ? '' : workout.duration_seconds / 60}
-                  onChange={(e) =>
-                    patch({
-                      duration_seconds:
-                        e.target.value === '' ? null : Math.round(Number(e.target.value) * 60),
-                    })
-                  }
-                />
-                <datalist id="duration-options">
-                  {[15, 30, 45, 60, 90].map((n) => (
-                    <option key={n} value={n} />
-                  ))}
-                </datalist>
               </label>
             </div>
           )}
@@ -644,7 +603,7 @@ export default function WorkoutEditor({
                   return (
                     <section className="set-exercise" key={exercise.id} id={exercise.id}>
                       <div className="card-heading">
-                        <h3>
+                        <h3 tabIndex={-1}>
                           {String(index + 1).padStart(2, '0')} · {exerciseName(exercise, locale)}
                         </h3>
                         <details className="record-more">
@@ -779,6 +738,7 @@ export default function WorkoutEditor({
                                   </span>
                                   <input
                                     type="number"
+                                    enterKeyHint="done"
                                     inputMode={key === 'reps' ? 'numeric' : 'decimal'}
                                     min={key === 'weight' ? 0 : 1}
                                     step={key === 'reps' ? 1 : 'any'}
@@ -830,6 +790,7 @@ export default function WorkoutEditor({
                                   <span>RPE</span>
                                   <input
                                     type="number"
+                                    enterKeyHint="done"
                                     min={1}
                                     max={10}
                                     step="0.5"
@@ -966,6 +927,7 @@ export default function WorkoutEditor({
                                   </span>
                                   <input
                                     type="number"
+                                    enterKeyHint="done"
                                     aria-label={
                                       t(`fitness.${key}`) +
                                       (key === 'weight'
@@ -1076,6 +1038,7 @@ export default function WorkoutEditor({
                                   <span>RPE</span>
                                   <input
                                     type="number"
+                                    enterKeyHint="done"
                                     min={1}
                                     max={10}
                                     step="0.5"
@@ -1132,14 +1095,36 @@ export default function WorkoutEditor({
                 {locale === 'zh-CN' ? '添加动作（选填）' : 'Add exercise (optional)'}
               </Button>
             )}
-
-            {inline && picker}
           </section>
           <details className="record-metadata">
-            <summary>
-              {t('simple.more')} · {t('simple.optional')}
-            </summary>
+            <summary>{locale === 'zh-CN' ? '补充信息' : 'More details'}</summary>
             <div className="form">
+              {workout.time_precision === 'date' && (
+                <label className="field">
+                  <span>{t('simple.duration')}</span>
+                  <input
+                    type="number"
+                    enterKeyHint="done"
+                    list="duration-options"
+                    inputMode="numeric"
+                    min="0"
+                    max="10080"
+                    placeholder={t('common.minutes')}
+                    value={workout.duration_seconds == null ? '' : workout.duration_seconds / 60}
+                    onChange={(e) =>
+                      patch({
+                        duration_seconds:
+                          e.target.value === '' ? null : Math.round(Number(e.target.value) * 60),
+                      })
+                    }
+                  />
+                  <datalist id="duration-options">
+                    {[15, 30, 45, 60, 90].map((n) => (
+                      <option key={n} value={n} />
+                    ))}
+                  </datalist>
+                </label>
+              )}
               <label className="field">
                 <span>{t('common.note')}</span>
                 <textarea
@@ -1212,11 +1197,7 @@ export default function WorkoutEditor({
             <span className="footer-count">
               {workout.exercises.length} {t('ia.exerciseCount')}
             </span>
-            {manual && (
-              <Button type="button" variant="secondary" onClick={close}>
-                {t('common.cancel')}
-              </Button>
-            )}
+
             <Button type="submit" disabled={finishing || !ready}>
               {finishing
                 ? t('common.saving')

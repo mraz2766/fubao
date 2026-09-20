@@ -1,7 +1,8 @@
-const CACHE = 'fubao-shell-v7';
+const CACHE = 'fubao-shell-v8';
 const SHELL = [
   '/offline.html',
-  '/icon.svg',
+  '/favicon.png',
+  '/brand-cat.png',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',

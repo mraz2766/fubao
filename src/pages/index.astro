@@ -1,22 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
-import TodayWorkout from '../components/app/TodayWorkout.astro';
+import FitnessSummary from '../components/app/FitnessSummary';
+import { getPeriodSummary } from '../server/services/period-summary';
 import TravelGallery from '../features/travel/TravelGallery.astro';
-import { listWorkouts } from '../server/services/fitness';
-import { workoutSummaries } from '../server/services/fitness-overview';
 import { listTrips } from '../server/services/travel';
 import { getWidgets } from '../server/services/settings';
-import { dayKey, shiftDay } from '../lib/analytics';
+import { dayKey } from '../lib/analytics';
 const { user, locale, preferences } = Astro.locals;
 const zh = locale === 'zh-CN',
   now = new Date(),
   today = dayKey(now, preferences.timezone);
-const [summaries, trips, widgets] = await Promise.all([
-  workoutSummaries(user, preferences.timezone, { from: today, to: shiftDay(today, 1) }),
+const [summary, trips, widgets] = await Promise.all([
+  getPeriodSummary(user, preferences, 'week', today),
   listTrips(user, undefined, { limit: 1 }),
   getWidgets(user?.id),
 ]);
-const workouts = (await Promise.all(summaries.map((w) => listWorkouts(user, w.id)))).flat();
 const sections = widgets
   .filter((w) => w.visible && ['fitness', 'travel'].includes(w.key))
   .sort((a, b) => a.order - b.order);
@@ -25,7 +23,7 @@ const sections = widgets
 <Base title={zh ? '首页' : 'Home'}>
   <header class="page-header home-header">
     <div>
-      <h1>{zh ? '今天，也慢慢来。' : 'A little life, today.'}</h1>
+      <h1>{zh ? '概览' : 'Overview'}</h1>
       <p class="muted">
         {new Intl.DateTimeFormat(locale, {
           month: 'long',
@@ -39,7 +37,14 @@ const sections = widgets
   <div class="home-journal">
     {sections.map((section) =>
       section.key === 'fitness' ? (
-        <TodayWorkout workouts={workouts} locale={locale} owner={!!user} />
+        <FitnessSummary
+          client:load
+          initial={summary}
+          today={today}
+          weekStart={preferences.weekStart}
+          locale={locale}
+          owner={!!user}
+        />
       ) : (
         <section class="home-travel">
           <div class="section-heading">

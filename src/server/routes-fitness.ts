@@ -1,3 +1,4 @@
+import { getPeriodSummary } from './services/period-summary';
 import { z } from 'zod';
 import { fitnessDay, patchCheckin } from './services/fitness-overview';
 import { idSchema } from '../lib/schemas';
@@ -22,6 +23,13 @@ import type { Workout } from '../types/domain';
 export async function fitnessRoute(context: APIContext, parts: string[]) {
   const [resource, id, action] = parts,
     method = context.request.method;
+  if (resource === 'summary' && method === 'GET') {
+    const period = z.enum(['week', 'month']).parse(context.url.searchParams.get('period'));
+    const date = z.iso.date().parse(context.url.searchParams.get('date'));
+    return json(
+      await getPeriodSummary(context.locals.user, context.locals.preferences, period, date),
+    );
+  }
   if (resource === 'day' && method === 'GET') {
     const user = requireUser(context);
     const date = z.iso.date().parse(context.url.searchParams.get('date'));

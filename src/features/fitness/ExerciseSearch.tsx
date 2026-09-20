@@ -31,7 +31,7 @@ export default function ExerciseSearch({
 }) {
   const relatedParts = trainingParts.filter((part) => trainingItems.includes(part));
   const relatedKey = relatedParts.join(',');
-  const [related, setRelated] = useState(!compact && relatedParts.length > 0);
+  const [related, setRelated] = useState(relatedParts.length > 0);
   const [selected, setSelected] = useState<Exercise[]>([]),
     [ready, setReady] = useState(false),
     [targets, setTargets] = useState<Workout[] | null>(null),
@@ -189,7 +189,7 @@ export default function ExerciseSearch({
   return (
     <div className={compact ? 'exercise-search compact-exercises' : 'exercise-search'}>
       <div hidden={!!detail}>
-        {!compact && relatedParts.length > 0 && (
+        {relatedParts.length > 0 && (
           <div className="exercise-context">
             <div className="segmented" aria-label={t('record.exerciseScope')}>
               <button type="button" aria-pressed={related} onClick={() => changeScope(true)}>
@@ -340,13 +340,21 @@ export default function ExerciseSearch({
                       <small className="exercise-added">{t('record.inWorkout')}</small>
                     )}
                   </span>
-                  {selecting && compact && (
-                    <Plus
-                      size={18}
-                      aria-hidden="true"
-                      style={{ marginLeft: 'auto', flexShrink: 0 }}
-                    />
-                  )}
+                  {selecting &&
+                    compact &&
+                    (selected.some((x) => x.id === exercise.id) ? (
+                      <Check
+                        size={18}
+                        aria-hidden="true"
+                        style={{ marginLeft: 'auto', flexShrink: 0 }}
+                      />
+                    ) : (
+                      <Plus
+                        size={18}
+                        aria-hidden="true"
+                        style={{ marginLeft: 'auto', flexShrink: 0 }}
+                      />
+                    ))}
                 </button>
                 {owner && !selecting && (
                   <Button

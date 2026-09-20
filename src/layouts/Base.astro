@@ -1,8 +1,8 @@
 ---
 import '../styles/global.css';
-import '../styles/themes/storybook.css';
 import '../styles/task-pages.css';
 import '../styles/app.css';
+import '../styles/themes/cool.css';
 import SaveFeedback from '../components/SaveFeedback.astro';
 import AppComposer from '../components/app/AppComposer';
 import StoryIcon from '../components/illustrations/StoryIcon';
@@ -31,10 +31,10 @@ const nav = [
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Fubao" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#f5f1e7" />
+    <meta name="theme-color" content="#f4f6f8" />
     <meta name="description" content={t('app.tagline')} />
     <title>{title} · Fubao</title>
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script is:inline>
@@ -57,7 +57,7 @@ const nav = [
             .querySelector('meta[name="theme-color"]')
             ?.setAttribute(
               'content',
-              document.documentElement.dataset.theme === 'dark' ? '#242820' : '#f5f1e7',
+              document.documentElement.dataset.theme === 'dark' ? '#171b20' : '#f4f6f8',
             );
         } catch {}
       })();
@@ -73,7 +73,7 @@ const nav = [
     <header class="mobile-header">
       <a href="/" class="brand">
         <span class="brand-mark" aria-hidden="true">
-          <StoryIcon kind="plant" size={31} />
+          <img src="/brand-cat.png" alt="" width="36" height="36" />
         </span>
         fubao.
       </a>

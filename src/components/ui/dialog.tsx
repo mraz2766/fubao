@@ -1,6 +1,6 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { useEffect, useState, type ReactNode, type CSSProperties } from 'react';
+import { useEffect, useState, useRef, type ReactNode, type CSSProperties } from 'react';
 import type { Locale } from '../../types/domain';
 import { translator } from '../../lib/i18n';
 export function Dialog({
@@ -18,6 +18,7 @@ export function Dialog({
   locale: Locale;
   wide?: boolean;
 }) {
+  const heading = useRef<HTMLHeadingElement>(null);
   const [viewport, setViewport] = useState<CSSProperties>({});
   useEffect(() => {
     if (!open || !window.visualViewport) return;
@@ -41,11 +42,17 @@ export function Dialog({
         <DialogPrimitive.Overlay className="dialog-overlay" />
         <DialogPrimitive.Content
           className={`dialog-content ${wide ? 'dialog-wide' : ''}`}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            heading.current?.focus({ preventScroll: true });
+          }}
           aria-describedby={undefined}
           style={viewport}
         >
           <div className="dialog-heading">
-            <DialogPrimitive.Title>{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Title ref={heading} tabIndex={-1}>
+              {title}
+            </DialogPrimitive.Title>
             <DialogPrimitive.Close
               className="button button-ghost button-icon"
               aria-label={translator(locale)('common.close')}
