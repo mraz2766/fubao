@@ -98,7 +98,7 @@ export default function TravelEditor({
     dateTouched = useRef(!!initial);
   const suggestionSource = useRef<{ date?: string; location?: string }>({});
   const [organizing, setOrganizing] = useState(false),
-    [dateOpen, setDateOpen] = useState(true),
+    [dateOpen, setDateOpen] = useState(!!initial?.start_date),
     [endOpen, setEndOpen] = useState(!!initial?.end_date);
   const picked = useRef(false);
   useEffect(() => {
@@ -566,19 +566,22 @@ export default function TravelEditor({
             )}
           </div>
         </details>
-        <div className="field">
-          <label htmlFor={`trip-note-${id}`}>{t('travel.description')}</label>
-          <textarea
-            id={`trip-note-${id}`}
-            rows={2}
-            value={description}
-            maxLength={10000}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              mark();
-            }}
-          />
-        </div>
+        <details className="form-details" open={initial?.description ? true : undefined}>
+          <summary>{locale === 'zh-CN' ? '添加备注' : 'Add a note'}</summary>
+          <div className="field">
+            <label htmlFor={`trip-note-${id}`}>{t('travel.description')}</label>
+            <textarea
+              id={`trip-note-${id}`}
+              rows={2}
+              value={description}
+              maxLength={10000}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                mark();
+              }}
+            />
+          </div>
+        </details>
         <details className="form-details">
           <summary>{t('quiet.details')}</summary>
           <label className="field">

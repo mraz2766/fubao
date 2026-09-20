@@ -27,12 +27,6 @@ const { locale, preferences, user } = Astro.locals,
 const view =
     Astro.url.searchParams.get('view') ?? (Astro.url.searchParams.has('day') ? 'history' : 'today'),
   selected = Astro.url.searchParams.get('day') ?? undefined;
-const catalogCount =
-  view === 'library'
-    ? await (
-        await import('../../server/db')
-      ).first<{ count: number }>('SELECT COUNT(*) count FROM exercise_library WHERE active=1')
-    : null;
 const overview = view === 'today' ? await fitnessOverview(user, preferences) : null;
 const recordPage = Math.max(0, Number(Astro.url.searchParams.get('page')) || 0);
 const workouts = overview
@@ -95,22 +89,28 @@ const muscles =
       <h1>{locale === 'zh-CN' ? '训练' : 'Training'}</h1>
     </div>
   </header>
+  <nav
+    class="section-tabs fitness-primary-nav"
+    aria-label={locale === 'zh-CN' ? '训练内容' : 'Training views'}
+  >
+    <a href="/fitness" class:list={{ active: view === 'today' || view === 'history' }}>
+      {locale === 'zh-CN' ? '记录' : 'Records'}
+    </a>
+    <a href="/fitness?view=library" class:list={{ active: view === 'library' }}>
+      {locale === 'zh-CN' ? '动作' : 'Exercises'}
+    </a>
+  </nav>
   <details class="view-menu">
     <summary>{locale === 'zh-CN' ? '更多训练工具' : 'Training tools'}</summary>
     <nav class="secondary-links" aria-label={t('nav.fitness')}>
       {(
         [
-          ['today', 'fitness.history'],
           ['history', 'fitness.history'],
           ['analytics', 'fitness.analytics'],
           ['templates', 'fitness.templates'],
-          ['library', 'fitness.library'],
         ] as const
       ).map(([key, label]) => (
-        <a
-          class:list={{ active: view === key || (key === 'today' && view === 'history') }}
-          href={`/fitness?view=${key}`}
-        >
+        <a class:list={{ active: view === key }} href={`/fitness?view=${key}`}>
           {key === 'history' ? (locale === 'zh-CN' ? '按日期查看' : 'Calendar') : t(label)}
         </a>
       ))}
@@ -227,9 +227,6 @@ const muscles =
   )}
   {isView('library') && (
     <div class="card">
-      <p class="small muted catalog-note">
-        {catalogCount?.count.toLocaleString(locale)} {t('fitness.catalogCount')}
-      </p>
       <ExerciseSearch locale={locale} preferences={preferences} owner={!!user} client:load />
     </div>
   )}

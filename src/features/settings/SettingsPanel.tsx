@@ -40,7 +40,7 @@ function applyLocal(p: Preferences) {
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute(
       'content',
-      document.documentElement.dataset.theme === 'dark' ? '#242820' : '#f5f1e7',
+      document.documentElement.dataset.theme === 'dark' ? '#171b20' : '#f4f6f8',
     );
 }
 export default function SettingsPanel({
@@ -298,17 +298,25 @@ export default function SettingsPanel({
             ))}
           </div>
         </div>
-        <label className="setting-row">
+        <div className="setting-row">
           <span>{t('settings.language')}</span>
-          <select
-            aria-label={t('settings.language')}
-            value={preferences.language}
-            onChange={(e) => update({ language: e.target.value as Locale })}
-          >
-            <option value="zh-CN">简体中文</option>
-            <option value="en-US">English</option>
-          </select>
-        </label>
+          <div className="segmented" role="group" aria-label={t('settings.language')}>
+            <button
+              type="button"
+              aria-pressed={preferences.language === 'zh-CN'}
+              onClick={() => update({ language: 'zh-CN' })}
+            >
+              简体中文
+            </button>
+            <button
+              type="button"
+              aria-pressed={preferences.language === 'en-US'}
+              onClick={() => update({ language: 'en-US' })}
+            >
+              English
+            </button>
+          </div>
+        </div>
       </section>
       <details className="settings-group">
         <summary>
@@ -322,43 +330,73 @@ export default function SettingsPanel({
           </small>
         </summary>
         <div className="settings-section">
-          <label className="setting-row">
+          <div className="setting-row">
             <span>{t('fitness.weight')}</span>
-            <select
-              aria-label={t('fitness.weight')}
-              value={preferences.weightUnit}
-              onChange={(e) => update({ weightUnit: e.target.value as 'kg' | 'lb' })}
-            >
-              <option value="kg">kg</option>
-              <option value="lb">lb</option>
-            </select>
-          </label>
-          <label className="setting-row">
-            <span>{t('settings.weekStart')}</span>
-            <select
-              aria-label={t('settings.weekStart')}
-              value={preferences.weekStart}
-              onChange={(e) => update({ weekStart: Number(e.target.value) as 0 | 1 })}
-            >
-              <option value={1}>{t('settings.monday')}</option>
-              <option value={0}>{t('settings.sunday')}</option>
-            </select>
-          </label>
-          {owner && (
-            <label className="setting-row">
-              <span>{t('settings.goal')}</span>
-              <select
-                aria-label={t('settings.goal')}
-                value={preferences.weeklyGoal}
-                onChange={(e) => update({ weeklyGoal: Number(e.target.value) })}
+            <div className="segmented" role="group" aria-label={t('fitness.weight')}>
+              <button
+                type="button"
+                aria-pressed={preferences.weightUnit === 'kg'}
+                onClick={() => update({ weightUnit: 'kg' })}
               >
-                {Array.from({ length: 21 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>
-                    {n} {t('common.times')}
-                  </option>
-                ))}
-              </select>
-            </label>
+                kg
+              </button>
+              <button
+                type="button"
+                aria-pressed={preferences.weightUnit === 'lb'}
+                onClick={() => update({ weightUnit: 'lb' })}
+              >
+                lb
+              </button>
+            </div>
+          </div>
+          <div className="setting-row">
+            <span>{t('settings.weekStart')}</span>
+            <div className="segmented" role="group" aria-label={t('settings.weekStart')}>
+              <button
+                type="button"
+                aria-pressed={preferences.weekStart === 1}
+                onClick={() => update({ weekStart: 1 })}
+              >
+                {t('settings.monday')}
+              </button>
+              <button
+                type="button"
+                aria-pressed={preferences.weekStart === 0}
+                onClick={() => update({ weekStart: 0 })}
+              >
+                {t('settings.sunday')}
+              </button>
+            </div>
+          </div>
+          {owner && (
+            <div className="setting-row">
+              <span>{t('settings.goal')}</span>
+              <div className="number-stepper" role="group" aria-label={t('settings.goal')}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={preferences.weeklyGoal <= 1}
+                  aria-label={locale === 'zh-CN' ? '减少每周目标' : 'Decrease weekly goal'}
+                  onClick={() => update({ weeklyGoal: preferences.weeklyGoal - 1 })}
+                >
+                  −
+                </Button>
+                <output aria-live="polite">
+                  {preferences.weeklyGoal} {t('common.times')}
+                </output>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={preferences.weeklyGoal >= 21}
+                  aria-label={locale === 'zh-CN' ? '增加每周目标' : 'Increase weekly goal'}
+                  onClick={() => update({ weeklyGoal: preferences.weeklyGoal + 1 })}
+                >
+                  ＋
+                </Button>
+              </div>
+            </div>
           )}
           {owner && (
             <label className="field">

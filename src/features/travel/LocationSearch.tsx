@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, useRef } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { MapPin, Search } from 'lucide-react';
 import type { Locale, Location } from '../../types/domain';
@@ -28,7 +28,8 @@ export default function LocationSearch({
     id = useId();
   const [editing, setEditing] = useState(false),
     [recentItems, setRecentItems] = useState<Location[]>([]);
-  const input = useRef<HTMLInputElement>(null);
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const [visibleResults, setVisibleResults] = useState(5);
   useEffect(() => {
     if (recent)
       void api<{ items: Location[] }>('/api/travel/recent-locations')
@@ -44,9 +45,6 @@ export default function LocationSearch({
   };
   const expanded = !selected || editing;
   useEffect(() => {
-    if (editing) input.current?.focus();
-  }, [editing]);
-  useEffect(() => {
     if (!query.trim()) {
       setItems([]);
       setError('');
@@ -61,6 +59,7 @@ export default function LocationSearch({
         signal: controller.signal,
       })
         .then((result) => {
+          if (controller.signal.aborted) return;
           setItems(result.items);
           setError('');
         })
@@ -103,11 +102,13 @@ export default function LocationSearch({
         <label className="search-field">
           <Search size={17} />
           <input
-            ref={input}
             id={id}
             placeholder={t('travel.searchLocation')}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setVisibleResults(5);
+            }}
             autoComplete="off"
           />
         </label>
@@ -116,7 +117,7 @@ export default function LocationSearch({
         <div className="recent-places">
           <p className="small muted">{t('flow.recentPlaces')}</p>
           <div className="part-options">
-            {recentItems.map((item) => (
+            {(showAllRecent ? recentItems : recentItems.slice(0, 3)).map((item) => (
               <Button
                 type="button"
                 variant="secondary"
@@ -127,6 +128,11 @@ export default function LocationSearch({
               </Button>
             ))}
           </div>
+          {!showAllRecent && recentItems.length > 3 && (
+            <Button type="button" variant="ghost" onClick={() => setShowAllRecent(true)}>
+              {locale === 'zh-CN' ? '更多最近地点' : 'More recent places'}
+            </Button>
+          )}
         </div>
       )}
       {error && (
@@ -165,7 +171,7 @@ export default function LocationSearch({
           {loading ? (
             <p className="small muted">{t('common.loading')}</p>
           ) : items.length ? (
-            items.map((item) => (
+            items.slice(0, visibleResults).map((item) => (
               <button
                 type="button"
                 key={item.spot_id ?? item.id}
@@ -189,6 +195,15 @@ export default function LocationSearch({
             ))
           ) : (
             <p className="small muted">{t('travel.noLocations')}</p>
+          )}
+          {!loading && items.length > visibleResults && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setVisibleResults((count) => count + 5)}
+            >
+              {locale === 'zh-CN' ? '更多地点' : 'More places'}
+            </Button>
           )}
         </div>
       )}

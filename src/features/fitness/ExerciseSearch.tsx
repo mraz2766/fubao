@@ -1,3 +1,9 @@
+import {
+  exerciseCategories,
+  equipmentGroups,
+  equipmentGroupLabels,
+} from '../../lib/exercise-categories';
+import type { TrainingPart } from '../../lib/fitness-recording';
 import { useEffect, useState } from 'react';
 import { Search, Heart, Plus, Dumbbell, Info, Check, ArrowLeft } from 'lucide-react';
 import type { Exercise, Locale, Workout, Preferences } from '../../types/domain';
@@ -30,8 +36,10 @@ export default function ExerciseSearch({
   compact?: boolean;
 }) {
   const relatedParts = trainingParts.filter((part) => trainingItems.includes(part));
-  const relatedKey = relatedParts.join(',');
-  const [related, setRelated] = useState(relatedParts.length > 0);
+  const zh = locale === 'zh-CN';
+  const [category, setCategory] = useState<TrainingPart | ''>(
+    relatedParts.length === 1 ? relatedParts[0] : '',
+  );
   const [selected, setSelected] = useState<Exercise[]>([]),
     [ready, setReady] = useState(false),
     [targets, setTargets] = useState<Workout[] | null>(null),
@@ -104,42 +112,36 @@ export default function ExerciseSearch({
   }
   const t = translator(locale),
     [query, setQuery] = useState(''),
-    [filterOpen, setFilterOpen] = useState(false),
-    [body, setBody] = useState(''),
-    [target, setTarget] = useState(''),
     [equipment, setEquipment] = useState(''),
-    [mode, setMode] = useState(compact ? 'recent' : 'all'),
-    [page, setPage] = useState(0);
+    [favoritesOnly, setFavoritesOnly] = useState(false),
+    [mode, setMode] = useState('recommended'),
+    [page, setPage] = useState(0),
+    [retry, setRetry] = useState(0);
   const [items, setItems] = useState<Exercise[]>([]),
     [more, setMore] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(''),
     [detail, setDetail] = useState<Exercise | null>(null);
-  const [filters, setFilters] = useState<{
-    bodyParts: string[];
-    targets: string[];
-    equipment: string[];
-  }>({ bodyParts: [], targets: [], equipment: [] });
+  const browsing = !!category || !!query.trim() || mode === 'usual';
   useEffect(() => {
     setReady(true);
   }, []);
   useEffect(() => {
-    if (!filterOpen || filters.bodyParts.length) return;
-    api<typeof filters>('/api/fitness/exercises/filters')
-      .then(setFilters)
-      .catch((e) => setError(errorText(e, locale)));
-  }, [filterOpen, locale]);
-  useEffect(() => {
+    if (!browsing) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
+    setError('');
     setLoading(true);
     const timer = setTimeout(() => {
       const params = new URLSearchParams({
         q: query,
-        bodyPart: body,
-        target,
-        equipment,
+        category,
+        equipmentGroup: equipment,
+        favorites: favoritesOnly ? '1' : '',
         mode,
-        trainingItems: related ? relatedKey : '',
         page: String(page),
       });
       api<{ items: Exercise[]; hasMore: boolean }>(`/api/fitness/exercises?${params}`, {
@@ -147,7 +149,15 @@ export default function ExerciseSearch({
       })
         .then((result) => {
           if (controller.signal.aborted) return;
-          setItems(result.items);
+          setItems((previous) =>
+            page === 0
+              ? result.items
+              : [
+                  ...new Map(
+                    [...previous, ...result.items].map((item) => [item.id, item]),
+                  ).values(),
+                ],
+          );
           setMore(result.hasMore);
           setError('');
         })
@@ -162,7 +172,7 @@ export default function ExerciseSearch({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, body, target, equipment, mode, page, locale, related, relatedKey]);
+  }, [query, category, equipment, favoritesOnly, mode, page, locale, browsing, retry]);
   async function favorite(exercise: Exercise) {
     try {
       const result = await api<{ favorite: boolean }>(
@@ -170,41 +180,78 @@ export default function ExerciseSearch({
         { method: 'POST', body: { favorite: !exercise.favorite } },
       );
       setItems(items.map((x) => (x.id === exercise.id ? { ...x, ...result } : x)));
+      setDetail((current) => (current?.id === exercise.id ? { ...current, ...result } : current));
     } catch (e) {
       setError(errorText(e, locale));
     }
   }
   const selectFilter = (setter: (v: string) => void, value: string) => {
     setter(value);
+    setItems([]);
+    setLoading(true);
     setPage(0);
   };
-  function changeScope(value: boolean) {
-    if (value === related && !body && !target && page === 0) return;
-    setRelated(value);
-    setBody('');
-    setTarget('');
+  function showCategories() {
+    setCategory('');
+    setMode('recommended');
+    setQuery('');
+    setEquipment('');
+    setFavoritesOnly(false);
     setPage(0);
+  }
+  function chooseCategory(part: TrainingPart) {
+    setItems([]);
     setLoading(true);
+    setCategory(part);
+    setMode('recommended');
+    setQuery('');
+    setEquipment('');
+    setFavoritesOnly(false);
+    setPage(0);
   }
   return (
     <div className={compact ? 'exercise-search compact-exercises' : 'exercise-search'}>
       <div hidden={!!detail}>
-        {relatedParts.length > 0 && (
-          <div className="exercise-context">
-            <div className="segmented" aria-label={t('record.exerciseScope')}>
-              <button type="button" aria-pressed={related} onClick={() => changeScope(true)}>
-                {t('record.relatedExercises')}
-              </button>
-              <button type="button" aria-pressed={!related} onClick={() => changeScope(false)}>
-                {t('fitness.allExercises')}
-              </button>
-            </div>
-            <p className="small muted">
-              {related
-                ? relatedParts.map((part) => t(`fitness.${part}`)).join(' · ')
-                : t('record.searchAllParts')}
-            </p>
-          </div>
+        <div className="exercise-navigation">
+          {browsing ? (
+            <Button type="button" variant="ghost" onClick={showCategories}>
+              <ArrowLeft size={16} />
+              {zh ? '全部部位' : 'Body parts'}
+            </Button>
+          ) : (
+            <h3>{zh ? '按部位选择' : 'Choose a body part'}</h3>
+          )}
+          {owner && mode !== 'usual' && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setCategory('');
+                setQuery('');
+                setEquipment('');
+                setFavoritesOnly(false);
+                setItems([]);
+                setLoading(true);
+                setMode('usual');
+                setPage(0);
+              }}
+            >
+              {zh ? '常用' : 'My exercises'}
+            </Button>
+          )}
+        </div>
+        {browsing && (
+          <h3 className="exercise-category-title">
+            {category
+              ? t(`fitness.${category}`)
+              : mode === 'usual'
+                ? zh
+                  ? '常用动作'
+                  : 'My exercises'
+                : zh
+                  ? '搜索结果'
+                  : 'Search results'}
+          </h3>
         )}
         <label className="search-field">
           <Search size={17} />
@@ -216,208 +263,216 @@ export default function ExerciseSearch({
             onChange={(e) => {
               setLoading(true);
               selectFilter(setQuery, e.target.value);
-              if (compact) setMode('all');
+              if (e.target.value.trim()) setMode('recommended');
             }}
           />
         </label>
-        {owner && (
-          <div className="section-tabs">
-            {(compact
-              ? ['recent', 'frequent', 'all']
-              : ['all', 'recent', 'frequent', 'favorites']
-            ).map((value) => (
-              <button
-                type="button"
-                key={value}
-                className={mode === value ? 'active' : ''}
-                onClick={() => selectFilter(setMode, value)}
-              >
-                {value === 'all'
-                  ? t(
-                      compact
-                        ? 'common.all'
-                        : relatedParts.length
-                          ? 'record.browseExercises'
-                          : 'fitness.allExercises',
-                    )
-                  : t(`fitness.${value}` as 'fitness.recent')}
-              </button>
-            ))}
+        {!browsing && (
+          <div className="exercise-category-grid">
+            {[...exerciseCategories]
+              .sort((a, b) => Number(relatedParts.includes(b)) - Number(relatedParts.includes(a)))
+              .map((part) => (
+                <button type="button" key={part} onClick={() => chooseCategory(part)}>
+                  <span>{t(`fitness.${part}`)}</span>
+                  <span aria-hidden="true">›</span>
+                </button>
+              ))}
           </div>
         )}
-        <details className="filter-panel" onToggle={(e) => setFilterOpen(e.currentTarget.open)}>
-          <summary>
-            {t('quiet.filters')}
-            {[body, target, equipment].filter(Boolean).length > 0 &&
-              ' · ' + [body, target, equipment].filter(Boolean).length}
-          </summary>
-          <div className="filter-row">
-            {(
-              [
-                [t('fitness.bodyPart'), body, setBody, filters.bodyParts],
-                [t('fitness.target'), target, setTarget, filters.targets],
-                [t('fitness.equipment'), equipment, setEquipment, filters.equipment],
-              ] as const
-            ).map(([label, value, setter, options]) => (
-              <label key={label} className="field">
-                <span className="small muted">{label}</span>
+        {browsing && (
+          <details className="filter-panel">
+            <summary>
+              {zh ? '器械与收藏' : 'Equipment & favorites'}
+              {equipment
+                ? ' · ' +
+                  equipmentGroupLabels[equipment as keyof typeof equipmentGroupLabels][zh ? 0 : 1]
+                : ''}
+              {favoritesOnly ? (zh ? ' · 已收藏' : ' · Favorites') : ''}
+            </summary>
+            <div className="filter-row">
+              <label className="field">
+                <span>{t('fitness.equipment')}</span>
                 <select
-                  value={value}
-                  onChange={(e) => {
-                    if (e.target.value && (setter === setBody || setter === setTarget))
-                      setRelated(false);
-                    selectFilter(setter, e.target.value);
-                  }}
+                  value={equipment}
+                  onChange={(event) => selectFilter(setEquipment, event.target.value)}
                 >
-                  <option value="">{t('common.all')}</option>
-                  {options.map((v) => (
-                    <option key={v} value={v}>
-                      {taxonomyLabel(v, locale)}
+                  <option value="">{zh ? '不限器械' : 'Any equipment'}</option>
+                  {equipmentGroups.map((group) => (
+                    <option key={group} value={group}>
+                      {equipmentGroupLabels[group][zh ? 0 : 1]}
                     </option>
                   ))}
                 </select>
               </label>
-            ))}
-          </div>
-        </details>
+              {owner && (
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={favoritesOnly}
+                    onChange={(event) => {
+                      setFavoritesOnly(event.target.checked);
+                      setItems([]);
+                      setLoading(true);
+                      setPage(0);
+                    }}
+                  />
+                  {zh ? '只看收藏' : 'Favorites only'}
+                </label>
+              )}
+            </div>
+          </details>
+        )}
         {error && (
           <p className="form-message error" role="alert">
             {error}
+            <Button type="button" variant="ghost" onClick={() => setRetry((n) => n + 1)}>
+              {t('common.retry')}
+            </Button>
           </p>
         )}
-        <div aria-live="polite" className="exercise-results">
-          {loading ? (
-            <p className="muted small">{t('common.loading')}</p>
-          ) : items.length === 0 ? (
-            <div className="empty">
-              <Dumbbell size={30} />
-              <p>{t('fitness.noExercises')}</p>
-              {related && (
-                <Button type="button" variant="secondary" onClick={() => changeScope(false)}>
-                  {t('record.searchAllExercises')}
-                </Button>
-              )}
-            </div>
-          ) : (
-            items.map((exercise) => (
-              <div
-                className="exercise-row"
-                key={exercise.id}
-                data-selected={selecting && selected.some((x) => x.id === exercise.id)}
-              >
-                <div className="exercise-preview">
-                  <>
-                    {exercise.image ? (
-                      <img
-                        src={exercise.image}
-                        alt={exerciseName(exercise, locale)}
-                        width={96}
-                        height={96}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <MuscleFigure target={exercise.target} locale={locale} />
-                    )}
-                  </>
-                </div>
-                <button
-                  type="button"
-                  className="exercise-open"
-                  aria-pressed={
-                    selecting && !selectedIds.includes(exercise.id)
-                      ? selected.some((x) => x.id === exercise.id)
-                      : undefined
-                  }
-                  onClick={() => (selecting ? choose(exercise) : setDetail(exercise))}
-                >
-                  <span>
-                    <strong>{exerciseName(exercise, locale)}</strong>
-                    <small>
-                      {taxonomyLabel(exercise.target, locale)} ·{' '}
-                      {taxonomyLabel(exercise.equipment, locale)}
-                    </small>
-                    {selecting && selectedIds.includes(exercise.id) && (
-                      <small className="exercise-added">{t('record.inWorkout')}</small>
-                    )}
-                  </span>
-                  {selecting &&
-                    compact &&
-                    (selected.some((x) => x.id === exercise.id) ? (
-                      <Check
-                        size={18}
-                        aria-hidden="true"
-                        style={{ marginLeft: 'auto', flexShrink: 0 }}
-                      />
-                    ) : (
-                      <Plus
-                        size={18}
-                        aria-hidden="true"
-                        style={{ marginLeft: 'auto', flexShrink: 0 }}
-                      />
-                    ))}
-                </button>
-                {owner && !selecting && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t('fitness.favorite')}
-                    aria-pressed={exercise.favorite}
-                    onClick={() => favorite(exercise)}
-                  >
-                    <Heart size={18} fill={exercise.favorite ? 'currentColor' : 'none'} />
-                  </Button>
-                )}
-                {selecting && !compact && (
+        {browsing && (
+          <div aria-live="polite" className="exercise-results">
+            {loading && page === 0 ? (
+              <p className="muted small">{t('common.loading')}</p>
+            ) : items.length === 0 ? (
+              <div className="empty">
+                <Dumbbell size={30} />
+                <p>{t('fitness.noExercises')}</p>
+                {(category || equipment || favoritesOnly || mode === 'usual') && (
                   <Button
                     type="button"
                     variant="secondary"
-                    size="icon"
-                    aria-label={`${t(selectedIds.includes(exercise.id) ? 'record.locateExercise' : 'common.add')} ${exerciseName(exercise, locale)}`}
-                    aria-pressed={
-                      selectedIds.includes(exercise.id)
-                        ? undefined
-                        : selected.some((x) => x.id === exercise.id)
+                    onClick={
+                      equipment || favoritesOnly
+                        ? () => {
+                            setEquipment('');
+                            setFavoritesOnly(false);
+                            setPage(0);
+                          }
+                        : showCategories
                     }
-                    onClick={() => choose(exercise)}
                   >
-                    {selectedIds.includes(exercise.id) ? (
-                      <ArrowLeft size={18} />
-                    ) : selected.some((x) => x.id === exercise.id) ? (
-                      <Check size={18} />
-                    ) : (
-                      <Plus size={18} />
-                    )}
-                  </Button>
-                )}
-                {selecting && !compact && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`${t('record.details')} ${exerciseName(exercise, locale)}`}
-                    onClick={() => setDetail(exercise)}
-                  >
-                    <Info size={18} />
+                    {equipment || favoritesOnly
+                      ? zh
+                        ? '清除筛选'
+                        : 'Clear filters'
+                      : zh
+                        ? '选择其他部位'
+                        : 'Browse body parts'}
                   </Button>
                 )}
               </div>
-            ))
-          )}
-        </div>
-        <div className="form-actions">
-          {page > 0 && (
-            <Button type="button" variant="ghost" onClick={() => setPage(page - 1)}>
-              {t('common.previous')}
-            </Button>
-          )}
-          {more && (
-            <Button type="button" variant="ghost" onClick={() => setPage(page + 1)}>
-              {t('common.next')}
-            </Button>
-          )}
-        </div>
-        {onSelectMany && (
+            ) : (
+              items.map((exercise) => (
+                <div
+                  className="exercise-row"
+                  key={exercise.id}
+                  data-selected={selecting && selected.some((x) => x.id === exercise.id)}
+                >
+                  <div className="exercise-preview">
+                    <>
+                      {exercise.image ? (
+                        <img
+                          src={exercise.image}
+                          alt={exerciseName(exercise, locale)}
+                          width={96}
+                          height={96}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <MuscleFigure target={exercise.target} locale={locale} />
+                      )}
+                    </>
+                  </div>
+                  <button
+                    type="button"
+                    className="exercise-open"
+                    aria-pressed={
+                      selecting && !selectedIds.includes(exercise.id)
+                        ? selected.some((x) => x.id === exercise.id)
+                        : undefined
+                    }
+                    onClick={() => (selecting ? choose(exercise) : setDetail(exercise))}
+                  >
+                    <span>
+                      <strong>{exerciseName(exercise, locale)}</strong>
+                      <small>
+                        {taxonomyLabel(exercise.target, locale)} ·{' '}
+                        {taxonomyLabel(exercise.equipment, locale)}
+                      </small>
+                      {selecting && selectedIds.includes(exercise.id) && (
+                        <small className="exercise-added">{t('record.inWorkout')}</small>
+                      )}
+                    </span>
+                    {selecting &&
+                      compact &&
+                      (selected.some((x) => x.id === exercise.id) ? (
+                        <Check
+                          size={18}
+                          aria-hidden="true"
+                          style={{ marginLeft: 'auto', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <Plus
+                          size={18}
+                          aria-hidden="true"
+                          style={{ marginLeft: 'auto', flexShrink: 0 }}
+                        />
+                      ))}
+                  </button>
+                  {selecting && !compact && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      aria-label={`${t(selectedIds.includes(exercise.id) ? 'record.locateExercise' : 'common.add')} ${exerciseName(exercise, locale)}`}
+                      aria-pressed={
+                        selectedIds.includes(exercise.id)
+                          ? undefined
+                          : selected.some((x) => x.id === exercise.id)
+                      }
+                      onClick={() => choose(exercise)}
+                    >
+                      {selectedIds.includes(exercise.id) ? (
+                        <ArrowLeft size={18} />
+                      ) : selected.some((x) => x.id === exercise.id) ? (
+                        <Check size={18} />
+                      ) : (
+                        <Plus size={18} />
+                      )}
+                    </Button>
+                  )}
+                  {selecting && !compact && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${t('record.details')} ${exerciseName(exercise, locale)}`}
+                      onClick={() => setDetail(exercise)}
+                    >
+                      <Info size={18} />
+                    </Button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        {browsing && more && (
+          <Button
+            className="exercise-load-more"
+            type="button"
+            variant="ghost"
+            disabled={loading || !!error}
+            onClick={() => {
+              setLoading(true);
+              setPage(page + 1);
+            }}
+          >
+            {loading ? t('common.loading') : zh ? '加载更多' : 'Load more'}
+          </Button>
+        )}
+        {onSelectMany && selected.length > 0 && (
           <div className="picker-footer">
             <Button
               type="button"
@@ -494,6 +549,18 @@ export default function ExerciseSearch({
             >
               <Plus size={16} />
               {t('fitness.addExercise')}
+            </Button>
+          )}
+          {owner && !selecting && (
+            <Button type="button" variant="secondary" onClick={() => void favorite(detail)}>
+              <Heart size={16} fill={detail.favorite ? 'currentColor' : 'none'} />
+              {zh
+                ? detail.favorite
+                  ? '取消收藏'
+                  : '收藏动作'
+                : detail.favorite
+                  ? 'Unfavorite'
+                  : 'Favorite'}
             </Button>
           )}
           {owner && !selecting && (

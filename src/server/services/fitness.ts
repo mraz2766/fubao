@@ -1,3 +1,4 @@
+import { categoryTargets, equipmentGroup, equipmentGroups } from '../../lib/exercise-categories';
 import { z } from 'zod';
 import mediaManifest from '../../data/exercise-media.json';
 import {
@@ -253,6 +254,40 @@ export async function searchExercises(params: URLSearchParams, user: User | null
   const mode = params.get('mode') ?? 'all';
   const bindings: (string | number)[] = [user?.id ?? '', user?.id ?? ''];
   const clauses = ['l.active=1'];
+  const category = params.get('category');
+  const group = params.get('equipmentGroup');
+  if (category || group) {
+    const validCategory = category ? z.enum(trainingParts).parse(category) : null;
+    const validGroup = group ? z.enum(equipmentGroups).parse(group) : null;
+    const taxonomy = await all<{ target: string; equipment: string }>(
+      'SELECT DISTINCT target,equipment FROM exercise_library WHERE active=1',
+    );
+    if (validCategory) {
+      clauses.push('l.target IN (SELECT value FROM json_each(?))');
+      bindings.push(
+        JSON.stringify(
+          categoryTargets(
+            taxonomy.map((row) => row.target),
+            validCategory,
+          ),
+        ),
+      );
+    }
+    if (validGroup) {
+      clauses.push('l.equipment IN (SELECT value FROM json_each(?))');
+      bindings.push(
+        JSON.stringify([
+          ...new Set(
+            taxonomy
+              .filter((row) => equipmentGroup(row.equipment) === validGroup)
+              .map((row) => row.equipment),
+          ),
+        ]),
+      );
+    }
+  }
+  if (params.get('favorites') === '1') clauses.push('f.exercise_id IS NOT NULL');
+  if (mode === 'usual') clauses.push('(u.usage_count>0 OR f.exercise_id IS NOT NULL)');
   let relatedTargets: string[] = [];
   const relatedParts = params.get('trainingItems');
   if (relatedParts) {
@@ -286,11 +321,13 @@ export async function searchExercises(params: URLSearchParams, user: User | null
     (relatedTargets.length
       ? 'CASE WHEN LOWER(l.target) IN (SELECT value FROM json_each(?)) THEN 0 ELSE 1 END,'
       : '') +
-    (mode === 'recent'
-      ? 'u.last_used DESC'
-      : mode === 'frequent'
-        ? 'u.usage_count DESC'
-        : 'approved_image IS NOT NULL DESC,l.name_en') +
+    (mode === 'recommended' || mode === 'usual'
+      ? 'f.exercise_id IS NOT NULL DESC,COALESCE(u.usage_count,0) DESC,u.last_used DESC,approved_image IS NOT NULL DESC,l.name_en'
+      : mode === 'recent'
+        ? 'u.last_used DESC'
+        : mode === 'frequent'
+          ? 'u.usage_count DESC'
+          : 'approved_image IS NOT NULL DESC,l.name_en') +
     ',l.id';
   if (relatedTargets.length) bindings.push(JSON.stringify(relatedTargets));
   const rows = await all<Record<string, unknown>>(
