@@ -1,4 +1,4 @@
-const CACHE = 'fubao-shell-v8';
+const CACHE = 'fubao-shell-v9';
 const SHELL = [
   '/offline.html',
   '/favicon.png',

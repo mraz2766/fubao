@@ -2,9 +2,9 @@
 
 线上地址： https://fubao.mraz2766.workers.dev
 
-个人生活 Dashboard：记录训练、回顾旅行与照片。默认简体中文，支持 English、明暗主题、桌面侧栏和移动端底部导航。
+个人训练与旅行手账：记录训练、回顾旅行与照片。为「添加到 iOS 主屏幕」设计的原生质感 Web App，同时适配桌面浏览器。默认简体中文，支持 English 与明暗主题。
 
-使用 Astro、React Islands、TypeScript、Tailwind 与 shadcn/ui，运行于 Cloudflare Workers；业务数据保存到 D1，照片保存到私有 R2。没有独立 Node 服务，也没有生产环境实时 GitHub 数据请求。
+前端是 Astro 承载的 React 单页应用（Motion 动效、Lucide 图标、手写 CSS 设计系统），运行于 Cloudflare Workers；业务数据保存到 D1，照片保存到私有 R2。没有独立 Node 服务，也没有生产环境实时 GitHub 数据请求。
 
 ## 快速开始
 
@@ -26,9 +26,9 @@ pnpm dev
 
 ## 使用
 
-- 健身 → 新建训练：快速打卡只填名称和时间；详细记录支持动作、逐组记录、保存进行中的训练。
-- 动作库支持中英文搜索、肌群和器械筛选、收藏、最近和常用；模板可直接开始训练。
-- 旅行 → 添加足迹：选择地点并上传 1–6 张照片。浏览器优化图片，支持排序和可确认的 EXIF 建议。
+- 健身 → 打卡：点选部位、日期和可选时长即可；开始训练：从动作库添加动作，逐组记录重量 × 次数，完成一组自动开始组间休息计时，结束可存为模板。
+- 动作库支持中英文搜索、按部位浏览、收藏与常用推荐；模板可一键开始训练。
+- 旅行 → 记录旅行：上传 1–6 张照片（自动压缩、去除元数据，读取拍摄日期与附近地点建议），选择城市/国家/景点或自定义地点。世界地图点亮去过的国家。
 - 记录默认私人。主动公开后，访客才可看到记录、照片及相关统计。
 - 设置 → 数据与备份：导出带 `schemaVersion` 的 JSON；导入先预览，已有 ID 默认跳过。
 - JSON 不包含照片文件；只有当前 R2 存在对应照片时才能恢复旅行。
@@ -87,7 +87,7 @@ pnpm exec astro dev stop
 pnpm exec astro preview stop
 ```
 
-领域代码在 `src/features`，服务端逻辑在 `src/server`，数据库迁移在 `migrations`，双语文案在 `src/locales`。禁止在请求处理期间自动改表。
+前端在 `src/app`（`core` 路由/动效/组件、`fitness`、`travel`、`settings`），样式在 `src/styles`，服务端逻辑在 `src/server`，数据库迁移在 `migrations`，双语文案在 `src/locales`。禁止在请求处理期间自动改表。
 
 ## 常见问题
 
@@ -109,6 +109,6 @@ Workers uses the Free plan. R2 Standard includes a free monthly allowance but ma
 
 ## Design and destinations
 
-Graphite/violet theme adapted from tweakcn, Tremor progress components, BoardUI labels, and destination-first travel workflows. See [design references and licenses](docs/DESIGN.md).
+「暖瓷白 + 墨黑」中性基底，健身用余烬橙红、旅行用潟湖青蓝两条强调色；iOS 式推入/返回、边缘右滑返回、可拖拽底部面板与照片灯箱。见 [设计说明](docs/DESIGN.md)。
 
 The scenic catalog includes 12 domestic destinations with licensed real photographs, province/type/personal-status filters, wishlist and visit links, plus custom place names. Catalog photos do not count as personal visits. Metadata and credits live in `src/data/scenic-spots.json`, images in `public/scenery`; About shows attribution.

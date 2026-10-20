@@ -23,6 +23,25 @@ export async function travelRoute(context: APIContext, parts: string[]) {
       ].slice(0, 6),
     });
   }
+  if (resource === 'atlas' && method === 'GET') {
+    // Lightweight index of every visible trip for maps and yearly stats.
+    const trips = await listTrips(context.locals.user);
+    return json({
+      items: trips.map((t) => ({
+        id: t.id,
+        country_code: t.location.country_code,
+        kind: t.location.kind,
+        location_id: t.location_id,
+        latitude: t.location.latitude,
+        longitude: t.location.longitude,
+        name: t.place_name || t.location.name,
+        name_zh: t.place_name || t.location.name_zh,
+        start_date: t.start_date,
+        end_date: t.end_date,
+        photo: t.photos[0]?.id ?? null,
+      })),
+    });
+  }
   if (resource === 'entries') {
     if (method === 'GET') {
       const items = await listTrips(

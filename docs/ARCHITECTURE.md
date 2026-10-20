@@ -2,7 +2,7 @@
 
 ## 请求与身份
 
-Astro SSR 页面只组织视图和领域服务。React Islands 承担表单、筛选、地图、日历和 Lightbox；编辑器和 EXIF 解析延迟加载。HTTP 路由位于 `src/server/routes-*`，D1 查询在领域服务，R2 访问统一经过 `src/server/storage`。
+`src/pages/[...app].astro` 是唯一的页面外壳：注入当前用户、语言与偏好后挂载 `src/app/App.tsx` 单页应用。前端自带栈式路由（`src/app/core/router.tsx`，推入/返回/标签切换动画与边缘右滑返回）和轻量 SWR 缓存（`core/query.ts`），所有数据经 `/api/*` 读取；HEIC 解码、EXIF 与世界地图几何按需加载。HTTP 路由位于 `src/server/routes-*`，D1 查询在领域服务，R2 访问统一经过 `src/server/storage`。
 
 `middleware` 读取随机会话 Cookie 的哈希，解析用户和偏好，并校验写请求 Origin 与自定义 CSRF Header。未登录只在 SQL 层读取公开、已完成的训练，以及公开且未删除的旅行。媒体请求再次检查旅行权限；HTML、API 和照片使用 no-store，Service Worker 不缓存这些响应。
 
@@ -32,4 +32,4 @@ GitHub 工作流执行冻结安装、领域测试与 Workers 构建。浏览器�
 
 Scenic metadata is separate from personal visits. `scenic_spots` links the local licensed catalog to normalized cities; `travel_entries.spot_id` and an optional custom `place_name` preserve both attraction names and city/country aggregation. Discover filters personal states without turning catalog entries into visits. Static licensed photos use Worker assets; user uploads use private R2.
 
-The theme is a tweakcn Graphite adaptation with semantic tokens. Tremor ProgressBar renders through Astro without client hydration; BoardUI Chip is adapted to the same tokens. React islands remain limited to interactive workspaces. Native Workers `node:crypto` scrypt preserves the password hash format without a separate Node server.
+Design tokens live in `src/styles/app.css` (with `fitness.css` / `travel.css`); see `docs/DESIGN.md`. `GET /api/travel/atlas` returns a light index of all visible trips for the world map. Native Workers `node:crypto` scrypt preserves the password hash format without a separate Node server.

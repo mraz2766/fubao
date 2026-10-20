@@ -5,8 +5,6 @@ import {
   settingsPatchSchema,
   type SettingsPatch,
 } from '../src/lib/settings-patch';
-import { chinaPlaces } from '../src/features/travel/china-places';
-import type { Trip, Wish, Location } from '../src/types/domain';
 
 describe('instant settings persistence', () => {
   it('coalesces fields without replacing other preferences or widget properties', () => {
@@ -82,58 +80,5 @@ describe('instant settings persistence', () => {
     ])
       expect(settingsPatchSchema.safeParse(input).success).toBe(false);
     expect(settingsPatchSchema.safeParse({ preferences: { theme: 'system' } }).success).toBe(true);
-  });
-});
-describe('actual China travel locations', () => {
-  const location: Location = {
-    id: 'shanghai',
-    kind: 'city',
-    country_code: 'CN',
-    country_name: 'China',
-    country_name_zh: '中国',
-    region: '上海',
-    city: 'Shanghai',
-    name: 'Shanghai',
-    name_zh: '上海',
-    latitude: 31.23,
-    longitude: 121.47,
-  };
-  const trip = (id: string, l = location): Trip => ({
-    id,
-    user_id: 'u',
-    location_id: l.id,
-    location: l,
-    start_date: null,
-    end_date: null,
-    description: '',
-    tags: [],
-    rating: null,
-    visibility: 'private',
-    photos: [],
-    updated_at: '',
-  });
-  it('plots a city without a scenic source id and prefers visits to matching wishes', () => {
-    const wish: Wish = { id: 'wish', location_id: location.id, location, visibility: 'private' };
-    const points = chinaPlaces([trip('trip-1')], [wish], 'zh-CN');
-    expect(points).toHaveLength(1);
-    expect(points[0]).toMatchObject({ name: '上海', visited: true, href: '/travel/trip-1' });
-    expect(points[0]!.point![0]).toBeGreaterThan(0);
-    expect(points[0]!.point![0]).toBeLessThan(780);
-    expect(points[0]!.point![1]).toBeGreaterThan(0);
-    expect(points[0]!.point![1]).toBeLessThan(520);
-  });
-  it('keeps missing coordinates in the list, plots region records, excludes overseas from China only', () => {
-    const entries = chinaPlaces(
-      [
-        trip('unknown', { ...location, id: 'unknown', latitude: null, longitude: null }),
-        trip('region', { ...location, id: 'region', kind: 'region' }),
-        trip('foreign', { ...location, id: 'foreign', country_code: 'TH' }),
-      ],
-      [],
-      'en-US',
-    );
-    expect(entries).toHaveLength(2);
-    expect(entries[0]!.point).toBeNull();
-    expect(entries[1]!.point).not.toBeNull();
   });
 });

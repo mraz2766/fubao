@@ -7,7 +7,6 @@ import {
   zonedInput,
 } from '../src/lib/fitness-recording';
 import { setSchema } from '../src/lib/schemas';
-import { muscleMapping } from '../src/features/fitness/MuscleFigure';
 describe('fitness recording', () => {
   it('persists a partially entered weight until the set is completed', () => {
     const s = { ...blankSet(), weight: 100 };
@@ -32,11 +31,6 @@ describe('fitness recording', () => {
     expect(zonedInput(start, 'Asia/Shanghai')).toBe('2026-09-09T23:30');
     expect(zonedISO('2026-07-10T18:00', 'America/New_York')).toBe('2026-07-10T22:00:00.000Z');
     expect(() => zonedISO('2026-03-08T02:30', 'America/New_York')).toThrow();
-  });
-  it('maps posterior muscles to posterior anatomy', () => {
-    expect(muscleMapping.lats).toEqual(['upper-back']);
-    expect(muscleMapping.hamstrings).toEqual(['hamstring']);
-    expect(muscleMapping.pectorals).toEqual(['chest']);
   });
 });
 

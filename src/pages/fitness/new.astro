@@ -1,6 +1,0 @@
----
-if (!Astro.locals.user) return Astro.redirect('/login');
-const params = new URLSearchParams(Astro.url.searchParams);
-params.set('compose', 'workout');
-return Astro.redirect('/fitness?' + params.toString());
----

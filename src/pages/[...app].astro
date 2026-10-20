@@ -1,0 +1,60 @@
+---
+import '../styles/app.css';
+import App from '../app/App';
+const { user, locale, preferences } = Astro.locals;
+const boot = { user, locale, preferences };
+---
+
+<!doctype html>
+<html lang={locale} data-preferred-theme={preferences.theme}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Fubao" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#f5f4f0" />
+    <meta name="description" content="记录训练，收藏旅行。" />
+    <title>Fubao</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        const apply = () => {
+          const pref = root.dataset.preferredTheme || 'system';
+          const dark =
+            pref === 'dark' ||
+            (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+          root.dataset.theme = dark ? 'dark' : 'light';
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute('content', dark ? '#0a0a0b' : '#f5f4f0');
+        };
+        apply();
+        matchMedia('(prefers-color-scheme: dark)').addEventListener('change', apply);
+        window.__applyTheme = apply;
+        if (navigator.standalone || matchMedia('(display-mode: standalone)').matches)
+          root.dataset.standalone = '';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="splash" aria-hidden="true">
+      <img src="/brand-cat.png" alt="" width="64" height="64" />
+    </div>
+    <App client:only="react" boot={boot} />
+    <script>
+      if (import.meta.env.PROD && 'serviceWorker' in navigator)
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+    </script>
+  </body>
+</html>

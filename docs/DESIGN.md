@@ -1,26 +1,30 @@
-# Fubao design implementation
+# 设计说明
 
-## Direction
+## 定位
 
-Neutral gray/white surfaces, ink text, a restrained sage accent for actions and selection, precise numerical typography and real travel photography. Small colored markers, checked states and navigation cues add definition without filling whole cards. The page hierarchy is working context → controls → records, with no marketing hero. Fitness prioritizes one-tap check-in; Travel opens recorded visits first and keeps discovery, wishlist and maps in secondary navigation. Settings persist each choice immediately.
+Fubao 主要以「添加到 iOS 主屏幕」的独立 Web App 使用，桌面浏览器同样可用。目标是接近原生 App 的手感：内容优先、操作路径短、动效有物理感但不拖沓。
 
-Motion uses CSS durations of 150–200ms, faster dismissal and native view transitions. Theme colors change immediately to retain contrast during light/dark switches; checkmarks fade and buttons retain press feedback. Photography has no tilted frame or perspective effect. Tap opens the same detail as desktop; reduced-motion disables spatial effects. No WebGL runtime is downloaded for decorative effects.
+## 视觉
 
-## Sources and adaptations
+- 基底：暖瓷白 `#f5f4f0` / 墨黑 `#161614`；深色模式为近黑 `#0a0a0b` 与分层灰面。所有颜色定义为 `src/styles/app.css` 中的 CSS 变量。
+- 强调色按领域区分：健身为「余烬」橙红渐变（`--fit-grad`），旅行为「潟湖」青蓝渐变（`--trav-grad`）。主要按钮为墨色实心，领域内主操作使用对应渐变。
+- 字体使用系统 SF Pro / 苹方，数字使用 SF Pro Rounded 等宽数字；大标题 34px（桌面 40px）。
+- 卡片 20–28px 圆角、极细描边与柔和阴影；底部标签栏与导航栏使用毛玻璃。
 
-| Project                                                                                                  | Implementation                                                                                                                                                 | License                                                      |
-| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [tweakcn](https://github.com/jnsahaj/tweakcn)                                                            | Graphite preset adapted in `src/styles/themes/graphite.css`; semantic primary, secondary, foreground, sidebar and surface tokens; sage actions and checked contrast | Apache-2.0; copy in `public/licenses/tweakcn.txt`            |
-| [BoardUI](https://github.com/BoardUI/boardui)                                                            | Caption Chip adapted as `src/components/ui/chip.tsx`, used for destination categories; local semantic tokens replace its full token dependency                 | MIT; copy in `public/licenses/boardui.txt`                   |
-| [Tremor](https://github.com/tremorlabs/tremor)                                                           | ProgressBar adapted as `src/components/ui/progress-bar.tsx`, used in fitness muscle distribution; bounded accessible values, SSR, no chart runtime   | Apache-2.0; copy in `public/licenses/tremor.txt`             |
-| [Fluid Functionalism](https://github.com/mickadesign/fluid-functionalism/blob/main/motion-guidelines.md) | Reference for consistent motion tiers, large surfaces moving slower, quicker exits; original CSS implementation                                                | Design reference; no source copied                           |
-| [ThreeUI](https://github.com/MengTo/threeui)                                                             | Earlier depth reference; current product uses flat photographic surfaces                                                     | No source or catalog assets copied; Pro/Beta assets excluded |
-| [Turistar](https://github.com/andre-lmarinho/turistar)                                                   | Reference for place-first organization and map/visit association; independent implementation with D1/R2 and private-by-default records                         | AGPL-3.0 upstream; no source or assets copied                |
+## 交互与动效
 
-The full upstream applications are not dependencies. Fubao retains Astro/Workers and React Islands. No Supabase, Firebase, Vercel server or paid UI package is required.
+- 栈式导航：推入从右滑入、上一屏视差左移并压暗；返回反向；标签之间淡入切换。移动端支持左边缘右滑返回，手势跟手并按速度/距离决定是否完成。
+- 大标题随滚动收起为导航栏小标题，下拉时轻微放大。
+- 底部面板（Sheet）从底部弹出，背景页面缩小退后（iOS 卡片式呈现），可拖动手柄下滑关闭；桌面端为居中对话框。
+- 打卡：部位方块点选弹性反馈，完成后对勾描绘与放射动画；训练完成有彩带庆祝页。
+- 组记录：左滑删除一组；勾选完成后自动开始组间休息倒计时（可 ±15 秒、跳过，时长会记住）。
+- 旅行：世界地图点亮去过的国家，足迹点脉冲；「聚焦」平滑缩放到足迹范围。照片从缩略图飞入灯箱，左右滑动浏览，下拉关闭。
+- 全部动画尊重系统「减少动态效果」设置。
 
-## Scenic catalog
+## 交互约定
 
-Twelve domestic destinations carry genuine Wikimedia Commons photographs. Every photo has author, file page, license URL, source checksum and locally generated large/thumbnail variants in `src/data/scenic-spots.json`. Discover can filter province, landscape type and personal visited/wishlist state. A catalog destination is not a personal trip and never contributes to personal statistics. Other attractions can be recorded with a custom place name and user photos.
+遵循 `AGENTS.md`：一个区域一个主要操作；固定的少量选项直接点选；输入框只在用户点击时唤起键盘；低频功能（模板、记录方式、可见性、备份）放在次级入口。
 
-The current interface and measured validation are documented in [UI-PERFORMANCE.md](UI-PERFORMANCE.md).
+## 素材与许可
+
+风景照片来自 Wikimedia Commons，署名在灵感详情与「关于」页；动作图片来自 Free Exercise DB（Unlicense）。详见 `THIRD_PARTY_NOTICES.md`。
