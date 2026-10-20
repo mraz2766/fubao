@@ -39,6 +39,7 @@ import {
   type Workout,
 } from './data';
 import { useTicker } from './LiveBanner';
+import { haptic } from '../core/haptics';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -403,6 +404,7 @@ function ExerciseCard({
             k={k}
             onField={(patch) => setField(s.id, patch)}
             onToggle={() => {
+              haptic();
               setField(s.id, { completed: !s.completed });
               onSetDone(!s.completed);
             }}

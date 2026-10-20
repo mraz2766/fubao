@@ -28,19 +28,43 @@ export async function searchLocations(params: URLSearchParams) {
   if (preferCountry && !/^[A-Z]{2}$/.test(preferCountry)) throw new HttpError(400, 'INVALID_INPUT');
   const limit = Math.max(1, Math.min(50, Number(params.get('limit')) || 20));
   const escaped = q.replace(/[\\%_]/g, '\\$&');
-  const items = await all<Location>(
-    `SELECT DISTINCT l.id,l.kind,l.country_code,l.country_name,l.country_name_zh,l.region,l.city,l.name,l.name_zh,l.latitude,l.longitude FROM location_aliases a JOIN locations l ON l.id=a.location_id WHERE a.alias LIKE ? ESCAPE '\\' ORDER BY CASE WHEN a.alias=? THEN 0 ELSE 1 END,CASE WHEN l.country_code=? THEN 0 ELSE 1 END,CASE l.kind WHEN 'city' THEN 0 WHEN 'region' THEN 1 ELSE 2 END,l.name LIMIT ?`,
-    escaped + '%',
+  const columns =
+    'l.id,l.kind,l.country_code,l.country_name,l.country_name_zh,l.region,l.city,l.name,l.name_zh,l.latitude,l.longitude';
+  type Row = Location & { exact: number };
+  // Exact names first, then curated/popular places, then the preferred country.
+  const rows = await all<Row>(
+    `SELECT ${columns},MIN(CASE WHEN a.alias=? THEN 0 ELSE 1 END) exact FROM location_aliases a JOIN locations l ON l.id=a.location_id WHERE a.alias LIKE ? ESCAPE '\\' GROUP BY l.id ORDER BY exact,l.popularity DESC,CASE WHEN l.country_code=? THEN 0 ELSE 1 END,CASE l.kind WHEN 'city' THEN 0 WHEN 'region' THEN 1 ELSE 2 END,length(l.name),l.id LIMIT ?`,
     q,
+    escaped + '%',
     preferCountry,
-    limit,
+    limit * 3,
   );
+  // Chinese queries may name the middle of a place (版纳 → 西双版纳); only curated names are scanned.
+  if (/\p{Script=Han}/u.test(q) && rows.length < limit)
+    rows.push(
+      ...(await all<Row>(
+        `SELECT ${columns},1 exact FROM locations l WHERE l.popularity>0 AND instr(l.name_zh,?)>0 ORDER BY l.popularity DESC,length(l.name_zh) LIMIT ?`,
+        q,
+        limit,
+      )),
+    );
   const spots = await all<Location>(
     'SELECT l.*,s.id spot_id,s.name_zh,s.name_en name,s.latitude,s.longitude FROM scenic_spots s JOIN locations l ON l.id=s.location_id WHERE s.name_zh LIKE ? OR s.name_en LIKE ? LIMIT 8',
     '%' + escaped + '%',
     '%' + escaped + '%',
   );
-  return { items: [...spots, ...items].slice(0, limit) };
+  // The source repeats some places (and municipalities exist as regions and cities); show each once.
+  const seen = new Set<string>();
+  const unique = rows.filter((row) => {
+    const key = `${row.kind}|${row.country_code}|${row.region}|${row.name_zh || row.name.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const strip = ({ exact: _exact, ...location }: Row) => location as Location;
+  const exact = unique.filter((row) => row.exact === 0).map(strip);
+  const partial = unique.filter((row) => row.exact !== 0).map(strip);
+  return { items: [...exact, ...spots, ...partial].slice(0, limit) };
 }
 export async function nearbyLocations(params: URLSearchParams) {
   const lat = Number(params.get('lat')),

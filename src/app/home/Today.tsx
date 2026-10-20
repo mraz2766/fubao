@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, Compass, LogIn, Plane } from 'lucide-react';
+import { ChevronRight, LogIn, Plane } from 'lucide-react';
 import { Screen, Press, Reveal, Skeleton, Empty } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { useRouter } from '../core/router';
@@ -9,7 +8,7 @@ import { t, zh, locale } from '../core/i18n';
 import { FitnessHero } from '../fitness/FitnessHome';
 import { LiveBanner } from '../fitness/LiveBanner';
 import { TripCard } from '../travel/TravelHome';
-import { keys as travelKeys, spots, type Trip } from '../travel/data';
+import { keys as travelKeys, type Trip } from '../travel/data';
 
 interface Dashboard {
   travel: { countries: number; cities: number; trips: number; days: number; recent: Trip | null };
@@ -28,7 +27,6 @@ export function Today() {
   const { owner, user } = useApp();
   const { navigate } = useRouter();
   const { data: dash, loading } = useQuery<Dashboard>(travelKeys.dashboard);
-  const spot = useMemo(() => spots[new Date().getDate() % spots.length]!, []);
   const date = new Intl.DateTimeFormat(locale(), {
     month: 'long',
     day: 'numeric',
@@ -120,27 +118,6 @@ export function Today() {
         </Reveal>
       </div>
 
-      <Reveal delay={0.14} className="section">
-        <div className="section-head">
-          <h2>{t('下一站灵感', 'Next stop')}</h2>
-        </div>
-        <motion.button
-          className="inspire-card"
-          whileTap={{ scale: 0.98 }}
-          onClick={() => navigate('/travel?view=wishlist')}
-        >
-          <img src={spot.image.src} alt="" loading="lazy" />
-          <div className="trip-card-shade" />
-          <div className="inspire-text">
-            <span className="badge">
-              <Compass />
-              {zh() ? spot.region : spot.region_en}
-            </span>
-            <b>{zh() ? spot.name_zh : spot.name_en}</b>
-            <span>{zh() ? spot.description_zh : spot.description_en}</span>
-          </div>
-        </motion.button>
-      </Reveal>
       {user && (
         <p className="faint small" style={{ textAlign: 'center', marginTop: 28 }}>
           {t('今天也是好好生活的一天', 'Make today count')} · {user.username}

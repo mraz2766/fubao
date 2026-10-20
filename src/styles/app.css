@@ -1318,52 +1318,40 @@ p {
   color: var(--ink-3);
   font-weight: 600;
 }
-.inspire-card {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: 420px;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  text-align: left;
-  color: #fff;
-  background: var(--surface-2);
-}
-.inspire-card img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.inspire-text {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 16px;
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-}
-.inspire-text .badge {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-.inspire-text b {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 760;
-  letter-spacing: -0.02em;
-}
-.inspire-text span:last-child {
-  font-size: 14px;
-  opacity: 0.88;
-}
 .countup {
   font: inherit !important;
   color: inherit !important;
   letter-spacing: inherit;
+}
+
+.ptr {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  left: 50%;
+  margin-left: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink-2);
+  z-index: 25;
+  pointer-events: none;
+}
+.ptr svg {
+  width: 18px;
+  height: 18px;
+}
+.ptr .spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+.tab-icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
 }

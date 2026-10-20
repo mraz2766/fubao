@@ -7,6 +7,7 @@ import { AppProvider, useApp, type Boot } from './core/app-state';
 import { Router, useRouter } from './core/router';
 import { Toasts, iosEase, spring } from './core/ui';
 import { t } from './core/i18n';
+import { haptic } from './core/haptics';
 import { Today } from './home/Today';
 import { FitnessHome } from './fitness/FitnessHome';
 import { WorkoutScreen } from './fitness/WorkoutScreen';
@@ -82,10 +83,20 @@ function TabBar() {
             whileTap={{ scale: 0.9 }}
             transition={spring}
             aria-current={on ? 'page' : undefined}
-            onClick={() => (on ? scrollTop() : navigate(tab.path, { root: true }))}
+            onClick={() => {
+              haptic();
+              if (on) scrollTop();
+              else navigate(tab.path, { root: true });
+            }}
           >
             {on && <motion.i className="tab-pill" layoutId="tab-pill" transition={spring} />}
-            <Icon strokeWidth={on ? 2.4 : 2} />
+            <motion.span
+              className="tab-icon"
+              animate={on ? { scale: [1, 0.82, 1.12, 1], y: [0, 1, -2, 0] } : { scale: 1, y: 0 }}
+              transition={{ duration: 0.45, ease: 'easeOut' }}
+            >
+              <Icon strokeWidth={on ? 2.4 : 2} />
+            </motion.span>
             <span>{t(tab.zh, tab.en)}</span>
           </motion.button>
         );

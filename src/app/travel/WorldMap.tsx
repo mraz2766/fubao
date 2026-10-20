@@ -107,9 +107,9 @@ export function WorldMap({
         </filter>
       </defs>
       <g>
-        {geo?.countries.map((c) =>
+        {geo?.countries.map((c, i) =>
           visited.has(c.code) ? null : (
-            <path key={c.code} d={c.path} className="land" strokeWidth={0.5 / zoom} />
+            <path key={`${c.code}-${i}`} d={c.path} className="land" strokeWidth={0.5 / zoom} />
           ),
         )}
       </g>
@@ -118,7 +118,7 @@ export function WorldMap({
           .filter((c) => visited.has(c.code))
           .map((c, i) => (
             <motion.path
-              key={c.code}
+              key={`${c.code}-${i}`}
               d={c.path}
               fill="url(#visited-g)"
               className="land visited"

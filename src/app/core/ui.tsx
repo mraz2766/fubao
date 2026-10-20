@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   AnimatePresence,
@@ -10,16 +18,99 @@ import {
   useTransform,
   type PanInfo,
 } from 'motion/react';
-import { ChevronLeft, CircleCheck, CircleAlert, X } from 'lucide-react';
+import { ArrowDown, ChevronLeft, CircleCheck, CircleAlert, X } from 'lucide-react';
 import { useRouter, useScreen, reducedMotion } from './router';
 import { useApp } from './app-state';
 import { t } from './i18n';
+import { invalidate } from './query';
+import { haptic } from './haptics';
 
 export const spring = { type: 'spring', stiffness: 520, damping: 40, mass: 0.9 } as const;
 export const softSpring = { type: 'spring', stiffness: 260, damping: 30 } as const;
 export const iosEase = [0.32, 0.72, 0, 1] as const;
 
 /* ---------- Screen scaffold ---------- */
+/** Root tabs remember where you were when you come back to them. */
+const scrollMemory = new Map<string, number>();
+const PULL = 72;
+
+/** Pull down at the top to refresh — standalone iOS apps have no reload button. */
+function usePullToRefresh(el: React.RefObject<HTMLDivElement | null>, enabled: boolean) {
+  const pull = useMotionValue(0);
+  const [refreshing, setRefreshing] = useState(false);
+  useEffect(() => {
+    const node = el.current;
+    if (!node || !enabled) return;
+    let start: { x: number; y: number } | null = null;
+    let armed = false;
+    const onStart = (e: TouchEvent) => {
+      if (node.scrollTop > 0 || refreshing) return;
+      start = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY };
+      armed = false;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!start) return;
+      const dx = e.touches[0]!.clientX - start.x,
+        dy = e.touches[0]!.clientY - start.y;
+      if (dy <= 0 || Math.abs(dx) > dy || node.scrollTop > 0) {
+        pull.set(0);
+        return;
+      }
+      const value = Math.min(140, Math.max(-node.scrollTop, dy * 0.5));
+      pull.set(value);
+      if (value >= PULL && !armed) {
+        armed = true;
+        haptic();
+      } else if (value < PULL) armed = false;
+    };
+    const onEnd = () => {
+      if (!start) return;
+      start = null;
+      if (pull.get() >= PULL) {
+        setRefreshing(true);
+        animate(pull, PULL - 16, spring);
+        invalidate('/api/');
+        setTimeout(() => {
+          setRefreshing(false);
+          animate(pull, 0, spring);
+        }, 800);
+      } else animate(pull, 0, spring);
+    };
+    node.addEventListener('touchstart', onStart, { passive: true });
+    node.addEventListener('touchmove', onMove, { passive: true });
+    node.addEventListener('touchend', onEnd);
+    node.addEventListener('touchcancel', onEnd);
+    return () => {
+      node.removeEventListener('touchstart', onStart);
+      node.removeEventListener('touchmove', onMove);
+      node.removeEventListener('touchend', onEnd);
+      node.removeEventListener('touchcancel', onEnd);
+    };
+  }, [el, enabled, refreshing, pull]);
+  return { pull, refreshing };
+}
+function PullIndicator({
+  pull,
+  refreshing,
+}: {
+  pull: ReturnType<typeof useMotionValue<number>>;
+  refreshing: boolean;
+}) {
+  const opacity = useTransform(pull, [12, PULL], [0, 1]);
+  const scale = useTransform(pull, [12, PULL], [0.6, 1]);
+  const rotate = useTransform(pull, [0, PULL, 140], [0, 180, 180]);
+  return (
+    <motion.div className="ptr" style={{ opacity, scale }} aria-hidden>
+      {refreshing ? (
+        <span className="spinner" />
+      ) : (
+        <motion.span style={{ rotate, display: 'grid' }}>
+          <ArrowDown />
+        </motion.span>
+      )}
+    </motion.div>
+  );
+}
 export function Screen({
   title,
   subtitle,
@@ -58,12 +149,25 @@ export function Screen({
   const smallTitle = useTransform(scroller, [threshold - 8, threshold + 8], [0, 1]);
   const largeScale = useTransform(scroller, [-120, 0], [1.12, 1]);
   useMotionValueEvent(scroller, 'change', (v) => overlayNav && setSolid(v > threshold - 30));
+  const { entry } = useScreen();
+  const { pull, refreshing } = usePullToRefresh(scrollEl, root);
+  useLayoutEffect(() => {
+    const saved = root ? scrollMemory.get(entry.path) : undefined;
+    if (saved && scrollEl.current) {
+      scrollEl.current.scrollTop = saved;
+      scroller.set(saved);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div
       ref={scrollEl}
       className={`screen ${tabbar ? '' : 'no-tabbar'} ${className ?? ''}`}
-      onScroll={(e) => scroller.set(e.currentTarget.scrollTop)}
+      onScroll={(e) => {
+        scroller.set(e.currentTarget.scrollTop);
+        if (root) scrollMemory.set(entry.path, e.currentTarget.scrollTop);
+      }}
     >
+      {root && <PullIndicator pull={pull} refreshing={refreshing} />}
       <header
         className={`navbar ${overlayNav ? 'overlay' : ''} ${overlayNav && !solid ? 'on-media' : ''} ${root && large ? 'root-nav' : ''}`}
       >

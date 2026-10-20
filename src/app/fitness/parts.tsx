@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, Clock, Dumbbell, Zap } from 'lucide-react';
 import { useRouter } from '../core/router';
 import { useApp } from '../core/app-state';
-import { useQuery } from '../core/query';
+import { prefetch, seedQuery, useQuery } from '../core/query';
 import { Press, spring, Skeleton } from '../core/ui';
 import { t, locale } from '../core/i18n';
 import {
@@ -212,7 +212,10 @@ export function SessionRow({ w, index = 0 }: { w: Workout; index?: number }) {
   return (
     <motion.button
       className="session-row list-row tappable"
-      onClick={() => navigate(`/fitness/${w.id}`)}
+      onClick={() => {
+        seedQuery(keys.session(w.id), w);
+        navigate(`/fitness/${w.id}`);
+      }}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index, 8) * 0.035, ease: [0.16, 1, 0.3, 1] }}
@@ -274,6 +277,7 @@ export function DaySessions({
             <button
               key={s.id}
               className="list-row tappable"
+              onPointerDown={() => prefetch(keys.session(s.id))}
               onClick={() => navigate(`/fitness/${s.id}`)}
             >
               <span className="session-parts">

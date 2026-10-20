@@ -67,3 +67,11 @@ export function setQueryData<T>(key: string, update: (old: T | undefined) => T) 
 export function clearQueries() {
   cache.clear();
 }
+/** Warm a detail screen before it is pushed (e.g. on pointer down). */
+export function prefetch(key: string) {
+  if (!cache.has(key)) void load(key);
+}
+/** Show list data immediately on a detail screen; it still revalidates. */
+export function seedQuery<T>(key: string, data: T) {
+  if (cache.get(key)?.data === undefined) cache.set(key, { data, stale: true });
+}

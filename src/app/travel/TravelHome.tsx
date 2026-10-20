@@ -1,22 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Camera, Compass, Heart, MapPin, Plus, Star, Trash2, ImageOff } from 'lucide-react';
-import {
-  Screen,
-  Press,
-  Segmented,
-  CountUp,
-  Reveal,
-  Empty,
-  Skeleton,
-  Sheet,
-  spring,
-} from '../core/ui';
+import { Screen, Press, Segmented, CountUp, Reveal, Empty, Skeleton, spring } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { useRouter } from '../core/router';
-import { useQuery } from '../core/query';
+import { prefetch, seedQuery, useQuery } from '../core/query';
 import { api } from '../../lib/api';
-import { t, zh, errorMessage } from '../core/i18n';
+import { t, errorMessage } from '../core/i18n';
 import { flag, photoUrl, placeContext, placeName, tripDates } from '../core/format';
 import { WorldMap } from './WorldMap';
 import { TripEditor } from './TripEditor';
@@ -25,12 +15,9 @@ import {
   addWish,
   keys,
   removeWish,
-  spotLocation,
   spots,
   type AtlasItem,
-  type Location,
   type Page,
-  type Spot,
   type Trip,
   type Wish,
 } from './data';
@@ -81,7 +68,10 @@ export function TravelHero() {
         <WorldMap
           items={atlas?.items ?? []}
           focus={focus}
-          onPoint={(id) => navigate(`/travel/${id}`)}
+          onPoint={(id) => {
+            prefetch(keys.entry(id));
+            navigate(`/travel/${id}`);
+          }}
         />
         <div className="map-stats">
           <div>
@@ -128,7 +118,10 @@ export function TripCard({
   return (
     <motion.button
       className={`trip-card ${large ? 'large' : ''}`}
-      onClick={() => navigate(`/travel/${trip.id}`)}
+      onClick={() => {
+        seedQuery(keys.entry(trip.id), trip);
+        navigate(`/travel/${trip.id}`);
+      }}
       initial={{ opacity: 0, y: 20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       whileTap={{ scale: 0.97 }}
@@ -270,7 +263,6 @@ function WishView() {
   const { owner, toast } = useApp();
   const { data: wishes } = useQuery<{ items: Wish[] }>(keys.wishlist);
   const [picker, setPicker] = useState(false);
-  const [spot, setSpot] = useState<Spot | null>(null);
   const spotImage = (id?: string | null) => spots.find((s) => s.id === id)?.image.thumbnail;
   return (
     <>
@@ -336,36 +328,14 @@ function WishView() {
               tone="trav"
               icon={<Heart />}
               title={t('还没有想去的地方', 'Nothing saved yet')}
-              text={t('从下面的灵感里挑一个吧。', 'Pick one from the ideas below.')}
+              text={
+                owner
+                  ? t('点「添加」收藏下一个目的地。', 'Tap “Add” to save your next destination.')
+                  : undefined
+              }
             />
           </div>
         )}
-      </section>
-      <section className="section">
-        <div className="section-head">
-          <h2>{t('灵感', 'Inspiration')}</h2>
-          <span className="faint small">{t('国内精选', 'Curated in China')}</span>
-        </div>
-        <div className="spot-grid">
-          {spots.map((s, i) => (
-            <motion.button
-              key={s.id}
-              className="spot-card"
-              onClick={() => setSpot(s)}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileTap={{ scale: 0.96 }}
-              transition={{ duration: 0.5, delay: Math.min(i, 8) * 0.04, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <img src={s.image.thumbnail} alt="" loading="lazy" />
-              <div className="trip-card-shade" />
-              <div className="spot-info">
-                <b>{zh() ? s.name_zh : s.name_en}</b>
-                <span>{zh() ? s.region : s.region_en}</span>
-              </div>
-            </motion.button>
-          ))}
-        </div>
       </section>
       <PlacePicker
         open={picker}
@@ -379,108 +349,6 @@ function WishView() {
           } catch (error) {
             toast(errorMessage(error), 'error');
           }
-        }}
-      />
-      <SpotSheet spot={spot} onClose={() => setSpot(null)} wishes={wishes?.items ?? []} />
-    </>
-  );
-}
-
-function SpotSheet({
-  spot,
-  onClose,
-  wishes,
-}: {
-  spot: Spot | null;
-  onClose: () => void;
-  wishes: Wish[];
-}) {
-  const { owner, toast } = useApp();
-  const { navigate } = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [editorLoc, setEditorLoc] = useState<Location | null>(null);
-  const wished = spot && wishes.find((w) => w.spot_id === spot.id);
-  const last = useRef(spot);
-  if (spot) last.current = spot;
-  const s = last.current;
-  return (
-    <>
-      <Sheet open={!!spot} onClose={onClose}>
-        {s && (
-          <div className="spot-sheet">
-            <motion.img
-              src={s.image.src}
-              alt=""
-              className="spot-hero"
-              initial={{ scale: 1.08, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            />
-            <h2 className="spot-title">{zh() ? s.name_zh : s.name_en}</h2>
-            <p className="faint">{zh() ? `${s.region} · 中国` : `${s.region_en} · China`}</p>
-            <p style={{ marginTop: 12, fontSize: 17 }}>
-              {zh() ? s.description_zh : s.description_en}
-            </p>
-            <p className="credit">
-              {t('照片', 'Photo')}:{' '}
-              <a href={s.image.source} target="_blank" rel="noreferrer">
-                {s.image.artist}
-              </a>{' '}
-              ·{' '}
-              <a href={s.image.licenseUrl} target="_blank" rel="noreferrer">
-                {s.image.license}
-              </a>
-            </p>
-            {owner && (
-              <div className="grid-actions">
-                <Press
-                  className={`btn lg ${wished ? '' : 'btn-primary'}`}
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    try {
-                      if (wished) await removeWish(wished.id);
-                      else await addWish(await spotLocation(s.id));
-                      toast(
-                        wished ? t('已移出想去', 'Removed') : t('已加入想去', 'Added to wishlist'),
-                      );
-                    } catch (error) {
-                      toast(errorMessage(error), 'error');
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                >
-                  <Heart
-                    style={wished ? { fill: 'var(--fit-2)', color: 'var(--fit-2)' } : undefined}
-                  />
-                  {wished ? t('已想去', 'Saved') : t('想去', 'Want to go')}
-                </Press>
-                <Press
-                  className="btn btn-trav lg"
-                  onClick={async () => {
-                    try {
-                      setEditorLoc(await spotLocation(s.id));
-                    } catch (error) {
-                      toast(errorMessage(error), 'error');
-                    }
-                  }}
-                >
-                  <MapPin />
-                  {t('去过了', 'Been there')}
-                </Press>
-              </div>
-            )}
-          </div>
-        )}
-      </Sheet>
-      <TripEditor
-        open={!!editorLoc}
-        initialLocation={editorLoc}
-        onClose={() => setEditorLoc(null)}
-        onSaved={(trip) => {
-          onClose();
-          navigate(`/travel/${trip.id}`);
         }}
       />
     </>

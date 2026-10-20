@@ -7,7 +7,17 @@ import { t, errorMessage } from '../core/i18n';
 import { partInfo, parts, partLabel, partsTitle, today, fmtDate, type Part } from '../core/format';
 import { shiftDay } from '../../lib/analytics';
 import { zonedISO } from '../../lib/fitness-recording';
-import { createWorkout, putWorkout, refreshFitness, uid, type Workout } from './data';
+import { haptic } from '../core/haptics';
+import { useQuery } from '../core/query';
+import {
+  createWorkout,
+  keys,
+  putWorkout,
+  refreshFitness,
+  uid,
+  type Page,
+  type Workout,
+} from './data';
 
 const durations = [0, 30, 45, 60, 90];
 
@@ -47,8 +57,24 @@ export function CheckinSheet({
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = (p: Part) =>
+  const toggle = (p: Part) => {
+    haptic();
     setSelected((list) => (list.includes(p) ? list.filter((x) => x !== p) : [...list, p]));
+  };
+  // Recent part combinations become one-tap shortcuts.
+  const { data: recent } = useQuery<Page<Workout>>(open && !editing ? keys.sessions(0) : null);
+  const combos = [
+    ...new Map(
+      (recent?.items ?? [])
+        .filter((w) => w.status === 'completed' && w.body_parts.length)
+        .map((w) => {
+          const list = parts.filter((p) => w.body_parts.includes(p));
+          return [list.join(','), list] as const;
+        }),
+    ).values(),
+  ].slice(0, 3);
+  const sameAs = (list: readonly Part[]) =>
+    list.length === selected.length && list.every((p) => selected.includes(p));
 
   async function save() {
     if (!selected.length) return;
@@ -84,6 +110,7 @@ export function CheckinSheet({
       const saved = editing ? await putWorkout(w) : await createWorkout(w);
       refreshFitness();
       setDone(true);
+      haptic();
       onSaved?.(saved);
       setTimeout(() => {
         onClose();
@@ -124,6 +151,30 @@ export function CheckinSheet({
           <SuccessBurst key="done" />
         ) : (
           <motion.div key="form" exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.15 }}>
+            {!!combos.length && (
+              <div className="chips scroll combo-row">
+                <span className="combo-label">{t('常练', 'Recent')}</span>
+                {combos.map((list) => (
+                  <button
+                    key={list.join()}
+                    className={`chip ${sameAs(list) ? 'on fit' : ''}`}
+                    onClick={() => {
+                      haptic();
+                      setSelected([...list]);
+                    }}
+                  >
+                    {list.map((p) => (
+                      <i
+                        key={p}
+                        className="dot"
+                        style={{ background: sameAs(list) ? '#fff' : partInfo[p].color }}
+                      />
+                    ))}
+                    {partsTitle(list)}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="part-grid">
               {parts.map((p, i) => {
                 const on = selected.includes(p);

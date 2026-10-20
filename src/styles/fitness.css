@@ -1092,3 +1092,19 @@
   width: 42px;
   height: 42px;
 }
+
+.combo-row {
+  margin-bottom: 14px;
+  align-items: center;
+}
+.combo-label {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.chip .dot {
+  width: 7px;
+  height: 7px;
+  margin-right: -2px;
+}
