@@ -7,7 +7,6 @@ import {
   Info,
   KeyRound,
   Languages,
-  LogIn,
   LogOut,
   Moon,
   Ruler,
@@ -94,19 +93,11 @@ export function Settings() {
       >
         <img src="/brand-cat.png" alt="" className="avatar" />
         <div className="grow">
-          <div className="profile-name">{user?.username ?? t('访客', 'Visitor')}</div>
+          <div className="profile-name">{user?.username}</div>
           <div className="faint small">
-            {owner
-              ? t('记录默认私密，可单独公开', 'Records are private unless shared')
-              : t('登录后可以记录与管理', 'Sign in to record and manage')}
+            {t('所有记录仅自己可见', 'All records are visible only to you')}
           </div>
         </div>
-        {!owner && (
-          <Press className="btn sm btn-primary" onClick={() => navigate('/login')}>
-            <LogIn />
-            {t('登录', 'Sign in')}
-          </Press>
-        )}
       </motion.div>
 
       <div className="section">
@@ -329,8 +320,8 @@ function PasswordSheet({
               });
               toast(t('密码已更新，请重新登录', 'Password changed — sign in again'));
               onClose();
+              history.replaceState(null, '', '/');
               onDone();
-              navigate('/login', { root: true });
             } catch (e) {
               toast(errorMessage(e), 'error');
             } finally {

@@ -83,6 +83,18 @@ export function ExercisePicker({
       setCategory(hint?.length === 1 && hint[0] !== 'other' ? hint[0]! : 'all');
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // Keep the active category chip visible in the horizontal scroller.
+    if (!open) return;
+    const timer = setTimeout(
+      () =>
+        document
+          .querySelector('.picker-top .chip.on')
+          ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }),
+      60,
+    );
+    return () => clearTimeout(timer);
+  }, [open, category]);
 
   const fetchPage = async (n: number) => {
     const id = ++seq.current;

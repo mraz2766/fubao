@@ -108,7 +108,7 @@ export const tripSchema = z
     tags: z.array(z.string().trim().min(1).max(40)).max(20),
     rating: z.number().int().min(1).max(5).nullable(),
     visibility: visibilitySchema,
-    photo_ids: z.array(idSchema).min(1).max(6),
+    photo_ids: z.array(idSchema).max(6),
     updated_at: z.string().optional(),
   })
   .refine((t) => new Set(t.photo_ids).size === t.photo_ids.length)

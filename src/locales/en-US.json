@@ -237,7 +237,7 @@
   "error.RATE_LIMITED": "Too many attempts. Please try again later.",
   "error.INVALID_CREDENTIALS": "Incorrect username or password.",
   "error.INTERNAL": "The operation did not complete. Please try again.",
-  "error.PHOTO_REQUIRED": "Keep 1–6 fully uploaded photos.",
+  "error.PHOTO_REQUIRED": "Up to 6 photos per trip; wait for uploads to finish.",
   "error.INVALID_FILE": "The image format, dimensions or size is not supported.",
   "error.MISSING_PHOTOS": "Some photos in this backup are missing from the current storage.",
   "error.INVALID_BACKUP": "This backup format or version is not supported.",

@@ -296,3 +296,63 @@ export function DaySessions({
     </motion.div>
   );
 }
+
+const durationChoices = [0, 30, 45, 60, 90];
+/** Shared "which day / how long" pickers: common values are one tap, anything else via the native picker. */
+export function DateDurationFields({
+  date,
+  onDate,
+  minutes,
+  onMinutes,
+}: {
+  date: string;
+  onDate: (d: string) => void;
+  minutes: number;
+  onMinutes: (m: number) => void;
+}) {
+  const { prefs } = useApp();
+  const todayKey = today(prefs);
+  const quick = [todayKey, shiftDay(todayKey, -1), shiftDay(todayKey, -2)];
+  const durations = durationChoices.includes(minutes)
+    ? durationChoices
+    : [...durationChoices, minutes];
+  return (
+    <>
+      <div className="form-label">{t('日期', 'Date')}</div>
+      <div className="chips">
+        {quick.map((d, i) => (
+          <button key={d} className={`chip ${date === d ? 'on' : ''}`} onClick={() => onDate(d)}>
+            {i === 0 ? t('今天', 'Today') : i === 1 ? t('昨天', 'Yesterday') : fmtDate(d)}
+          </button>
+        ))}
+        <label
+          className={`chip ${quick.includes(date) ? '' : 'on'}`}
+          style={{ position: 'relative' }}
+        >
+          {quick.includes(date) ? t('其他日期', 'Other') : fmtDate(date)}
+          <input
+            type="date"
+            className="overlay-input"
+            max={todayKey}
+            value={date}
+            onChange={(e) => e.target.value && onDate(e.target.value)}
+          />
+        </label>
+      </div>
+      <div className="form-label">
+        {t('时长', 'Duration')} <span className="faint">· {t('可选', 'optional')}</span>
+      </div>
+      <div className="chips">
+        {durations.map((m) => (
+          <button
+            key={m}
+            className={`chip ${minutes === m ? 'on' : ''}`}
+            onClick={() => onMinutes(m)}
+          >
+            {m ? t(`${m} 分钟`, `${m} min`) : t('不记录', 'Skip')}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}

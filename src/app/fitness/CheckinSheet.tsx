@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Check } from 'lucide-react';
+import { Check, ChevronRight, ListPlus } from 'lucide-react';
 import { Sheet, Press, spring } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { t, errorMessage } from '../core/i18n';
-import { partInfo, parts, partLabel, partsTitle, today, fmtDate, type Part } from '../core/format';
-import { shiftDay } from '../../lib/analytics';
+import { partInfo, parts, partLabel, partsTitle, today, type Part } from '../core/format';
+import { useRouter } from '../core/router';
+import { DateDurationFields } from './parts';
 import { zonedISO } from '../../lib/fitness-recording';
 import { haptic } from '../core/haptics';
 import { useQuery } from '../core/query';
@@ -19,8 +20,6 @@ import {
   type Workout,
 } from './data';
 
-const durations = [0, 30, 45, 60, 90];
-
 export function CheckinSheet({
   open,
   onClose,
@@ -33,6 +32,7 @@ export function CheckinSheet({
   onSaved?: (w: Workout) => void;
 }) {
   const { prefs, toast } = useApp();
+  const { navigate } = useRouter();
   const todayKey = today(prefs);
   const [selected, setSelected] = useState<Part[]>([]);
   const [date, setDate] = useState(todayKey);
@@ -122,7 +122,6 @@ export function CheckinSheet({
     }
   }
 
-  const dateChips = [todayKey, shiftDay(todayKey, -1), shiftDay(todayKey, -2)];
   return (
     <Sheet
       open={open}
@@ -211,46 +210,29 @@ export function CheckinSheet({
               })}
             </div>
 
-            <div className="form-label">{t('日期', 'Date')}</div>
-            <div className="chips">
-              {dateChips.map((d, i) => (
-                <button
-                  key={d}
-                  className={`chip ${date === d ? 'on' : ''}`}
-                  onClick={() => setDate(d)}
-                >
-                  {i === 0 ? t('今天', 'Today') : i === 1 ? t('昨天', 'Yesterday') : fmtDate(d)}
-                </button>
-              ))}
-              <label
-                className={`chip ${dateChips.includes(date) ? '' : 'on'}`}
-                style={{ position: 'relative' }}
+            <DateDurationFields
+              date={date}
+              onDate={setDate}
+              minutes={minutes}
+              onMinutes={setMinutes}
+            />
+            {!editing && (
+              <button
+                className="detail-link"
+                onClick={() => {
+                  onClose();
+                  const q = new URLSearchParams({ date });
+                  if (selected.length)
+                    q.set('parts', parts.filter((p) => selected.includes(p)).join(','));
+                  if (minutes) q.set('minutes', String(minutes));
+                  navigate(`/fitness/new?${q}`);
+                }}
               >
-                {dateChips.includes(date) ? t('其他日期', 'Other') : fmtDate(date)}
-                <input
-                  type="date"
-                  className="overlay-input"
-                  max={todayKey}
-                  value={date}
-                  onChange={(e) => e.target.value && setDate(e.target.value)}
-                />
-              </label>
-            </div>
-
-            <div className="form-label">
-              {t('时长', 'Duration')} <span className="faint">· {t('可选', 'optional')}</span>
-            </div>
-            <div className="chips">
-              {durations.map((m) => (
-                <button
-                  key={m}
-                  className={`chip ${minutes === m ? 'on' : ''}`}
-                  onClick={() => setMinutes(m)}
-                >
-                  {m ? t(`${m} 分钟`, `${m} min`) : t('不记录', 'Skip')}
-                </button>
-              ))}
-            </div>
+                <ListPlus />
+                {t('还想记下具体动作和组数', 'Log exercises and sets instead')}
+                <ChevronRight />
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

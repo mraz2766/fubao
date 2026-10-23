@@ -4,7 +4,7 @@
 
 `src/pages/[...app].astro` 是唯一的页面外壳：注入当前用户、语言与偏好后挂载 `src/app/App.tsx` 单页应用。前端自带栈式路由（`src/app/core/router.tsx`，推入/返回/标签切换动画与边缘右滑返回）和轻量 SWR 缓存（`core/query.ts`），所有数据经 `/api/*` 读取；HEIC 解码、EXIF 与世界地图几何按需加载。HTTP 路由位于 `src/server/routes-*`，D1 查询在领域服务，R2 访问统一经过 `src/server/storage`。
 
-`middleware` 读取随机会话 Cookie 的哈希，解析用户和偏好，并校验写请求 Origin 与自定义 CSRF Header。未登录只在 SQL 层读取公开、已完成的训练，以及公开且未删除的旅行。媒体请求再次检查旅行权限；HTML、API 和照片使用 no-store，Service Worker 不缓存这些响应。
+`middleware` 读取随机会话 Cookie 的哈希，解析用户和偏好，并校验写请求 Origin 与自定义 CSRF Header。所有数据接口在路由入口要求登录（仅 ODbL 地点导出例外），未登录前端只渲染欢迎与登录页；SQL 层仍保留可见性过滤作为第二道防线。媒体请求再次检查旅行权限；HTML、API 和照片使用 no-store，Service Worker 不缓存这些响应。
 
 初始用户由维护脚本创建。账号不开放注册，不在运行时创建默认用户。数据库用户 ID 来自认证上下文，不使用客户端提交的 user_id。
 

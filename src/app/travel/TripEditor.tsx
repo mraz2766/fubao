@@ -10,7 +10,7 @@ import {
   X,
   CalendarDays,
 } from 'lucide-react';
-import { Sheet, Press, Switch, ConfirmSheet, spring } from '../core/ui';
+import { Sheet, Press, ConfirmSheet, spring } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { t, errorMessage } from '../core/i18n';
 import { fmtDate, flag, photoUrl, placeContext, placeName } from '../core/format';
@@ -54,7 +54,6 @@ export function TripEditor({
   const [end, setEnd] = useState('');
   const [note, setNote] = useState('');
   const [rating, setRating] = useState<number | null>(null);
-  const [pub, setPub] = useState(false);
   const [items, setItems] = useState<Item[]>([]);
   const [picker, setPicker] = useState(false);
   const [nearby, setNearby] = useState<Location[]>([]);
@@ -83,7 +82,6 @@ export function TripEditor({
     setEnd(trip?.end_date ?? '');
     setNote(trip?.description ?? '');
     setRating(trip?.rating ?? null);
-    setPub(trip?.visibility === 'public');
     setItems(
       (trip?.photos ?? []).map((p) => ({
         id: p.id,
@@ -207,8 +205,7 @@ export function TripEditor({
 
   const done = items.filter((x) => x.status === 'done');
   const busy = items.some((x) => ['queued', 'processing', 'uploading'].includes(x.status));
-  const canSave =
-    !!location && done.length > 0 && !busy && !saving && (!end || !start || end >= start);
+  const canSave = !!location && !busy && !saving && (!end || !start || end >= start);
   const close = () => (dirty || busy ? setConfirmClose(true) : onClose());
 
   async function save() {
@@ -226,7 +223,7 @@ export function TripEditor({
         description: note,
         tags: trip?.tags ?? [],
         rating,
-        visibility: pub ? 'public' : 'private',
+        visibility: trip?.visibility ?? 'private',
         photo_ids: items.filter((x) => x.status === 'done').map((x) => x.photo!.id),
         updated_at: trip?.updated_at,
       });
@@ -253,8 +250,6 @@ export function TripEditor({
               <span className="spinner" />
             ) : busy ? (
               t('照片上传中…', 'Uploading photos…')
-            ) : !done.length ? (
-              t('至少添加 1 张照片', 'Add at least 1 photo')
             ) : !location ? (
               t('选择地点', 'Choose a place')
             ) : (
@@ -263,6 +258,66 @@ export function TripEditor({
           </Press>
         }
       >
+        <div className="form-label" style={{ marginTop: 4 }}>
+          {t('去了哪里', 'Where')}
+        </div>
+        <div className="list">
+          <button className="list-row tappable" onClick={() => setPicker(true)}>
+            <span className="row-icon" style={{ background: 'var(--trav-grad)' }}>
+              <MapPin />
+            </span>
+            <span className="grow">
+              {location ? (
+                <>
+                  <span className="place-name ellipsis">{placeName(location)}</span>
+                  <span className="faint small ellipsis" style={{ display: 'block' }}>
+                    {flag(location.country_code)}{' '}
+                    {placeContext(location) || t('自定义地点', 'Custom place')}
+                  </span>
+                </>
+              ) : (
+                <span className="faint">
+                  {t('选择城市、国家或景点', 'Choose a city, country or spot')}
+                </span>
+              )}
+            </span>
+            <ChevronRight className="chev" />
+          </button>
+          {!location && nearby[0] && (
+            <button
+              className="list-row tappable"
+              onClick={() => (setLocation(nearby[0]!), setDirty(true))}
+            >
+              <span
+                className="row-icon"
+                style={{ background: 'var(--surface-3)', color: 'var(--ink)' }}
+              >
+                <LocateFixed />
+              </span>
+              <span className="grow">
+                {t('照片拍摄于 ', 'Taken near ')}
+                <b>{placeName(nearby[0])}</b>
+              </span>
+              <span className="badge trav">{t('使用', 'Use')}</span>
+            </button>
+          )}
+          {location && location.id !== 'manual-place' && (
+            <div className="list-row">
+              <input
+                className="bare-input"
+                value={customName}
+                maxLength={120}
+                onChange={(e) => (setCustomName(e.target.value), setDirty(true))}
+                placeholder={t('具体名称（可选），如 西湖边的小酒馆', 'Specific name (optional)')}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="form-label">
+          {t('照片', 'Photos')}{' '}
+          <span className="faint">· {t('可选，最多 6 张', 'optional, up to 6')}</span>
+        </div>
         <div className="photo-grid">
           <AnimatePresence initial={false}>
             {items.map((item, i) => (
@@ -371,60 +426,6 @@ export function TripEditor({
           </p>
         )}
 
-        <div className="form-label">{t('地点', 'Place')}</div>
-        <div className="list">
-          <button className="list-row tappable" onClick={() => setPicker(true)}>
-            <span className="row-icon" style={{ background: 'var(--trav-grad)' }}>
-              <MapPin />
-            </span>
-            <span className="grow">
-              {location ? (
-                <>
-                  <span className="place-name ellipsis">{placeName(location)}</span>
-                  <span className="faint small ellipsis" style={{ display: 'block' }}>
-                    {flag(location.country_code)}{' '}
-                    {placeContext(location) || t('自定义地点', 'Custom place')}
-                  </span>
-                </>
-              ) : (
-                <span className="faint">
-                  {t('选择城市、国家或景点', 'Choose a city, country or spot')}
-                </span>
-              )}
-            </span>
-            <ChevronRight className="chev" />
-          </button>
-          {!location && nearby[0] && (
-            <button
-              className="list-row tappable"
-              onClick={() => (setLocation(nearby[0]!), setDirty(true))}
-            >
-              <span
-                className="row-icon"
-                style={{ background: 'var(--surface-3)', color: 'var(--ink)' }}
-              >
-                <LocateFixed />
-              </span>
-              <span className="grow">
-                {t('照片拍摄于 ', 'Taken near ')}
-                <b>{placeName(nearby[0])}</b>
-              </span>
-              <span className="badge trav">{t('使用', 'Use')}</span>
-            </button>
-          )}
-          {location && location.id !== 'manual-place' && (
-            <div className="list-row">
-              <input
-                className="bare-input"
-                value={customName}
-                maxLength={120}
-                onChange={(e) => (setCustomName(e.target.value), setDirty(true))}
-                placeholder={t('具体名称（可选），如 西湖边的小酒馆', 'Specific name (optional)')}
-              />
-            </div>
-          )}
-        </div>
-
         <div className="form-label">{t('日期', 'Dates')}</div>
         <div className="date-pair">
           <label className="date-box">
@@ -499,22 +500,6 @@ export function TripEditor({
           placeholder={t('那天的风、吃过的东西、遇到的人…', 'The weather, the food, the people…')}
           onChange={(e) => (setNote(e.target.value), setDirty(true))}
         />
-
-        <div className="list" style={{ marginTop: 18 }}>
-          <div className="list-row">
-            <span className="grow">
-              {t('公开展示', 'Public')}
-              <span className="faint small" style={{ display: 'block' }}>
-                {t('访客可以看到这段旅程和照片', 'Visitors can see this trip and photos')}
-              </span>
-            </span>
-            <Switch
-              on={pub}
-              onChange={(v) => (setPub(v), setDirty(true))}
-              label={t('公开展示', 'Public')}
-            />
-          </div>
-        </div>
       </Sheet>
       <PlacePicker
         open={picker}

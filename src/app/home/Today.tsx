@@ -1,12 +1,15 @@
 import { motion } from 'motion/react';
-import { ChevronRight, LogIn, Plane } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronRight, Dumbbell, Plane } from 'lucide-react';
 import { Screen, Press, Reveal, Skeleton, Empty } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { useRouter } from '../core/router';
 import { useQuery } from '../core/query';
 import { t, zh, locale } from '../core/i18n';
 import { FitnessHero } from '../fitness/FitnessHome';
-import { LiveBanner } from '../fitness/LiveBanner';
+import { UnfinishedBanner } from '../fitness/UnfinishedBanner';
+import { CheckinSheet } from '../fitness/CheckinSheet';
+import { TripEditor } from '../travel/TripEditor';
 import { TripCard } from '../travel/TravelHome';
 import { keys as travelKeys, type Trip } from '../travel/data';
 
@@ -24,7 +27,9 @@ function greeting() {
 }
 
 export function Today() {
-  const { owner, user } = useApp();
+  const { user } = useApp();
+  const [checkin, setCheckin] = useState(false);
+  const [trip, setTrip] = useState(false);
   const { navigate } = useRouter();
   const { data: dash, loading } = useQuery<Dashboard>(travelKeys.dashboard);
   const date = new Intl.DateTimeFormat(locale(), {
@@ -34,26 +39,32 @@ export function Today() {
   }).format(new Date());
   const travel = dash?.travel;
   return (
-    <Screen
-      title={greeting()}
-      subtitle={date}
-      actions={
-        !owner && (
-          <Press className="btn sm btn-primary" onClick={() => navigate('/login')}>
-            <LogIn />
-            {t('登录', 'Sign in')}
-          </Press>
-        )
-      }
-    >
-      {!owner && (
-        <Reveal>
-          <p className="muted" style={{ marginBottom: 16 }}>
-            {t('你正在以访客身份浏览公开记录。', 'You are browsing public records as a visitor.')}
-          </p>
-        </Reveal>
-      )}
-      <LiveBanner />
+    <Screen title={greeting()} subtitle={date}>
+      <Reveal className="quick-actions">
+        <motion.button
+          className="quick-tile fit"
+          whileTap={{ scale: 0.96 }}
+          onClick={() => setCheckin(true)}
+        >
+          <span className="quick-icon">
+            <Dumbbell />
+          </span>
+          <b>{t('记录训练', 'Log training')}</b>
+          <span>{t('选部位即可', 'Pick body parts')}</span>
+        </motion.button>
+        <motion.button
+          className="quick-tile trav"
+          whileTap={{ scale: 0.96 }}
+          onClick={() => setTrip(true)}
+        >
+          <span className="quick-icon">
+            <Plane />
+          </span>
+          <b>{t('记录旅行', 'Log a trip')}</b>
+          <span>{t('地点 + 照片', 'Place + photos')}</span>
+        </motion.button>
+      </Reveal>
+      <UnfinishedBanner />
       <div className="grid-2">
         <Reveal>
           <div className="section-head">
@@ -63,7 +74,7 @@ export function Today() {
               <ChevronRight />
             </Press>
           </div>
-          <FitnessHero compact />
+          <FitnessHero compact actions={false} />
         </Reveal>
         <Reveal delay={0.08}>
           <div className="section-head">
@@ -102,16 +113,10 @@ export function Today() {
                 tone="trav"
                 icon={<Plane />}
                 title={t('还没有旅程', 'No trips yet')}
-                action={
-                  owner && (
-                    <Press
-                      className="btn btn-trav"
-                      onClick={() => navigate('/travel', { root: true })}
-                    >
-                      {t('去记录', 'Add one')}
-                    </Press>
-                  )
-                }
+                text={t(
+                  '点上方「记录旅行」，选个地点就能开始。',
+                  'Tap “Log a trip” above and pick a place.',
+                )}
               />
             </div>
           )}
@@ -123,6 +128,12 @@ export function Today() {
           {t('今天也是好好生活的一天', 'Make today count')} · {user.username}
         </p>
       )}
+      <CheckinSheet open={checkin} onClose={() => setCheckin(false)} />
+      <TripEditor
+        open={trip}
+        onClose={() => setTrip(false)}
+        onSaved={(saved) => navigate(`/travel/${saved.id}`)}
+      />
     </Screen>
   );
 }

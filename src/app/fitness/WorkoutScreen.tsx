@@ -1,18 +1,7 @@
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AnimatePresence, motion } from 'motion/react';
-import { Clock, Dumbbell, Layers, Lock, Globe, Pencil, Trash2, Zap, Flame } from 'lucide-react';
-import {
-  Screen,
-  Press,
-  Switch,
-  ConfirmSheet,
-  Skeleton,
-  Empty,
-  CountUp,
-  spring,
-  Sheet,
-} from '../core/ui';
+import { motion } from 'motion/react';
+import { Clock, Dumbbell, Layers, Pencil, Trash2, Zap, Flame } from 'lucide-react';
+import { Screen, Press, ConfirmSheet, Skeleton, Empty, Sheet } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { useRouter } from '../core/router';
 import { useQuery, setQueryData } from '../core/query';
@@ -25,36 +14,75 @@ import {
   partInfo,
   partLabel,
   round1,
+  today,
   type Part,
 } from '../core/format';
 import { taxonomyLabel } from '../../lib/i18n';
-import { workoutDay } from '../../lib/analytics';
-import { WorkoutEditor } from './WorkoutEditor';
+import { knownWorkoutSeconds, workoutDay } from '../../lib/analytics';
+import { RecordEditor } from './RecordEditor';
 import { ExerciseThumb } from './ExercisePicker';
 import { CheckinSheet } from './CheckinSheet';
 import {
   keys,
   kind,
-  putWorkout,
-  refreshFitness,
+  newWorkout,
   removeWorkout,
   saveTemplate,
+  uid,
   workoutStats,
   type Workout,
+  type WorkoutTemplate,
 } from './data';
 
-export function WorkoutScreen({ id, edit }: { id: string; edit?: boolean }) {
-  const { owner, toast } = useApp();
-  const { back, navigate } = useRouter();
-  const { data: w, error, loading, reload } = useQuery<Workout>(keys.session(id));
-  const [editing, setEditing] = useState(!!edit);
-  const [celebrate, setCelebrate] = useState<Workout | null>(null);
-  const live = !!w && owner && w.status !== 'completed';
+/** `/fitness/new?date=&minutes=&template=` — a fresh record, saved only when the user taps Save. */
+export function NewRecordScreen({ params }: { params: URLSearchParams }) {
+  const { prefs } = useApp();
+  const { navigate } = useRouter();
+  const templateId = params.get('template');
+  const { data: templates, loading } = useQuery<{ items: WorkoutTemplate[] }>(
+    templateId ? keys.templates : null,
+  );
+  const [blank] = useState(() => newWorkout(prefs));
+  if (templateId && loading)
+    return (
+      <Screen title="" large={false} tabbar={false} narrow>
+        <Skeleton h={200} r={20} />
+      </Screen>
+    );
+  const template = templates?.items.find((x) => x.id === templateId);
+  const initial: Workout = template
+    ? {
+        ...blank,
+        title: template.name,
+        exercises: template.exercises.map((e) => ({
+          ...e,
+          id: uid(),
+          sets: e.sets.map((s) => ({ ...s, id: uid(), completed: false })),
+        })),
+      }
+    : blank;
+  return (
+    <Screen title={t('记录训练', 'Log training')} large={false} tabbar={false} narrow>
+      <RecordEditor
+        initial={initial}
+        isNew
+        hint={(params.get('parts') ?? '').split(',').filter(Boolean) as Part[]}
+        date={params.get('date') ?? today(prefs)}
+        minutes={Number(params.get('minutes')) || 0}
+        onSaved={(saved) => {
+          setQueryData(keys.session(saved.id), () => saved);
+          navigate(`/fitness/${saved.id}`, { replace: true, mode: 'tab' });
+        }}
+      />
+    </Screen>
+  );
+}
 
-  const onConflict = () => {
-    toast(t('记录已在别处更新，已重新载入', 'Updated elsewhere — reloaded'), 'error');
-    reload();
-  };
+export function WorkoutScreen({ id }: { id: string }) {
+  const { prefs } = useApp();
+  const { back } = useRouter();
+  const { data: w, error, loading } = useQuery<Workout>(keys.session(id));
+  const [editing, setEditing] = useState(false);
 
   if (loading)
     return (
@@ -77,45 +105,25 @@ export function WorkoutScreen({ id, edit }: { id: string; edit?: boolean }) {
       </Screen>
     );
 
-  if (live || (editing && owner && w.mode === 'detailed'))
+  // Unfinished records from the earlier live-workout flow are finished here as plain records.
+  if (editing || (w.status !== 'completed' && w.mode === 'detailed'))
     return (
-      <Screen title={w.title} large={false} tabbar={false} narrow>
-        <WorkoutEditor
-          key={`${w.id}-${w.revision}-${live}`}
+      <Screen title={t('编辑训练', 'Edit training')} large={false} tabbar={false} narrow>
+        <RecordEditor
+          key={`${w.id}-${w.revision}`}
           initial={w}
-          mode={live ? 'live' : 'edit'}
-          onConflict={onConflict}
-          onDiscarded={() => {
-            back('/fitness');
-            toast(t('已放弃训练', 'Workout discarded'), 'info');
-          }}
-          onDone={(saved, party) => {
+          isNew={false}
+          date={workoutDay(w, prefs.timezone)}
+          minutes={Math.round((knownWorkoutSeconds(w) ?? 0) / 60)}
+          onSaved={(saved) => {
             setQueryData(keys.session(id), () => saved);
-            refreshFitness();
             setEditing(false);
-            if (party) setCelebrate(saved);
-            else toast(t('已保存', 'Saved'));
           }}
         />
       </Screen>
     );
 
-  return (
-    <>
-      <WorkoutDetail
-        w={w}
-        onEdit={() => setEditing(true)}
-        onDeleted={() => back('/fitness')}
-        navigate={navigate}
-      />
-      {createPortal(
-        <AnimatePresence>
-          {celebrate && <Celebration w={celebrate} onClose={() => setCelebrate(null)} />}
-        </AnimatePresence>,
-        document.body,
-      )}
-    </>
-  );
+  return <WorkoutDetail w={w} onEdit={() => setEditing(true)} onDeleted={() => back('/fitness')} />;
 }
 
 function WorkoutDetail({
@@ -126,7 +134,6 @@ function WorkoutDetail({
   w: Workout;
   onEdit: () => void;
   onDeleted: () => void;
-  navigate: (p: string) => void;
 }) {
   const { owner, prefs, toast } = useApp();
   const [checkin, setCheckin] = useState(false);
@@ -137,17 +144,6 @@ function WorkoutDetail({
   const day = workoutDay(w, prefs.timezone);
   const color = partInfo[(w.body_parts[0] as Part) ?? 'other']?.color ?? '#ff5b2e';
   const seconds = stats.seconds || null;
-
-  const toggleVisibility = async (pub: boolean) => {
-    try {
-      const saved = await putWorkout({ ...w, visibility: pub ? 'public' : 'private' });
-      setQueryData(keys.session(w.id), () => saved);
-      refreshFitness();
-      toast(pub ? t('已公开', 'Now public') : t('已设为私密', 'Now private'));
-    } catch (error) {
-      toast(errorMessage(error), 'error');
-    }
-  };
 
   return (
     <Screen
@@ -185,10 +181,6 @@ function WorkoutDetail({
               {partLabel(p)}
             </span>
           ))}
-          <span className="glass-chip">
-            {w.visibility === 'public' ? <Globe /> : <Lock />}
-            {w.visibility === 'public' ? t('公开', 'Public') : t('私密', 'Private')}
-          </span>
         </div>
       </motion.div>
 
@@ -274,17 +266,6 @@ function WorkoutDetail({
       {owner && (
         <div className="section">
           <div className="list">
-            <div className="list-row">
-              <span className="row-icon" style={{ background: 'var(--trav)' }}>
-                <Globe />
-              </span>
-              <span className="grow">{t('公开展示', 'Public')}</span>
-              <Switch
-                on={w.visibility === 'public'}
-                onChange={toggleVisibility}
-                label={t('公开展示', 'Public')}
-              />
-            </div>
             {w.mode === 'detailed' && w.exercises.length > 0 && (
               <button
                 className="list-row tappable"
@@ -369,82 +350,5 @@ function WorkoutDetail({
         </p>
       </Sheet>
     </Screen>
-  );
-}
-
-function Celebration({ w, onClose }: { w: Workout; onClose: () => void }) {
-  const { prefs } = useApp();
-  const stats = workoutStats(w);
-  const confetti = Array.from({ length: 28 }, (_, i) => i);
-  const colors = ['#ff8a3d', '#ff5b2e', '#ff2d6f', '#f2b233', '#2bd1b0', '#2f7cf6'];
-  return (
-    <motion.div
-      className="celebrate"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      onClick={onClose}
-    >
-      <div className="celebrate-confetti" aria-hidden>
-        {confetti.map((i) => {
-          const angle = (i / confetti.length) * Math.PI * 2;
-          const dist = 140 + (i % 5) * 34;
-          return (
-            <motion.i
-              key={i}
-              style={{ background: colors[i % colors.length], borderRadius: i % 3 ? 2 : 99 }}
-              initial={{ x: 0, y: 0, scale: 0, rotate: 0 }}
-              animate={{
-                x: Math.cos(angle) * dist,
-                y: [0, Math.sin(angle) * dist, Math.sin(angle) * dist + 220],
-                scale: [0, 1, 0.8],
-                rotate: (i % 2 ? 1 : -1) * 360,
-                opacity: [1, 1, 0],
-              }}
-              transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
-            />
-          );
-        })}
-      </div>
-      <motion.div
-        className="celebrate-card"
-        initial={{ scale: 0.7, y: 40, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        transition={{ ...spring, delay: 0.05 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <motion.div
-          className="celebrate-medal"
-          initial={{ rotate: -30, scale: 0 }}
-          animate={{ rotate: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 14, delay: 0.2 }}
-        >
-          <Flame />
-        </motion.div>
-        <h2>{t('训练完成！', 'Workout complete!')}</h2>
-        <p className="muted">{w.title}</p>
-        <div className="finish-stats">
-          <div>
-            <b className="num">{fmtDuration(stats.seconds) || '–'}</b>
-            <span>{t('时长', 'Time')}</span>
-          </div>
-          <div>
-            <b className="num">
-              <CountUp value={stats.sets} />
-            </b>
-            <span>{t('组', 'Sets')}</span>
-          </div>
-          <div>
-            <b className="num">{stats.volume ? fmtVolume(stats.volume, prefs.weightUnit) : '–'}</b>
-            <span>{t('容量', 'Volume')}</span>
-          </div>
-        </div>
-        <Press className="btn btn-fit block lg" onClick={onClose}>
-          {t('太棒了', 'Nice')}
-        </Press>
-      </motion.div>
-    </motion.div>
   );
 }

@@ -14,6 +14,9 @@ export const ALL: APIRoute = (context) =>
   endpoint(async () => {
     const path = context.params.path ?? '';
     if (path.startsWith('auth/')) return authRoute(context, path.slice(5));
+    // Records are personal: only the derived ODbL location export is readable without signing in.
+    if (path === 'locations/export' && context.request.method === 'GET') return exportLocations();
+    if (!context.locals.user) throw new HttpError(401, 'UNAUTHORIZED');
     if (path.startsWith('fitness/')) return fitnessRoute(context, path.slice(8).split('/'));
     if (path.startsWith('travel/')) return travelRoute(context, path.slice(7).split('/'));
     if (path === 'locations' && context.request.method === 'GET')

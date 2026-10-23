@@ -237,7 +237,7 @@
   "error.RATE_LIMITED": "操作过于频繁，请稍后再试。",
   "error.INVALID_CREDENTIALS": "用户名或密码不正确。",
   "error.INTERNAL": "操作未完成，请重试。",
-  "error.PHOTO_REQUIRED": "请保留 1–6 张上传完成的照片。",
+  "error.PHOTO_REQUIRED": "每段旅程最多 6 张照片，请等待上传完成。",
   "error.INVALID_FILE": "图片格式、尺寸或大小不符合要求。",
   "error.MISSING_PHOTOS": "备份中的部分照片不在当前存储中。",
   "error.INVALID_BACKUP": "备份格式或版本不受支持。",

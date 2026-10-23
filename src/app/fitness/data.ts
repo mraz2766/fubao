@@ -155,11 +155,6 @@ export async function removeWorkout(id: string) {
   await api(`/api/fitness/sessions/${id}`, { method: 'DELETE' });
   refreshFitness();
 }
-export async function startTemplate(id: string) {
-  const w = await api<Workout>(`/api/fitness/templates/${id}/start`, { method: 'POST', body: {} });
-  refreshFitness();
-  return w;
-}
 export async function saveTemplate(name: string, w: Workout, id = uid()) {
   await api('/api/fitness/templates', {
     method: 'POST',

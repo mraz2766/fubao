@@ -24,8 +24,8 @@ const trip = {
 describe('travel invariants', () => {
   it('accepts an undated visit with a photo', () =>
     expect(tripSchema.safeParse(trip).success).toBe(true));
-  it('rejects zero photos and over six photos', () => {
-    expect(tripSchema.safeParse({ ...trip, photo_ids: [] }).success).toBe(false);
+  it('allows a trip without photos but not over six', () => {
+    expect(tripSchema.safeParse({ ...trip, photo_ids: [] }).success).toBe(true);
     expect(
       tripSchema.safeParse({ ...trip, photo_ids: Array.from({ length: 7 }, (_, i) => `photo${i}`) })
         .success,

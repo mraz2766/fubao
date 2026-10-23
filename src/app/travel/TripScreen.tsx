@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, useTransform } from 'motion/react';
-import { CalendarDays, Compass, Globe, Lock, Pencil, Star, Trash2, Sun } from 'lucide-react';
-import { Screen, Press, Switch, ConfirmSheet, Skeleton, Empty } from '../core/ui';
+import { CalendarDays, Compass, ImagePlus, Pencil, Star, Trash2, Sun } from 'lucide-react';
+import { Screen, Press, ConfirmSheet, Skeleton, Empty } from '../core/ui';
 import { useApp } from '../core/app-state';
 import { useRouter, useScreen } from '../core/router';
 import { useQuery, setQueryData } from '../core/query';
@@ -20,7 +20,7 @@ function Hero({ trip }: { trip: Trip }) {
   const cover = trip.photos[0];
   const [loaded, setLoaded] = useState(false);
   return (
-    <div className="trip-hero">
+    <div className={`trip-hero ${cover ? '' : 'plain'}`}>
       {cover && (
         <motion.img
           src={photoUrl(cover.id, 'large')}
@@ -90,36 +90,14 @@ export function TripScreen({ id }: { id: string }) {
     );
 
   const days = tripDays(trip);
-  const toggleVisibility = async (pub: boolean) => {
-    try {
-      const saved = await saveTrip({
-        id: trip.id,
-        location_id: trip.location_id,
-        spot_id: trip.spot_id ?? null,
-        place_name: trip.place_name ?? '',
-        start_date: trip.start_date,
-        end_date: trip.end_date,
-        description: trip.description,
-        tags: trip.tags,
-        rating: trip.rating,
-        visibility: pub ? 'public' : 'private',
-        photo_ids: trip.photos.map((p) => p.id),
-        updated_at: trip.updated_at,
-      });
-      setQueryData(keys.entry(id), () => saved);
-      toast(pub ? t('已公开', 'Now public') : t('已设为私密', 'Now private'));
-    } catch (e) {
-      toast(errorMessage(e), 'error');
-    }
-  };
 
   return (
     <Screen
       title={placeName(trip.location, trip)}
       large={false}
       tabbar={false}
-      overlayNav={trip.photos.length > 0}
-      hero={trip.photos.length > 0 ? <Hero trip={trip} /> : undefined}
+      overlayNav
+      hero={<Hero trip={trip} />}
       narrow
       actions={
         owner && (
@@ -152,10 +130,6 @@ export function TripScreen({ id }: { id: string }) {
             ))}
           </div>
         )}
-        <div className="fact">
-          {trip.visibility === 'public' ? <Globe /> : <Lock />}
-          <span>{trip.visibility === 'public' ? t('公开', 'Public') : t('私密', 'Private')}</span>
-        </div>
       </motion.div>
 
       {trip.description && (
@@ -178,6 +152,12 @@ export function TripScreen({ id }: { id: string }) {
         </div>
       )}
 
+      {owner && !trip.photos.length && (
+        <Press className="btn block add-photos" onClick={() => setEdit(true)}>
+          <ImagePlus />
+          {t('添加照片', 'Add photos')}
+        </Press>
+      )}
       <div className={`gallery n${Math.min(trip.photos.length, 6)}`}>
         {trip.photos.map((p, i) => (
           <motion.button
@@ -205,17 +185,6 @@ export function TripScreen({ id }: { id: string }) {
       {owner && (
         <div className="section">
           <div className="list">
-            <div className="list-row">
-              <span className="row-icon" style={{ background: 'var(--trav)' }}>
-                <Globe />
-              </span>
-              <span className="grow">{t('公开展示', 'Public')}</span>
-              <Switch
-                on={trip.visibility === 'public'}
-                onChange={toggleVisibility}
-                label={t('公开展示', 'Public')}
-              />
-            </div>
             <button className="list-row tappable danger-text" onClick={() => setDel(true)}>
               <span className="row-icon" style={{ background: 'var(--danger)' }}>
                 <Trash2 />

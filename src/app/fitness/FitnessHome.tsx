@@ -20,47 +20,28 @@ import { fmtDate, fmtDuration, kgTo, round1, today } from '../core/format';
 import { CheckinSheet } from './CheckinSheet';
 import { MonthCalendar, SessionRow, WeekStrip, DaySessions } from './parts';
 import {
-  createWorkout,
   deleteTemplate,
   keys,
-  newWorkout,
-  startTemplate,
   type Analytics,
   type Page,
   type PeriodSummary,
   type Workout,
   type WorkoutTemplate,
 } from './data';
-import { LiveBanner } from './LiveBanner';
+import { UnfinishedBanner } from './UnfinishedBanner';
 
-export function useStartWorkout() {
-  const { prefs, toast } = useApp();
-  const { navigate } = useRouter();
-  const [busy, setBusy] = useState(false);
-  const start = async (templateId?: string) => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      const w = templateId
-        ? await startTemplate(templateId)
-        : await createWorkout(newWorkout(prefs));
-      navigate(`/fitness/${w.id}`);
-    } catch (error) {
-      toast(errorMessage(error), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { start, busy };
-}
-
-export function FitnessHero({ compact = false }: { compact?: boolean }) {
-  const { prefs, owner } = useApp();
+export function FitnessHero({
+  compact = false,
+  actions = true,
+}: {
+  compact?: boolean;
+  actions?: boolean;
+}) {
+  const { prefs } = useApp();
   const todayKey = today(prefs);
   const { data: week } = useQuery<PeriodSummary>(keys.week(todayKey));
   const { data: analytics } = useQuery<Analytics>(keys.analytics);
   const [checkin, setCheckin] = useState(false);
-  const { start, busy } = useStartWorkout();
   const count = week?.count ?? 0,
     goal = week?.goal ?? prefs.weeklyGoal;
   const reached = count >= goal;
@@ -110,17 +91,11 @@ export function FitnessHero({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
       <WeekStrip summary={week} />
-      {owner && (
-        <div className="fit-hero-actions">
-          <Press className="btn btn-fit lg" onClick={() => setCheckin(true)}>
-            <Zap strokeWidth={2.4} />
-            {t('打卡', 'Check in')}
-          </Press>
-          <Press className="btn lg" onClick={() => start()} disabled={busy}>
-            {busy ? <span className="spinner" /> : <Play strokeWidth={2.4} />}
-            {t('开始训练', 'Start workout')}
-          </Press>
-        </div>
+      {actions && (
+        <Press className="btn btn-fit lg block fit-hero-cta" onClick={() => setCheckin(true)}>
+          <Plus strokeWidth={2.6} />
+          {t('记录训练', 'Log training')}
+        </Press>
       )}
       <CheckinSheet open={checkin} onClose={() => setCheckin(false)} />
     </div>
@@ -137,13 +112,12 @@ export function FitnessHome() {
     date: string;
     sessions: PeriodSummary['days'][number]['sessions'];
   } | null>(null);
-  const { start } = useStartWorkout();
   const [removing, setRemoving] = useState<WorkoutTemplate | null>(null);
   const records = analytics?.records.slice(0, 5) ?? [];
 
   return (
     <Screen title={t('健身', 'Fitness')} subtitle={t('每一次都算数', 'Every rep counts')}>
-      <LiveBanner />
+      <UnfinishedBanner />
       <div className="grid-2">
         <Reveal>
           <FitnessHero />
@@ -186,9 +160,12 @@ export function FitnessHome() {
                     .join(' · ')}
                 </div>
                 <div className="hstack" style={{ marginTop: 12 }}>
-                  <Press className="btn sm btn-primary" onClick={() => start(tpl.id)}>
-                    <Play />
-                    {t('开始', 'Start')}
+                  <Press
+                    className="btn sm btn-primary"
+                    onClick={() => navigate(`/fitness/new?template=${tpl.id}`)}
+                  >
+                    <Plus />
+                    {t('按模板记录', 'Log from template')}
                   </Press>
                   <Press
                     className="icon-btn sm"
@@ -229,8 +206,8 @@ export function FitnessHome() {
                 text={
                   owner
                     ? t(
-                        '点「打卡」，十秒记下今天的训练。',
-                        'Tap “Check in” to log today in seconds.',
+                        '点「记录训练」，选部位就能记下今天的训练。',
+                        'Tap “Log training” and pick body parts.',
                       )
                     : undefined
                 }
@@ -277,15 +254,9 @@ export function FitnessHome() {
               <Empty
                 icon={<Trophy />}
                 title={t('纪录会出现在这里', 'Records show up here')}
-                text={t('开始一次训练，记录重量和次数。', 'Start a workout and log weight × reps.')}
+                text={t('记录动作时填上重量和次数即可。', 'Log exercises with weight × reps.')}
               />
             </div>
-          )}
-          {owner && (
-            <Press className="btn block" style={{ marginTop: 14 }} onClick={() => start()}>
-              <Plus />
-              {t('新的力量训练', 'New strength workout')}
-            </Press>
           )}
         </section>
       </div>

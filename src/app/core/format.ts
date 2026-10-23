@@ -60,15 +60,6 @@ export function fmtDuration(seconds: number | null | undefined) {
     r = m % 60;
   return r ? t(`${h} 小时 ${r} 分`, `${h}h ${r}m`) : t(`${h} 小时`, `${h}h`);
 }
-export function clock(seconds: number) {
-  const s = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(s / 3600),
-    m = Math.floor((s % 3600) / 60),
-    r = s % 60;
-  const mm = String(m).padStart(2, '0'),
-    ss = String(r).padStart(2, '0');
-  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
-}
 export const kgTo = (kg: number, unit: Preferences['weightUnit']) =>
   unit === 'lb' ? kg * 2.2046226218 : kg;
 export const toKgFrom = (v: number, unit: Preferences['weightUnit']) =>

@@ -10,12 +10,12 @@ import { t } from './core/i18n';
 import { haptic } from './core/haptics';
 import { Today } from './home/Today';
 import { FitnessHome } from './fitness/FitnessHome';
-import { WorkoutScreen } from './fitness/WorkoutScreen';
+import { NewRecordScreen, WorkoutScreen } from './fitness/WorkoutScreen';
 import { FitnessHistory } from './fitness/FitnessHistory';
 import { TravelHome } from './travel/TravelHome';
 import { TripScreen } from './travel/TripScreen';
 import { Settings, About } from './settings/Settings';
-import { Login } from './settings/Login';
+import { Welcome } from './settings/Welcome';
 
 const tabs = [
   { path: '/', icon: House, zh: '今天', en: 'Today' },
@@ -40,7 +40,8 @@ function route(path: string): ReactNode {
   if (seg[0] === 'fitness') {
     if (!seg[1]) return <FitnessHome />;
     if (seg[1] === 'history') return <FitnessHistory />;
-    return <WorkoutScreen id={seg[1]!} edit={seg[2] === 'edit'} />;
+    if (seg[1] === 'new') return <NewRecordScreen params={params} />;
+    return <WorkoutScreen id={seg[1]!} />;
   }
   if (seg[0] === 'travel') {
     if (!seg[1])
@@ -48,22 +49,18 @@ function route(path: string): ReactNode {
     return <TripScreen id={seg[1]!} />;
   }
   if (seg[0] === 'settings') return seg[1] === 'about' ? <About /> : <Settings />;
-  if (seg[0] === 'login') return <Login />;
   return <Today />;
 }
 
 function activeTab(path: string) {
   const p = path.split('?')[0]!;
-  return (
-    tabs.find((tab) => tab.path !== '/' && p.startsWith(tab.path))?.path ??
-    (p === '/login' ? '/settings' : '/')
-  );
+  return tabs.find((tab) => tab.path !== '/' && p.startsWith(tab.path))?.path ?? '/';
 }
 
 function TabBar() {
   const { path, navigate } = useRouter();
   const current = activeTab(path);
-  const hidden = !isRoot(path) || path.startsWith('/login');
+  const hidden = !isRoot(path);
   return (
     <motion.nav
       className="tabbar"
@@ -143,7 +140,7 @@ function Sidebar() {
 }
 
 function Shell() {
-  const { sheetDepth } = useApp();
+  const { sheetDepth, owner } = useApp();
   const desktop = typeof matchMedia !== 'undefined' && matchMedia('(min-width: 900px)').matches;
   useEffect(() => {
     const splash = document.getElementById('splash');
@@ -152,6 +149,13 @@ function Shell() {
     return () => clearTimeout(timer);
   }, []);
   const recede = sheetDepth > 0 && !desktop;
+  if (!owner)
+    return (
+      <>
+        <Welcome />
+        <Toasts />
+      </>
+    );
   return (
     <Router
       render={route}

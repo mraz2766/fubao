@@ -691,3 +691,20 @@
 .home-trip {
   position: relative;
 }
+
+.trip-hero.plain {
+  height: min(38vh, 340px);
+  min-height: 240px;
+  background:
+    radial-gradient(90% 80% at 85% 0%, rgba(255, 255, 255, 0.22), transparent 60%), var(--trav-grad);
+}
+.trip-hero.plain .trip-hero-shade {
+  display: none;
+}
+.add-photos {
+  margin-top: 18px;
+  height: 52px;
+  border: 1.5px dashed var(--line-strong);
+  background: var(--trav-soft);
+  color: var(--trav-ink);
+}

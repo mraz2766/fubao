@@ -1355,3 +1355,128 @@ p {
   z-index: 1;
   display: grid;
 }
+
+/* ---------- Today quick actions ---------- */
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.quick-tile {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  padding: 16px;
+  border-radius: var(--radius);
+  color: #fff;
+  text-align: left;
+  overflow: hidden;
+}
+.quick-tile.fit {
+  background: var(--fit-grad);
+  box-shadow: 0 14px 28px -16px rgba(255, 70, 50, 0.8);
+}
+.quick-tile.trav {
+  background: var(--trav-grad);
+  box-shadow: 0 14px 28px -16px rgba(15, 155, 142, 0.8);
+}
+.quick-tile b {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 720;
+  margin-top: 10px;
+}
+.quick-tile > span:last-child {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.quick-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.22);
+}
+.quick-icon svg {
+  width: 21px;
+  height: 21px;
+}
+@media (min-width: 900px) {
+  .quick-actions {
+    max-width: 560px;
+  }
+}
+
+/* ---------- Welcome (signed out) ---------- */
+.welcome {
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  display: flex;
+  justify-content: center;
+  padding: calc(var(--safe-top) + 48px) 20px calc(var(--safe-bottom) + 32px);
+}
+.welcome .login-orb {
+  position: fixed;
+  top: 4%;
+  left: 50%;
+  margin-left: -180px;
+}
+.welcome-inner {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.welcome-inner h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  margin-top: 16px;
+}
+.welcome-features {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+  text-align: left;
+}
+.welcome-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+.welcome-feature > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.welcome-feature .row-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+.welcome-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.welcome-note svg {
+  width: 14px;
+  height: 14px;
+}
+.welcome-prefs {
+  display: flex;
+  gap: 10px;
+  margin-top: 26px;
+}

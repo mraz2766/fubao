@@ -223,8 +223,8 @@ function TripsView() {
           text={
             owner
               ? t(
-                  '选几张照片，标上地点，就是一段回忆。',
-                  'Pick a few photos and a place — that’s a memory.',
+                  '选个地点就能记下一段旅程，照片可以之后再加。',
+                  'Pick a place to log a trip; photos are optional.',
                 )
               : undefined
           }
