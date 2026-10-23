@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Check, ChevronDown, ChevronUp, Ellipsis, Plus, Trash2, X } from 'lucide-react';
-import { Press, Sheet, spring, Segmented } from '../core/ui';
+import { Press, Sheet, spring, Segmented, ConfirmSheet } from '../core/ui';
+import { useLeaveGuard } from '../core/router';
 import { useApp } from '../core/app-state';
 import { t, zh, errorMessage, locale } from '../core/i18n';
 import { kgTo, round1, toKgFrom, fmtVolume, partsTitle, type Part } from '../core/format';
@@ -19,6 +20,7 @@ import {
   kind,
   putWorkout,
   refreshFitness,
+  removeWorkout,
   type FitnessSet,
   type SessionExercise,
   type Workout,
@@ -35,6 +37,9 @@ export function RecordEditor({
   isNew,
   hint,
   onSaved,
+  onExit,
+  onDeleted = onExit,
+  canDelete = false,
 }: {
   initial: Workout;
   date: string;
@@ -43,6 +48,11 @@ export function RecordEditor({
   /** Body parts picked in the check-in sheet, used to pre-filter the exercise library. */
   hint?: Part[];
   onSaved: (saved: Workout) => void;
+  /** Leave the form without saving (pop the screen, or return to the detail view). */
+  onExit: () => void;
+  /** Existing records (including unfinished ones) can be deleted from the form. */
+  canDelete?: boolean;
+  onDeleted?: () => void;
 }) {
   const { prefs, toast } = useApp();
   const [w, setW] = useState(initial);
@@ -56,6 +66,18 @@ export function RecordEditor({
     return () => clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [busy, setBusy] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Any edit to the form counts as unsaved until Save succeeds.
+  const snapshot = useRef(JSON.stringify([initial, initialDate, initialMinutes]));
+  const dirty = JSON.stringify([w, date, minutes]) !== snapshot.current;
+  const finished = useRef(false);
+  useLeaveGuard(() => {
+    if (finished.current) return false;
+    if (dirty) setConfirmLeave(true);
+    else onExit();
+    return true;
+  });
   // Keep the automatic name in sync with the exercises until the user types their own.
   const autoTitle = useRef(
     isNew || !initial.title || initial.title === partsTitle(initial.body_parts),
@@ -117,6 +139,7 @@ export function RecordEditor({
       refreshFitness();
       haptic();
       toast(t('已保存', 'Saved'));
+      finished.current = true;
       onSaved(saved);
     } catch (error) {
       toast(errorMessage(error), 'error');
@@ -184,6 +207,16 @@ export function RecordEditor({
         />
       </label>
 
+      {canDelete && (
+        <button
+          className="list-row tappable danger-text editor-delete"
+          onClick={() => setConfirmDelete(true)}
+        >
+          <Trash2 />
+          <span className="grow">{t('删除这条训练记录', 'Delete this record')}</span>
+        </button>
+      )}
+
       <div className="editor-bar">
         <Press className="btn btn-fit lg block" disabled={!sets.length || busy} onClick={save}>
           {busy ? (
@@ -204,6 +237,40 @@ export function RecordEditor({
         onClose={() => setPicker(false)}
         onPick={addExercises}
         hint={hint}
+      />
+      <ConfirmSheet
+        open={confirmLeave}
+        title={t('放弃未保存的内容？', 'Discard unsaved changes?')}
+        text={t(
+          '刚才填写的动作和组数不会保存。',
+          'The exercises and sets you entered will be lost.',
+        )}
+        confirm={t('放弃', 'Discard')}
+        danger
+        onClose={() => setConfirmLeave(false)}
+        onConfirm={() => {
+          setConfirmLeave(false);
+          onExit();
+        }}
+      />
+      <ConfirmSheet
+        open={confirmDelete}
+        title={t('删除这条训练记录？', 'Delete this record?')}
+        text={t('删除后无法恢复。', 'This cannot be undone.')}
+        confirm={t('删除', 'Delete')}
+        danger
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          try {
+            await removeWorkout(initial.id);
+            finished.current = true;
+            setConfirmDelete(false);
+            toast(t('已删除', 'Deleted'), 'info');
+            onDeleted();
+          } catch (error) {
+            toast(errorMessage(error), 'error');
+          }
+        }}
       />
     </div>
   );

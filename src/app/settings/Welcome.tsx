@@ -67,7 +67,7 @@ export function Welcome() {
       />
       <div className="welcome-inner">
         <motion.img
-          src="/brand-cat.png"
+          src="/icon.svg"
           alt=""
           className="login-logo"
           initial={{ scale: 0.6, opacity: 0, rotate: -10 }}

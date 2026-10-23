@@ -37,7 +37,7 @@ import {
 /** `/fitness/new?date=&minutes=&template=` — a fresh record, saved only when the user taps Save. */
 export function NewRecordScreen({ params }: { params: URLSearchParams }) {
   const { prefs } = useApp();
-  const { navigate } = useRouter();
+  const { navigate, back } = useRouter();
   const templateId = params.get('template');
   const { data: templates, loading } = useQuery<{ items: WorkoutTemplate[] }>(
     templateId ? keys.templates : null,
@@ -62,8 +62,15 @@ export function NewRecordScreen({ params }: { params: URLSearchParams }) {
       }
     : blank;
   return (
-    <Screen title={t('记录训练', 'Log training')} large={false} tabbar={false} narrow>
+    <Screen
+      title={t('记录训练', 'Log training')}
+      large={false}
+      tabbar={false}
+      narrow
+      leading={<CancelButton />}
+    >
       <RecordEditor
+        onExit={() => back(undefined, true)}
         initial={initial}
         isNew
         hint={(params.get('parts') ?? '').split(',').filter(Boolean) as Part[]}
@@ -75,6 +82,16 @@ export function NewRecordScreen({ params }: { params: URLSearchParams }) {
         }}
       />
     </Screen>
+  );
+}
+
+/** Explicit "取消" — goes through the editor's leave guard, which confirms unsaved input. */
+function CancelButton() {
+  const { back } = useRouter();
+  return (
+    <Press className="back-btn text-btn" onClick={() => back()}>
+      {t('取消', 'Cancel')}
+    </Press>
   );
 }
 
@@ -106,11 +123,21 @@ export function WorkoutScreen({ id }: { id: string }) {
     );
 
   // Unfinished records from the earlier live-workout flow are finished here as plain records.
-  if (editing || (w.status !== 'completed' && w.mode === 'detailed'))
+  const unfinished = w.status !== 'completed' && w.mode === 'detailed';
+  if (editing || unfinished)
     return (
-      <Screen title={t('编辑训练', 'Edit training')} large={false} tabbar={false} narrow>
+      <Screen
+        title={unfinished ? t('未保存的训练', 'Unsaved training') : t('编辑训练', 'Edit training')}
+        large={false}
+        tabbar={false}
+        narrow
+        leading={<CancelButton />}
+      >
         <RecordEditor
           key={`${w.id}-${w.revision}`}
+          canDelete
+          onExit={() => (unfinished ? back('/fitness', true) : setEditing(false))}
+          onDeleted={() => back('/fitness', true)}
           initial={w}
           isNew={false}
           date={workoutDay(w, prefs.timezone)}

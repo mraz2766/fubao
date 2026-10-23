@@ -309,6 +309,10 @@ function WishView() {
                         onClick={async () => {
                           try {
                             await removeWish(w.id);
+                            toast(t('已移出想去', 'Removed'), 'info', {
+                              label: t('撤销', 'Undo'),
+                              run: () => void addWish(w.location).catch(() => {}),
+                            });
                           } catch (error) {
                             toast(errorMessage(error), 'error');
                           }

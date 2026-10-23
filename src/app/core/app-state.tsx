@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -9,7 +10,7 @@ import {
 } from 'react';
 import type { Locale, Preferences, User } from '../../types/domain';
 import { api } from '../../lib/api';
-import { setLocale } from './i18n';
+import { setLocale, t } from './i18n';
 import { clearQueries, invalidate } from './query';
 
 export interface Boot {
@@ -21,6 +22,7 @@ export interface Toast {
   id: number;
   text: string;
   tone: 'ok' | 'error' | 'info';
+  action?: { label: string; run: () => void };
 }
 interface AppState {
   user: User | null;
@@ -29,7 +31,8 @@ interface AppState {
   setUser: (user: User | null) => void;
   replacePrefs: (prefs: Preferences) => void;
   updatePrefs: (patch: Partial<Preferences>) => Promise<void>;
-  toast: (text: string, tone?: Toast['tone']) => void;
+  toast: (text: string, tone?: Toast['tone'], action?: Toast['action']) => void;
+  dismissToast: (id: number) => void;
   toasts: Toast[];
   /** Number of open sheets; the stage recedes like iOS card presentation. */
   sheetDepth: number;
@@ -54,11 +57,19 @@ export function AppProvider({ boot, children }: { boot: Boot; children: ReactNod
   const seq = useRef(0);
   setLocale(prefs.language);
 
-  const toast = useCallback((text: string, tone: Toast['tone'] = 'ok') => {
-    const id = ++seq.current;
-    setToasts((list) => [...list.slice(-2), { id, text, tone }]);
-    setTimeout(() => setToasts((list) => list.filter((x) => x.id !== id)), 2600);
-  }, []);
+  const dismissToast = useCallback(
+    (id: number) => setToasts((list) => list.filter((x) => x.id !== id)),
+    [],
+  );
+  const toast = useCallback(
+    (text: string, tone: Toast['tone'] = 'ok', action?: Toast['action']) => {
+      const id = ++seq.current;
+      setToasts((list) => [...list.slice(-2), { id, text, tone, action }]);
+      // Undoable toasts stay a little longer so there is time to tap.
+      setTimeout(() => dismissToast(id), action ? 5000 : 2600);
+    },
+    [dismissToast],
+  );
 
   const updatePrefs = useCallback(
     async (patch: Partial<Preferences>) => {
@@ -87,6 +98,16 @@ export function AppProvider({ boot, children }: { boot: Boot; children: ReactNod
     setUserState(next);
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    const expired = () => {
+      setUser(null);
+      toast(t('登录已过期，请重新登录', 'Session expired — please sign in again'), 'info');
+    };
+    addEventListener('fubao:unauthorized', expired);
+    return () => removeEventListener('fubao:unauthorized', expired);
+  }, [user, setUser, toast]);
+
   const replacePrefs = useCallback((next: Preferences) => {
     setPrefs(next);
     applyTheme(next.theme);
@@ -102,11 +123,12 @@ export function AppProvider({ boot, children }: { boot: Boot; children: ReactNod
       replacePrefs,
       updatePrefs,
       toast,
+      dismissToast,
       toasts,
       sheetDepth,
       setSheetDepth,
     }),
-    [user, prefs, setUser, replacePrefs, updatePrefs, toast, toasts, sheetDepth],
+    [user, prefs, setUser, replacePrefs, updatePrefs, toast, dismissToast, toasts, sheetDepth],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

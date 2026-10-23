@@ -901,3 +901,14 @@
   height: 18px;
   flex-shrink: 0;
 }
+
+.editor-delete {
+  margin-top: 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+}
+.editor-delete svg {
+  width: 18px;
+  height: 18px;
+}

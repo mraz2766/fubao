@@ -28,7 +28,13 @@ export async function api<T>(
   const result = (await response.json()) as T & {
     error?: { code?: string; fields?: Record<string, string[]> };
   };
-  if (!response.ok) throw new ApiFailure(result.error?.code ?? 'INTERNAL', result.error?.fields);
+  if (!response.ok) {
+    const code = result.error?.code ?? 'INTERNAL';
+    // Let the app return to sign-in when a session expires mid-use.
+    if (response.status === 401 && code === 'UNAUTHORIZED' && typeof window !== 'undefined')
+      window.dispatchEvent(new Event('fubao:unauthorized'));
+    throw new ApiFailure(code, result.error?.fields);
+  }
   return result as T;
 }
 export function errorText(error: unknown, locale: Locale) {

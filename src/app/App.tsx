@@ -112,7 +112,7 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <img src="/brand-cat.png" alt="" />
+        <img src="/icon.svg" alt="" />
         Fubao
       </div>
       {tabs.map((tab) => {

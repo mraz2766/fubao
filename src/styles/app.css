@@ -1480,3 +1480,23 @@ p {
   gap: 10px;
   margin-top: 26px;
 }
+
+.back-btn.text-btn {
+  padding: 0 12px;
+  font-weight: 560;
+  color: var(--ink-2);
+}
+
+.toast-action {
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.25);
+  color: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  pointer-events: auto;
+}
+.toast:has(.toast-action) {
+  pointer-events: auto;
+}

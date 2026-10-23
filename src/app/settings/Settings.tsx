@@ -91,7 +91,7 @@ export function Settings() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <img src="/brand-cat.png" alt="" className="avatar" />
+        <img src="/icon.svg" alt="" className="avatar" />
         <div className="grow">
           <div className="profile-name">{user?.username}</div>
           <div className="faint small">
@@ -443,6 +443,7 @@ function ImportSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
     <Sheet
       open={open}
       onClose={() => (reset(), onClose())}
+      dismissible={!progress || progress.done === progress.total}
       title={t('从备份恢复', 'Restore from backup')}
       footer={
         preview ? (
@@ -509,7 +510,7 @@ export function About() {
   return (
     <Screen title={t('关于', 'About')} tabbar={false} narrow>
       <div className="card pad about-hero">
-        <img src="/brand-cat.png" alt="" className="avatar lg" />
+        <img src="/icon.svg" alt="" className="avatar lg" />
         <h2>Fubao</h2>
         <p className="muted">
           {t('一个人的训练与旅行手账。', 'A personal journal for training and travel.')}

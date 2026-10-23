@@ -21,9 +21,10 @@ const boot = { user, locale, preferences };
     <meta name="theme-color" content="#f5f4f0" />
     <meta name="description" content="记录训练，收藏旅行。" />
     <title>Fubao</title>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2" />
     <script is:inline>
       (() => {
         const root = document.documentElement;
@@ -47,7 +48,7 @@ const boot = { user, locale, preferences };
   </head>
   <body>
     <div id="splash" aria-hidden="true">
-      <img src="/brand-cat.png" alt="" width="64" height="64" />
+      <img src="/icon.svg" alt="" width="64" height="64" />
     </div>
     <App client:only="react" boot={boot} />
     <script>

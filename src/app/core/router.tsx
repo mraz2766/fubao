@@ -37,10 +37,27 @@ interface NavOptions {
   root?: boolean;
   mode?: Mode;
 }
+/**
+ * Screens with unsaved input register a guard. Returning true blocks leaving
+ * (the guard shows its own confirmation, then calls `back(undefined, true)`).
+ */
+const guards = new Map<string, () => boolean>();
+export function useLeaveGuard(guard: (() => boolean) | null) {
+  const { entry } = useScreen();
+  const ref = useRef(guard);
+  ref.current = guard;
+  useEffect(() => {
+    guards.set(entry.key, () => ref.current?.() ?? false);
+    return () => {
+      guards.delete(entry.key);
+    };
+  }, [entry.key]);
+}
+
 interface RouterApi {
   path: string;
   navigate: (path: string, options?: NavOptions) => void;
-  back: (fallback?: string) => void;
+  back: (fallback?: string, force?: boolean) => void;
   canGoBack: boolean;
 }
 const RouterCtx = createContext<RouterApi | null>(null);
@@ -127,8 +144,9 @@ export function Router({
   }, []);
 
   const back = useCallback(
-    (fallback?: string) => {
+    (fallback?: string, force = false) => {
       const { stack } = stateRef.current;
+      if (!force && guards.get(stack.at(-1)!.key)?.()) return;
       if (stack.length > 1) history.back();
       else {
         const top = stack.at(-1)!;
@@ -337,7 +355,7 @@ function ScreenHost({
       active = false;
       if (!wasActive) return;
       const progress = x.get() / 100;
-      if (progress > 0.4 || velocity > 0.45) onSwipeBack();
+      if ((progress > 0.4 || velocity > 0.45) && !guards.get(entry.key)?.()) onSwipeBack();
       else {
         const tween = { duration: 0.35, ease: IOS_EASE };
         animate(x, 0, tween).then(() => (swiping.current = false));

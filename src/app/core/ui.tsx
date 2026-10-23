@@ -423,7 +423,7 @@ function SheetPanel({
 
 /* ---------- Toasts ---------- */
 export function Toasts() {
-  const { toasts } = useApp();
+  const { toasts, dismissToast } = useApp();
   return (
     <div className="toast-wrap" aria-live="polite">
       <AnimatePresence>
@@ -439,6 +439,17 @@ export function Toasts() {
           >
             {toast.tone === 'error' ? <CircleAlert /> : <CircleCheck />}
             {toast.text}
+            {toast.action && (
+              <button
+                className="toast-action"
+                onClick={() => {
+                  toast.action!.run();
+                  dismissToast(toast.id);
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>
